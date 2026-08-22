@@ -96,14 +96,15 @@ flowchart LR
         UC_S4((Làm Quiz & Xem kết quả))
         UC_S5((Chat với AI English Tutor Agent))
         UC_S6((Xem Skill Score & Lộ trình đề xuất))
+        UC_S7((Tạo Quiz ôn tập AI theo Chapter/Lesson đã học))
     end
 
     subgraph TeacherUseCases [Chức năng Giáo viên]
         UC_T1((CRUD Khóa học / Chương / Bài học))
         UC_T2((Upload video, tài liệu bài học))
         UC_T3((Tạo Quiz thủ công))
-        UC_T4((Dùng AI sinh Quiz tự động))
-        UC_T5((Upload Quiz từ Excel / CSV))
+        UC_T4((Dùng AI sinh Quiz tự động theo Topic/Prompt))
+        UC_T5((Upload File Excel/CSV -> Auto-fill Form -> Rà soát & Tạo Quiz))
         UC_T6((Xem thống kê học tập học viên))
     end
 
@@ -120,6 +121,7 @@ flowchart LR
     Student --> UC_S4
     Student --> UC_S5
     Student --> UC_S6
+    Student --> UC_S7
 
     Teacher --> UC_T1
     Teacher --> UC_T2
@@ -167,7 +169,33 @@ sequenceDiagram
     UI-->>Student: Hiển thị phản hồi từ Gia sư ảo
 ```
 
-### 4.2. Luồng AI Quiz Generator cho Giáo viên
+### 4.2. Phân hệ AI Quiz Generation
+
+#### 4.2.1. Luồng Sinh Đề Ôn Tập AI theo Chapter & Tiến độ Bài học (Dành cho Học viên)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Student as 👨‍🎓 Học viên
+    participant UI as 💻 React Frontend
+    participant API as 🛡️ Django AI View
+    participant ProgService as 📈 Learning Progress Service
+    participant LLM as 🤖 LLM API (Gemini/OpenAI)
+    participant DB as 🗄️ PostgreSQL
+
+    Student->>UI: Đang học trong Chapter -> Bấm "⚡ Ôn tập nhanh cùng AI"
+    UI->>API: POST /api/v1/ai/quizzes/generate-by-progress {chapter_id, num_questions: 5}
+    API->>ProgService: Lấy danh sách bài học đã hoàn thành trong Chapter của user
+    ProgService->>DB: Query `lesson_progress (completed=True)` & `lessons (title, content)`
+    DB-->>ProgService: Trả về thông tin Chapter + Nội dung các bài đã học (Lesson 1, 2,...)
+    ProgService-->>API: Dữ liệu bài học đã học
+    API->>LLM: Gửi Prompt kèm Context (Tên Chapter, Tên & Tóm tắt các Lesson đã học, User Level) + JSON Schema
+    LLM-->>API: Trả về JSON 5 câu hỏi trắc nghiệm (Questions, Options, Correct Answer, Explanation)
+    API->>DB: Tự động lưu Quiz (quiz_type='PRACTICE_AI'), Questions (source='AI_GENERATED'), Options
+    API-->>UI: 200 OK {quiz_id, questions: [...]}
+    UI-->>Student: Hiển thị màn hình làm bài trắc nghiệm tức thời
+```
+
+#### 4.2.2. Luồng AI Quiz Generator cho Giáo viên
 ```mermaid
 sequenceDiagram
     autonumber
@@ -191,7 +219,7 @@ sequenceDiagram
         API-->>UI: 200 OK {questions: [...]}
         UI-->>Teacher: Hiển thị giao diện Preview & Cho phép chỉnh sửa
         Teacher->>UI: Chỉnh sửa và bấm "Lưu & Công bố"
-        UI->>API: POST /api/v1/quizzes {course_id, questions}
+        UI->>API: POST /api/v1/quizzes {course_id, chapter_id, questions}
         API->>DB: Lưu Quiz, Questions, Options vào DB
         DB-->>API: Lưu thành công
         API-->>UI: 201 Created
@@ -203,34 +231,36 @@ sequenceDiagram
     end
 ```
 
-### 4.3. Luồng Upload Quiz từ Excel/CSV
+### 4.3. Luồng Giáo viên Upload File -> Tự động điền Form Preview & Chỉnh sửa tương tác -> Lưu Quiz
 ```mermaid
 sequenceDiagram
     autonumber
     actor Teacher as 👩‍🏫 Giáo viên
-    participant UI as 💻 React Frontend
+    participant UI as 💻 React Frontend (Quiz Builder Form)
     participant API as 🛡️ Django Import View
-    participant Parser as 📑 File Parser Service
+    participant Parser as 📑 File Parser (openpyxl/pandas)
     participant Validator as 🔍 Row Validator
     participant DB as 🗄️ PostgreSQL
 
-    Teacher->>UI: Chọn và tải lên file (.xlsx / .csv)
-    UI->>API: POST /api/v1/quiz-imports (multipart/form-data)
-    API->>DB: Tạo ImportJob (status: PENDING)
-    API->>Parser: Đọc file với openpyxl / pandas
-    Parser->>Validator: Thẩm định từng hàng (Cột, nội dung, đáp án A-D, đáp án đúng)
-    alt Có lỗi dữ liệu
-        Validator->>DB: Ghi nhận ImportError (Row number, Error message)
-        Validator->>DB: Cập nhật ImportJob (status: FAILED / PARTIAL)
-        API-->>UI: Trả về danh sách lỗi chi tiết từng dòng để giáo viên sửa
+    Teacher->>UI: Chọn file (.xlsx / .csv) và bấm "Tải lên & Xem trước"
+    UI->>API: POST /api/v1/quiz-imports/parse (multipart/form-data)
+    API->>Parser: Đọc dữ liệu file
+    Parser->>Validator: Thẩm định từng dòng (Độ dài câu, 4 đáp án A-D, đáp án đúng, giải thích)
+    alt File sai format / thiếu cột bắt buộc
+        Validator-->>API: Báo danh sách dòng bị lỗi
+        API-->>UI: 400 Bad Request {errors: [{row: 5, message: "Thiếu đáp án đúng"}]}
+        UI-->>Teacher: Hiển thị bảng cảnh báo lỗi theo từng dòng để sửa file
     else Dữ liệu hợp lệ
-        Validator->>DB: Cập nhật ImportJob (status: PARSED, parsed_data)
-        API-->>UI: Trả về danh sách câu hỏi đã bóc tách
-        UI-->>Teacher: Hiển thị giao diện Preview toàn bộ câu hỏi
-        Teacher->>UI: Xác nhận bấm "Publish Quiz"
-        UI->>API: POST /api/v1/quiz-imports/{id}/publish
-        API->>DB: Lưu các bản ghi Quiz, Question, Option chính thức
-        API-->>UI: 200 OK (Publish thành công)
+        Validator-->>API: Danh sách câu hỏi chuẩn hóa dạng JSON
+        API-->>UI: 200 OK {parsed_questions: [...]}
+        Note over UI,Teacher: FRONTEND AUTO-FILL TO FORM: Tự động đổ dữ liệu vào các ô Input (Tên câu hỏi, 4 Options, Radio đáp án đúng, Explanation)
+        Teacher->>UI: Xem qua các ô nhập liệu, sửa trực tiếp trên Form nếu cần (Thêm/Xóa/Sửa câu hỏi)
+        Teacher->>UI: Hài lòng & Bấm "Tạo bài trắc nghiệm / Lưu & Công bố"
+        UI->>API: POST /api/v1/quizzes {course_id, chapter_id, title, questions: [...]}
+        API->>DB: Lưu chính thức vào bảng quizzes, questions, options
+        DB-->>API: Ghi DB thành công
+        API-->>UI: 201 Created {quiz_id: "..."}
+        UI-->>Teacher: Thông báo tạo bài trắc nghiệm thành công!
     end
 ```
 

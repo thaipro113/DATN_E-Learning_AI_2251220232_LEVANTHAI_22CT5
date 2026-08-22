@@ -1,7 +1,8 @@
 from django.urls import path
+from .views import RegisterAPIView
 
 app_name = 'accounts'
 
 urlpatterns = [
-    # Placeholder - will be implemented in Step 3
+    path('register/', RegisterAPIView.as_view(), name='register'),
 ]
