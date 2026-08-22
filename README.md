@@ -14,9 +14,11 @@ Hệ thống **E-learning tiếng Anh tích hợp AI** là nền tảng học t�
 1. **Quản lý học tập toàn diện:** Quản lý đa vai trò (*Student*, *Teacher*, *Admin*), tổ chức khóa học theo cấu trúc chuẩn `Course` $\rightarrow$ `Chapter` $\rightarrow$ `Lesson` $\rightarrow$ `Material`.
 2. **Đánh giá & Kiểm tra:** Hệ thống câu hỏi trắc nghiệm, quản lý lượt làm bài (`QuizAttempt`), chấm điểm tự động và phân tích câu sai.
 3. **AI English Tutor Agent:** Trợ lý ảo AI có khả năng **Tool Calling** để truy vấn thông tin học tập của học viên, giải thích ngữ pháp, sửa lỗi và hội thoại thông minh.
-4. **AI Quiz Generator:** Hỗ trợ giáo viên sinh ngân hàng câu hỏi tự động theo chủ đề, độ khó với cấu trúc JSON chuẩn và cơ chế xác thực trước khi công bố.
+4. **AI Quiz Generator & On-Demand Practice:** 
+   - Hỗ trợ **Giáo viên** sinh ngân hàng câu hỏi tự động theo chủ đề, độ khó với cấu trúc JSON chuẩn.
+   - Hỗ trợ **Học viên** tự động tạo đề ôn tập trắc nghiệm thích ứng (Adaptive Practice Quiz) theo Chapter và nội dung các bài học đã hoàn thành.
 5. **Cá nhân hóa lộ trình (Learning Analytics & Recommendation):** Đánh giá năng lực theo từng kỹ năng/chủ đề dựa trên thuật toán tính điểm kỹ năng (Skill Score) và đề xuất bài học tiếp theo phù hợp với điểm yếu của học viên.
-6. **Quiz Import từ File:** Giáo viên có thể tải lên file Excel/CSV chuẩn để hệ thống tự động bóc tách và tạo ngân hàng câu hỏi hàng loạt.
+6. **Quiz Import & Interactive Form Builder:** Giáo viên tải lên file Excel/CSV, hệ thống bóc tách dữ liệu và tự động điền vào Form Preview trên giao diện để giáo viên rà soát, sửa trực tiếp trên ô nhập liệu trước khi ấn tạo bài trắc nghiệm.
 
 ---
 
@@ -84,11 +86,14 @@ Dự án áp dụng mô hình **Modular Monolith** nhằm tối ưu hóa hiệu 
 
 ### 4. `apps/assessments`
 - Quản lý Đề kiểm tra (`Quiz`), Câu hỏi (`Question`), Lựa chọn (`Option`).
+- Hỗ trợ đề thi theo Khóa học, Chương học, Bài học và Đề ôn tập nhanh AI.
 - Lịch sử làm bài (`QuizAttempt`), Chi tiết câu trả lời (`AttemptAnswer`), Chấm điểm trắc nghiệm tự động.
 
 ### 5. `apps/ai`
 - **AI Tutor Agent:** Trợ lý ảo hỗ trợ giải thích kiến thức, sửa ngữ pháp, đồng thời sử dụng các tool nội bộ (`get_user_progress`, `get_skill_score`, `get_quiz_result`) để phản hồi sát thực tế.
-- **AI Quiz Generator:** Sinh câu hỏi trắc nghiệm tự động từ Topic / Context theo JSON schema chuẩn.
+- **AI Quiz Generator & On-demand Practice:** 
+  - Sinh câu hỏi trắc nghiệm tự động từ Topic / Context cho giáo viên.
+  - Sinh đề ôn tập nhanh cho học viên dựa theo Chapter và các bài học đã hoàn thành trong CSDL.
 
 ### 6. `apps/recommendations`
 - **Learning Analytics:** Tổng hợp dữ liệu kết quả quiz, bài học đã hoàn thành.
@@ -99,7 +104,7 @@ Dự án áp dụng mô hình **Modular Monolith** nhằm tối ưu hóa hiệu 
 ### 7. `apps/quiz_import`
 - Xử lý tải lên file Excel (`.xlsx`) hoặc `.csv`.
 - Bóc tách dữ liệu bảng, kiểm tra tính hợp lệ (Validation) từng dòng, thông báo lỗi cụ thể.
-- Cho phép giáo viên xem trước (Preview) và công bố (Publish) vào ngân hàng câu hỏi.
+- **Auto-fill Form & Interactive Preview:** Tự động đổ dữ liệu câu hỏi vào các ô input trên Form React UI để giáo viên rà soát, chỉnh sửa trực tiếp trước khi công bố (Publish).
 
 ---
 

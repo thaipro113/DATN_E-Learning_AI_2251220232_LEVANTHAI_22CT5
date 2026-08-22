@@ -24,6 +24,7 @@ erDiagram
     lessons ||--o{ materials : "attaches"
     courses ||--o{ enrollments : "enrolled_in"
     courses ||--o{ quizzes : "has_quizzes"
+    chapters ||--o{ quizzes : "has_quizzes"
     lessons ||--o{ lesson_progress : "progress_of"
     lessons ||--o{ quizzes : "has_quizzes"
 
@@ -116,9 +117,11 @@ erDiagram
     quizzes {
         uuid id PK
         uuid course_id FK "nullable"
+        uuid chapter_id FK "nullable"
         uuid lesson_id FK "nullable"
         string title
         text description
+        string quiz_type "LESSON | CHAPTER | FINAL | PRACTICE_AI"
         int time_limit_minutes
         int pass_score
         string status "DRAFT | PUBLISHED"
@@ -241,7 +244,7 @@ erDiagram
 8. **`lesson_progress`**: Tiến độ hoàn thành từng bài học (% hoàn thành, trạng thái `completed`, thời điểm hoàn thành).
 
 ### Nhóm 4: `apps.assessments` (Bài kiểm tra & Chấm điểm)
-9. **`quizzes`**: Đề kiểm tra gắn liền với Khóa học hoặc Bài học, thời gian làm bài, điểm qua môn.
+9. **`quizzes`**: Đề kiểm tra gắn liền với Khóa học (`course_id`), Chương học (`chapter_id`), Bài học (`lesson_id`) hoặc Đề ôn tập nhanh do AI sinh theo tiến độ bài học (`quiz_type`: `LESSON`, `CHAPTER`, `FINAL`, `PRACTICE_AI`), thời gian làm bài, điểm qua môn.
 10. **`questions`**: Câu hỏi trắc nghiệm, lưu topic, loại câu hỏi, nguồn tạo (`MANUAL`, `AI_GENERATED`, `FILE_IMPORT`) và phần giải thích đáp án (`explanation`).
 11. **`options`**: Các lựa chọn A, B, C, D cho câu hỏi kèm cờ `is_correct`.
 12. **`quiz_attempts`**: Lịch sử mỗi lần học viên làm bài thi (Điểm số, số câu đúng, trạng thái Đạt/Chưa đạt).
