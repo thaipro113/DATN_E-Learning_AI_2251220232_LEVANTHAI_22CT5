@@ -1,3 +1,4 @@
+from django.contrib.auth.models import update_last_login
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import CustomUser
 
@@ -5,7 +6,7 @@ from .models import CustomUser
 class AuthService:
     """
     Tầng xử lý nghiệp vụ xác thực (Business Logic Layer) cho module Accounts.
-    Tách biệt logic tạo người dùng và sinh Token ra khỏi Views.
+    Tách biệt logic tạo người dùng, đăng nhập và sinh Token ra khỏi Views.
     """
 
     @staticmethod
@@ -32,7 +33,6 @@ class AuthService:
         Thực hiện logic tạo tài khoản mới trong cơ sở dữ liệu
         và tự động tạo cặp JWT Token đăng nhập ngay sau khi đăng ký thành công.
         """
-        # Loại bỏ trường confirm_password trước khi lưu vào DB
         clean_data = validated_data.copy()
         clean_data.pop('confirm_password', None)
 
@@ -47,6 +47,21 @@ class AuthService:
         )
 
         # Sinh token đăng nhập tự động
+        tokens = AuthService.generate_tokens_for_user(user)
+
+        return user, tokens
+
+    @staticmethod
+    def login_user(user: CustomUser) -> tuple[CustomUser, dict]:
+        """
+        Xử lý nghiệp vụ đăng nhập:
+        - Cập nhật thời điểm đăng nhập cuối cùng (last_login).
+        - Sinh cặp JWT Access/Refresh token mới.
+        """
+        # Cập nhật thời gian last_login trong CSDL
+        update_last_login(None, user)
+
+        # Sinh token mới
         tokens = AuthService.generate_tokens_for_user(user)
 
         return user, tokens

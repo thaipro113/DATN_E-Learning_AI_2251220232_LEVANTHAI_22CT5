@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import EmailValidator
+from django.contrib.auth import authenticate
 from .models import CustomUser, UserRole, EnglishLevel
 
 
@@ -94,3 +95,53 @@ class RegisterSerializer(serializers.Serializer):
         validate_password(password)
 
         return attrs
+
+
+class LoginSerializer(serializers.Serializer):
+    """
+    Serializer tiếp nhận và kiểm tra thông tin đăng nhập (Email & Password).
+    """
+    email = serializers.EmailField(
+        required=True,
+        help_text="Địa chỉ email đã đăng ký tài khoản"
+    )
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'},
+        help_text="Mật khẩu tài khoản"
+    )
+
+    def validate(self, attrs):
+        email = attrs.get('email', '').lower().strip()
+        password = attrs.get('password', '')
+
+        if not email or not password:
+            raise serializers.ValidationError("Vui lòng nhập đầy đủ email và mật khẩu.")
+
+        user = CustomUser.objects.filter(email=email).first()
+
+        if user is None or not user.check_password(password):
+            raise serializers.ValidationError("Email hoặc mật khẩu không chính xác.")
+
+        if not user.is_active:
+            raise serializers.ValidationError("Tài khoản của bạn đã bị khóa hoặc chưa được kích hoạt. Vui lòng liên hệ Quản trị viên.")
+
+        attrs['user'] = user
+        return attrs
+
+
+class TokenResponseSerializer(serializers.Serializer):
+    """
+    Serializer mô tả cấu trúc trả về của JWT Tokens (phục vụ Swagger Docs).
+    """
+    access = serializers.CharField(help_text="JWT Access Token có thời hạn ngắn (dùng để xác thực API)")
+    refresh = serializers.CharField(help_text="JWT Refresh Token có thời hạn dài (dùng để cấp lại Access Token)")
+
+
+class AuthResponseSerializer(serializers.Serializer):
+    """
+    Serializer mô tả cấu trúc trả về đầy đủ sau khi Đăng ký / Đăng nhập thành công.
+    """
+    user = UserResponseSerializer()
+    tokens = TokenResponseSerializer()

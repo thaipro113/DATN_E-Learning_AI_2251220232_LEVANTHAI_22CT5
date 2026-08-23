@@ -48,6 +48,8 @@ dist/
 ~$*.xlsx
 
 # IDE and OS files
+.history/
+**/.history/
 .vscode/*
 !.vscode/extensions.json
 .idea/
