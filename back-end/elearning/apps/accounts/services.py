@@ -6,7 +6,7 @@ from .models import CustomUser
 class AuthService:
     """
     Tầng xử lý nghiệp vụ xác thực (Business Logic Layer) cho module Accounts.
-    Tách biệt logic tạo người dùng, đăng nhập và sinh Token ra khỏi Views.
+    Tách biệt logic tạo người dùng, đăng nhập, cập nhật hồ sơ và đổi mật khẩu ra khỏi Views.
     """
 
     @staticmethod
@@ -58,10 +58,24 @@ class AuthService:
         - Cập nhật thời điểm đăng nhập cuối cùng (last_login).
         - Sinh cặp JWT Access/Refresh token mới.
         """
-        # Cập nhật thời gian last_login trong CSDL
         update_last_login(None, user)
-
-        # Sinh token mới
         tokens = AuthService.generate_tokens_for_user(user)
-
         return user, tokens
+
+    @staticmethod
+    def update_profile(user: CustomUser, validated_data: dict) -> CustomUser:
+        """
+        Cập nhật các trường thông tin hồ sơ của người dùng.
+        """
+        for attr, value in validated_data.items():
+            setattr(user, attr, value)
+        user.save()
+        return user
+
+    @staticmethod
+    def change_password(user: CustomUser, new_password: str) -> None:
+        """
+        Cập nhật mật khẩu mới và băm an toàn vào CSDL.
+        """
+        user.set_password(new_password)
+        user.save()
