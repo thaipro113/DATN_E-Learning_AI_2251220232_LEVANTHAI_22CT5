@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import EmailValidator
-from django.contrib.auth import authenticate
 from .models import CustomUser, UserRole, EnglishLevel
 
 
@@ -91,9 +90,7 @@ class RegisterSerializer(serializers.Serializer):
         if password != confirm_password:
             raise serializers.ValidationError({"confirm_password": "Mật khẩu xác nhận không trùng khớp."})
 
-        # Sử dụng trình kiểm tra mật khẩu bảo mật của Django
         validate_password(password)
-
         return attrs
 
 
@@ -128,6 +125,75 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Tài khoản của bạn đã bị khóa hoặc chưa được kích hoạt. Vui lòng liên hệ Quản trị viên.")
 
         attrs['user'] = user
+        return attrs
+
+
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer cập nhật thông tin hồ sơ cá nhân của người dùng hiện tại.
+    """
+    class Meta:
+        model = CustomUser
+        fields = ['full_name', 'level', 'avatar_url', 'phone_number', 'bio']
+        extra_kwargs = {
+            'full_name': {'required': False},
+            'level': {'required': False},
+            'avatar_url': {'required': False},
+            'phone_number': {'required': False},
+            'bio': {'required': False},
+        }
+
+    def validate_full_name(self, value):
+        if value and len(value.strip()) < 2:
+            raise serializers.ValidationError("Họ và tên phải có tối thiểu 2 ký tự.")
+        return value.strip() if value else value
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """
+    Serializer tiếp nhận và thẩm định yêu cầu đổi mật khẩu.
+    """
+    old_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'},
+        help_text="Mật khẩu hiện tại đang dùng"
+    )
+    new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        min_length=8,
+        style={'input_type': 'password'},
+        help_text="Mật khẩu mới tối thiểu 8 ký tự"
+    )
+    confirm_new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'},
+        help_text="Xác nhận lại mật khẩu mới"
+    )
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Mật khẩu hiện tại không chính xác.")
+        return value
+
+    def validate(self, attrs):
+        old_password = attrs.get('old_password')
+        new_password = attrs.get('new_password')
+        confirm_new_password = attrs.get('confirm_new_password')
+
+        if new_password != confirm_new_password:
+            raise serializers.ValidationError({"confirm_new_password": "Mật khẩu xác nhận mới không trùng khớp."})
+
+        if old_password == new_password:
+            raise serializers.ValidationError({"new_password": "Mật khẩu mới không được trùng với mật khẩu cũ."})
+
+        # Kiểm tra độ phức tạp của mật khẩu mới theo chính sách Django
+        user = self.context['request'].user
+        validate_password(new_password, user=user)
+
         return attrs
 
 
