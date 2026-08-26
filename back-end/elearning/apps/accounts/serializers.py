@@ -72,18 +72,12 @@ class RegisterSerializer(serializers.Serializer):
     )
 
     def validate_email(self, value):
-        """
-        Kiểm tra xem email đã được đăng ký trong hệ thống trước đó chưa.
-        """
         normalized_email = value.lower().strip()
         if CustomUser.objects.filter(email=normalized_email).exists():
             raise serializers.ValidationError("Địa chỉ email này đã được sử dụng. Vui lòng chọn email khác.")
         return normalized_email
 
     def validate(self, attrs):
-        """
-        Kiểm tra khớp mật khẩu xác nhận và độ mạnh của mật khẩu theo chuẩn Django.
-        """
         password = attrs.get('password')
         confirm_password = attrs.get('confirm_password')
 
@@ -149,6 +143,38 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         return value.strip() if value else value
 
 
+class AdminUserUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer dành cho Quản trị viên (Admin) cập nhật vai trò, trạng thái khóa/mở và thông tin của người dùng.
+    """
+    class Meta:
+        model = CustomUser
+        fields = ['role', 'level', 'is_active', 'full_name', 'phone_number']
+        extra_kwargs = {
+            'role': {'required': False},
+            'level': {'required': False},
+            'is_active': {'required': False},
+            'full_name': {'required': False},
+            'phone_number': {'required': False},
+        }
+
+    def validate_is_active(self, value):
+        # Tránh việc Admin tự vô hiệu hóa tài khoản của chính mình
+        current_admin = self.context.get('current_admin')
+        target_user = self.instance
+        if target_user and current_admin and target_user.id == current_admin.id and value is False:
+            raise serializers.ValidationError("Quản trị viên không thể tự khóa tài khoản của chính mình.")
+        return value
+
+    def validate_role(self, value):
+        # Tránh việc Admin tự hạ quyền quản trị của chính mình
+        current_admin = self.context.get('current_admin')
+        target_user = self.instance
+        if target_user and current_admin and target_user.id == current_admin.id and value != UserRole.ADMIN:
+            raise serializers.ValidationError("Quản trị viên không thể tự hạ quyền ADMIN của chính mình.")
+        return value
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     """
     Serializer tiếp nhận và thẩm định yêu cầu đổi mật khẩu.
@@ -190,7 +216,6 @@ class ChangePasswordSerializer(serializers.Serializer):
         if old_password == new_password:
             raise serializers.ValidationError({"new_password": "Mật khẩu mới không được trùng với mật khẩu cũ."})
 
-        # Kiểm tra độ phức tạp của mật khẩu mới theo chính sách Django
         user = self.context['request'].user
         validate_password(new_password, user=user)
 
