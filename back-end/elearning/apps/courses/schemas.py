@@ -5,7 +5,13 @@ from .serializers import (
     CategoryCreateUpdateSerializer,
     CourseListSerializer,
     CourseDetailSerializer,
-    CourseCreateUpdateSerializer
+    CourseCreateUpdateSerializer,
+    ChapterSimpleSerializer,
+    ChapterCreateUpdateSerializer,
+    LessonDetailResponseSerializer,
+    LessonCreateUpdateSerializer,
+    MaterialSimpleSerializer,
+    MaterialCreateSerializer
 )
 
 # ==================== CATEGORY SCHEMAS ====================
@@ -143,7 +149,7 @@ get_course_detail_schema = extend_schema(
             response=CourseDetailSerializer
         ),
         404: OpenApiResponse(
-            description='Không tìm thấy khóa học hoặc khóa học chưa được xuất bản'
+            description='Không tìm thấy khóa học hoặc khóa học chưa được công bố'
         )
     }
 )
@@ -201,5 +207,112 @@ publish_course_schema = extend_schema(
         ),
         400: OpenApiResponse(description='Khóa học chưa đủ điều kiện xuất bản (thiếu chương hoặc bài học)'),
         403: OpenApiResponse(description='Không có quyền thực hiện')
+    }
+)
+
+
+# ==================== CURRICULUM (CHAPTER / LESSON / MATERIAL) SCHEMAS ====================
+
+create_chapter_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Tạo chương học mới cho khóa học',
+    description='Chỉ giáo viên phụ trách khóa học hoặc Admin mới có quyền tạo chương học.',
+    request=ChapterCreateUpdateSerializer,
+    responses={
+        201: OpenApiResponse(description='Tạo chương học thành công', response=ChapterSimpleSerializer),
+        400: OpenApiResponse(description='Dữ liệu không hợp lệ'),
+        403: OpenApiResponse(description='Không có quyền chỉnh sửa khóa học này')
+    }
+)
+
+update_chapter_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Cập nhật chương học',
+    description='Chỉnh sửa tiêu đề, mô tả hoặc thứ tự hiển thị của chương học.',
+    request=ChapterCreateUpdateSerializer,
+    responses={
+        200: OpenApiResponse(description='Cập nhật chương thành công', response=ChapterSimpleSerializer),
+        403: OpenApiResponse(description='Không có quyền chỉnh sửa'),
+        404: OpenApiResponse(description='Không tìm thấy chương')
+    }
+)
+
+delete_chapter_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Xóa chương học',
+    description='Xóa chương học cùng tất cả các bài học và tài liệu bên trong.',
+    responses={
+        200: OpenApiResponse(description='Xóa chương học thành công'),
+        403: OpenApiResponse(description='Không có quyền xóa'),
+        404: OpenApiResponse(description='Không tìm thấy chương')
+    }
+)
+
+create_lesson_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Tạo bài học mới trong chương',
+    description='Chỉ giáo viên sở hữu hoặc Admin mới có quyền thêm bài học mới.',
+    request=LessonCreateUpdateSerializer,
+    responses={
+        201: OpenApiResponse(description='Tạo bài học thành công', response=LessonDetailResponseSerializer),
+        400: OpenApiResponse(description='Dữ liệu không hợp lệ'),
+        403: OpenApiResponse(description='Không có quyền thực hiện')
+    }
+)
+
+get_lesson_detail_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Xem chi tiết nội dung bài học (Lý thuyết, Video, Tài liệu)',
+    description='Cho phép xem toàn bộ nếu là bài Học thử (`is_preview=True`) hoặc đã ghi danh khóa học. Giáo viên sở hữu và Admin luôn được xem.',
+    responses={
+        200: OpenApiResponse(description='Lấy chi tiết bài học thành công', response=LessonDetailResponseSerializer),
+        403: OpenApiResponse(description='Cần đăng ký khóa học để xem bài học này'),
+        404: OpenApiResponse(description='Không tìm thấy bài học')
+    }
+)
+
+update_lesson_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Cập nhật nội dung bài học',
+    description='Chỉnh sửa tiêu đề, nội dung Markdown, link Video hoặc thời lượng bài học.',
+    request=LessonCreateUpdateSerializer,
+    responses={
+        200: OpenApiResponse(description='Cập nhật bài học thành công', response=LessonDetailResponseSerializer),
+        403: OpenApiResponse(description='Không có quyền sửa'),
+        404: OpenApiResponse(description='Không tìm thấy bài học')
+    }
+)
+
+delete_lesson_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Xóa bài học',
+    description='Xóa bài học cùng toàn bộ tài liệu đính kèm.',
+    responses={
+        200: OpenApiResponse(description='Xóa bài học thành công'),
+        403: OpenApiResponse(description='Không có quyền xóa'),
+        404: OpenApiResponse(description='Không tìm thấy bài học')
+    }
+)
+
+create_material_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Đính kèm tài liệu học tập vào bài học',
+    description='Hỗ trợ tài liệu PDF, DOCX, MP3 hoặc file đính kèm khác.',
+    request=MaterialCreateSerializer,
+    responses={
+        201: OpenApiResponse(description='Thêm tài liệu thành công', response=MaterialSimpleSerializer),
+        400: OpenApiResponse(description='Dữ liệu không hợp lệ'),
+        403: OpenApiResponse(description='Không có quyền đính kèm tài liệu')
+    }
+)
+
+delete_material_schema = extend_schema(
+    tags=['Courses - Curriculum'],
+    summary='Xóa tài liệu đính kèm',
+    description='Xóa tài liệu khỏi bài học.',
+    responses={
+        200: OpenApiResponse(description='Xóa tài liệu thành công'),
+        403: OpenApiResponse(description='Không có quyền xóa'),
+        404: OpenApiResponse(description='Không tìm thấy tài liệu')
     }
 )
