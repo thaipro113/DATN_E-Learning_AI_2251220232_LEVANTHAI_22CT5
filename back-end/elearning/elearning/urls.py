@@ -26,7 +26,7 @@ urlpatterns = [
 
     # Modular App APIs
     path('api/v1/auth/', include('apps.accounts.urls')),
-    # path('api/v1/courses/', include('apps.courses.urls')),
+    path('api/v1/courses/', include('apps.courses.urls')),
     # path('api/v1/learning/', include('apps.learning.urls')),
     # path('api/v1/assessments/', include('apps.assessments.urls')),
     # path('api/v1/ai/', include('apps.ai.urls')),
