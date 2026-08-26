@@ -1,7 +1,9 @@
 from rest_framework import serializers
-from .models import Category, Course, Chapter, Lesson, Material, CourseStatus
+from .models import Category, Course, Chapter, Lesson, Material, CourseStatus, MaterialType
 from apps.accounts.models import CustomUser, EnglishLevel
 
+
+# ==================== CATEGORY SERIALIZERS ====================
 
 class CategorySerializer(serializers.ModelSerializer):
     """
@@ -63,6 +65,8 @@ class CategorySimpleSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug', 'icon_url']
 
 
+# ==================== TEACHER / COMMON SERIALIZERS ====================
+
 class TeacherSimpleSerializer(serializers.ModelSerializer):
     """
     Serializer hiển thị thông tin giáo viên phụ trách khóa học.
@@ -72,6 +76,8 @@ class TeacherSimpleSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'email', 'avatar_url', 'bio']
 
 
+# ==================== MATERIAL SERIALIZERS ====================
+
 class MaterialSimpleSerializer(serializers.ModelSerializer):
     """
     Serializer tài liệu đính kèm lồng trong bài học.
@@ -80,14 +86,29 @@ class MaterialSimpleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Material
-        fields = ['id', 'title', 'file_url', 'file_type', 'file_type_display', 'file_size_bytes']
+        fields = ['id', 'title', 'file_url', 'file_type', 'file_type_display', 'file_size_bytes', 'created_at']
 
+
+class MaterialCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer tiếp nhận dữ liệu khi thêm tài liệu cho bài học.
+    """
+    class Meta:
+        model = Material
+        fields = ['title', 'file_url', 'file_type', 'file_size_bytes']
+        extra_kwargs = {
+            'file_type': {'required': False, 'default': MaterialType.PDF},
+            'file_size_bytes': {'required': False, 'default': 0}
+        }
+
+
+# ==================== LESSON SERIALIZERS ====================
 
 class LessonSimpleSerializer(serializers.ModelSerializer):
     """
-    Serializer bài học lồng trong chương học.
+    Serializer bài học lồng trong chương học (mục lục rút gọn).
     """
-    materials = MaterialSimpleSerializer(many=True, read_only=True)
+    materials_count = serializers.IntegerField(source='materials.count', read_only=True)
 
     class Meta:
         model = Lesson
@@ -98,9 +119,60 @@ class LessonSimpleSerializer(serializers.ModelSerializer):
             'order_index',
             'is_preview',
             'video_url',
-            'materials'
+            'materials_count'
         ]
 
+
+class LessonDetailResponseSerializer(serializers.ModelSerializer):
+    """
+    Serializer hiển thị chi tiết bài học (nội dung lý thuyết Markdown, video, danh sách tài liệu).
+    """
+    materials = MaterialSimpleSerializer(many=True, read_only=True)
+    chapter_title = serializers.CharField(source='chapter.title', read_only=True)
+    course_title = serializers.CharField(source='chapter.course.title', read_only=True)
+
+    class Meta:
+        model = Lesson
+        fields = [
+            'id',
+            'title',
+            'content',
+            'video_url',
+            'duration_minutes',
+            'order_index',
+            'is_preview',
+            'chapter_title',
+            'course_title',
+            'materials',
+            'created_at',
+            'updated_at'
+        ]
+
+
+class LessonCreateUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer tiếp nhận dữ liệu khi Giáo viên/Admin tạo hoặc cập nhật Bài học.
+    """
+    class Meta:
+        model = Lesson
+        fields = [
+            'title',
+            'content',
+            'video_url',
+            'duration_minutes',
+            'order_index',
+            'is_preview'
+        ]
+        extra_kwargs = {
+            'content': {'required': False, 'allow_blank': True},
+            'video_url': {'required': False, 'allow_blank': True},
+            'duration_minutes': {'required': False, 'default': 10},
+            'order_index': {'required': False, 'default': 1},
+            'is_preview': {'required': False, 'default': False}
+        }
+
+
+# ==================== CHAPTER SERIALIZERS ====================
 
 class ChapterSimpleSerializer(serializers.ModelSerializer):
     """
@@ -113,6 +185,21 @@ class ChapterSimpleSerializer(serializers.ModelSerializer):
         model = Chapter
         fields = ['id', 'title', 'description', 'order_index', 'total_lessons', 'lessons']
 
+
+class ChapterCreateUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer tiếp nhận dữ liệu khi Giáo viên/Admin tạo hoặc cập nhật Chương học.
+    """
+    class Meta:
+        model = Chapter
+        fields = ['title', 'description', 'order_index']
+        extra_kwargs = {
+            'description': {'required': False, 'allow_blank': True},
+            'order_index': {'required': False, 'default': 1}
+        }
+
+
+# ==================== COURSE SERIALIZERS ====================
 
 class CourseListSerializer(serializers.ModelSerializer):
     """

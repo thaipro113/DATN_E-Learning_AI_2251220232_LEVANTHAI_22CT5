@@ -4,15 +4,22 @@ from rest_framework import status
 
 from common.responses import success_response, error_response
 from common.permissions import IsAdminUserRole, IsTeacherUserRole, IsOwnerOrReadOnly
-from .models import Course
+from .models import Course, Chapter, Lesson, Material
 from .serializers import (
     CategorySerializer,
     CategoryCreateUpdateSerializer,
     CourseListSerializer,
     CourseDetailSerializer,
-    CourseCreateUpdateSerializer
+    CourseCreateUpdateSerializer,
+    ChapterSimpleSerializer,
+    ChapterCreateUpdateSerializer,
+    LessonSimpleSerializer,
+    LessonDetailResponseSerializer,
+    LessonCreateUpdateSerializer,
+    MaterialSimpleSerializer,
+    MaterialCreateSerializer
 )
-from .services import CategoryService, CourseService
+from .services import CategoryService, CourseService, CurriculumService
 from .schemas import (
     list_categories_schema,
     get_category_schema,
@@ -25,7 +32,16 @@ from .schemas import (
     create_course_schema,
     update_course_schema,
     delete_course_schema,
-    publish_course_schema
+    publish_course_schema,
+    create_chapter_schema,
+    update_chapter_schema,
+    delete_chapter_schema,
+    create_lesson_schema,
+    get_lesson_detail_schema,
+    update_lesson_schema,
+    delete_lesson_schema,
+    create_material_schema,
+    delete_material_schema
 )
 
 
@@ -35,7 +51,7 @@ class CategoryListCreateAPIView(APIView):
     """
     API Endpoint lấy danh sách hoặc tạo mới Danh mục khóa học:
     - GET: Công khai (Public).
-    - POST: Quản trị viên (Admin only). 
+    - POST: Quản trị viên (Admin only).
     """
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -181,7 +197,6 @@ class CourseListCreateAPIView(APIView):
 
         courses = CourseService.list_courses(filters=filters, user=request.user)
 
-        # Áp dụng phân trang chuẩn
         from common.pagination import StandardResultsSetPagination
         paginator = StandardResultsSetPagination()
         page = paginator.paginate_queryset(courses, request)
@@ -329,5 +344,308 @@ class CoursePublishAPIView(APIView):
         return success_response(
             data=CourseDetailSerializer(published_course).data,
             message=message,
+            status_code=status.HTTP_200_OK
+        )
+
+
+# ==================== CURRICULUM (CHAPTER / LESSON / MATERIAL) VIEWS ====================
+
+class ChapterListCreateAPIView(APIView):
+    """
+    API Endpoint tạo chương học mới trong Khóa học.
+    """
+    permission_classes = [IsTeacherUserRole]
+
+    @create_chapter_schema
+    def post(self, request, course_id):
+        course = CourseService.get_course_detail(identifier=str(course_id), user=request.user)
+        if not course:
+            return error_response(
+                message="Không tìm thấy khóa học để thêm chương.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        # Kiểm tra quyền chủ sở hữu
+        if request.user.role != 'ADMIN' and course.teacher != request.user:
+            return error_response(
+                message="Bạn không phải giáo viên phụ trách khóa học này.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = ChapterCreateUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu chương học không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        chapter = CurriculumService.create_chapter(course, serializer.validated_data)
+
+        return success_response(
+            data=ChapterSimpleSerializer(chapter).data,
+            message="Tạo chương học thành công!",
+            status_code=status.HTTP_201_CREATED
+        )
+
+
+class ChapterDetailAPIView(APIView):
+    """
+    API Endpoint cập nhật hoặc xóa Chương học.
+    """
+    permission_classes = [IsTeacherUserRole]
+
+    def _check_permission(self, chapter, request):
+        if request.user.role != 'ADMIN' and chapter.course.teacher != request.user:
+            return False
+        return True
+
+    @update_chapter_schema
+    def patch(self, request, chapter_id):
+        chapter = CurriculumService.get_chapter_by_id(chapter_id)
+        if not chapter:
+            return error_response(
+                message="Không tìm thấy chương học.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if not self._check_permission(chapter, request):
+            return error_response(
+                message="Bạn không có quyền chỉnh sửa chương học này.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = ChapterCreateUpdateSerializer(instance=chapter, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu cập nhật chương học không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        updated_chapter = CurriculumService.update_chapter(chapter, serializer.validated_data)
+
+        return success_response(
+            data=ChapterSimpleSerializer(updated_chapter).data,
+            message="Cập nhật chương học thành công!",
+            status_code=status.HTTP_200_OK
+        )
+
+    @delete_chapter_schema
+    def delete(self, request, chapter_id):
+        chapter = CurriculumService.get_chapter_by_id(chapter_id)
+        if not chapter:
+            return error_response(
+                message="Không tìm thấy chương học.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if not self._check_permission(chapter, request):
+            return error_response(
+                message="Bạn không có quyền xóa chương học này.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        CurriculumService.delete_chapter(chapter)
+
+        return success_response(
+            message="Xóa chương học và các nội dung bên trong thành công!",
+            status_code=status.HTTP_200_OK
+        )
+
+
+class LessonCreateAPIView(APIView):
+    """
+    API Endpoint tạo bài học mới trong Chương học.
+    """
+    permission_classes = [IsTeacherUserRole]
+
+    @create_lesson_schema
+    def post(self, request, chapter_id):
+        chapter = CurriculumService.get_chapter_by_id(chapter_id)
+        if not chapter:
+            return error_response(
+                message="Không tìm thấy chương học.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if request.user.role != 'ADMIN' and chapter.course.teacher != request.user:
+            return error_response(
+                message="Bạn không có quyền thêm bài học vào khóa học này.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = LessonCreateUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu bài học không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        lesson = CurriculumService.create_lesson(chapter, serializer.validated_data)
+
+        return success_response(
+            data=LessonDetailResponseSerializer(lesson).data,
+            message="Tạo bài học mới thành công!",
+            status_code=status.HTTP_201_CREATED
+        )
+
+
+class LessonDetailAPIView(APIView):
+    """
+    API Endpoint xem nội dung chi tiết, sửa hoặc xóa Bài học.
+    """
+    def get_permissions(self):
+        if self.request.method in ['PATCH', 'PUT', 'DELETE']:
+            return [IsTeacherUserRole()]
+        return [AllowAny()]
+
+    def _check_teacher_permission(self, lesson, request):
+        if request.user.role != 'ADMIN' and lesson.chapter.course.teacher != request.user:
+            return False
+        return True
+
+    @get_lesson_detail_schema
+    def get(self, request, lesson_id):
+        lesson, has_perm, message = CurriculumService.get_lesson_detail_with_permission(
+            lesson_id=lesson_id,
+            user=request.user
+        )
+
+        if not lesson:
+            if not has_perm:
+                return error_response(
+                    message=message,
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            return error_response(
+                message=message,
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        return success_response(
+            data=LessonDetailResponseSerializer(lesson).data,
+            message="Lấy nội dung bài học thành công!",
+            status_code=status.HTTP_200_OK
+        )
+
+    @update_lesson_schema
+    def patch(self, request, lesson_id):
+        lesson = CurriculumService.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return error_response(
+                message="Không tìm thấy bài học.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if not self._check_teacher_permission(lesson, request):
+            return error_response(
+                message="Bạn không có quyền chỉnh sửa bài học này.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = LessonCreateUpdateSerializer(instance=lesson, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu cập nhật bài học không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        updated_lesson = CurriculumService.update_lesson(lesson, serializer.validated_data)
+
+        return success_response(
+            data=LessonDetailResponseSerializer(updated_lesson).data,
+            message="Cập nhật bài học thành công!",
+            status_code=status.HTTP_200_OK
+        )
+
+    @delete_lesson_schema
+    def delete(self, request, lesson_id):
+        lesson = CurriculumService.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return error_response(
+                message="Không tìm thấy bài học.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if not self._check_teacher_permission(lesson, request):
+            return error_response(
+                message="Bạn không có quyền xóa bài học này.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        CurriculumService.delete_lesson(lesson)
+
+        return success_response(
+            message="Xóa bài học thành công!",
+            status_code=status.HTTP_200_OK
+        )
+
+
+class MaterialCreateAPIView(APIView):
+    """
+    API Endpoint đính kèm tài liệu vào bài học.
+    """
+    permission_classes = [IsTeacherUserRole]
+
+    @create_material_schema
+    def post(self, request, lesson_id):
+        lesson = CurriculumService.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return error_response(
+                message="Không tìm thấy bài học để đính kèm tài liệu.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if request.user.role != 'ADMIN' and lesson.chapter.course.teacher != request.user:
+            return error_response(
+                message="Bạn không có quyền thêm tài liệu vào bài học này.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = MaterialCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu tài liệu không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        material = CurriculumService.add_material(lesson, serializer.validated_data)
+
+        return success_response(
+            data=MaterialSimpleSerializer(material).data,
+            message="Đính kèm tài liệu thành công!",
+            status_code=status.HTTP_201_CREATED
+        )
+
+
+class MaterialDetailAPIView(APIView):
+    """
+    API Endpoint xóa tài liệu đính kèm.
+    """
+    permission_classes = [IsTeacherUserRole]
+
+    @delete_material_schema
+    def delete(self, request, material_id):
+        material = CurriculumService.get_material_by_id(material_id)
+        if not material:
+            return error_response(
+                message="Không tìm thấy tài liệu.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if request.user.role != 'ADMIN' and material.lesson.chapter.course.teacher != request.user:
+            return error_response(
+                message="Bạn không có quyền xóa tài liệu này.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        CurriculumService.delete_material(material)
+
+        return success_response(
+            message="Xóa tài liệu đính kèm thành công!",
             status_code=status.HTTP_200_OK
         )
