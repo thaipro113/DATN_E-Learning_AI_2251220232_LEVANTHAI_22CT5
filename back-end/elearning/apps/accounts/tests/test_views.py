@@ -16,6 +16,7 @@ class AccountsAPITest(APITestCase):
         self.refresh_url = reverse('accounts:token_refresh')
         self.profile_url = reverse('accounts:user_profile')
         self.change_password_url = reverse('accounts:change_password')
+        self.admin_users_url = reverse('accounts:admin_user_list')
 
         self.user_password = 'ValidPassword123!'
         self.user = CustomUser.objects.create_user(
@@ -26,6 +27,13 @@ class AccountsAPITest(APITestCase):
             level=EnglishLevel.A2
         )
         self.tokens = AuthService.generate_tokens_for_user(self.user)
+
+        self.admin_user = CustomUser.objects.create_superuser(
+            email='superadmin@example.com',
+            password=self.user_password,
+            full_name='Super Administrator'
+        )
+        self.admin_tokens = AuthService.generate_tokens_for_user(self.admin_user)
 
     # ------------------ 1. Test Register API ------------------
     def test_register_success(self):
@@ -176,3 +184,56 @@ class AccountsAPITest(APITestCase):
         response = self.client.post(self.change_password_url, payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(response.data['success'])
+
+    # ------------------ 6. Test Admin User Management APIs ------------------
+    def test_admin_list_users_as_student_forbidden(self):
+        """Học viên bình thường không thể truy cập API danh sách users."""
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.tokens['access']}")
+        response = self.client.get(self.admin_users_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_list_users_success(self):
+        """Admin xem danh sách tất cả người dùng với phân trang."""
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.admin_tokens['access']}")
+        response = self.client.get(self.admin_users_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertIn('results', response.data)
+        self.assertGreaterEqual(response.data['count'], 2)
+
+    def test_admin_list_users_filter_role(self):
+        """Admin lọc danh sách người dùng theo vai trò."""
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.admin_tokens['access']}")
+        response = self.client.get(self.admin_users_url, {'role': 'STUDENT'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for u in response.data['results']:
+            self.assertEqual(u['role'], 'STUDENT')
+
+    def test_admin_get_user_detail_success(self):
+        """Admin xem chi tiết một người dùng."""
+        detail_url = reverse('accounts:admin_user_detail', kwargs={'user_id': self.user.id})
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.admin_tokens['access']}")
+        response = self.client.get(detail_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']['email'], self.user.email)
+
+    def test_admin_update_user_role_and_status(self):
+        """Admin cập nhật vai trò (nâng lên TEACHER) và khóa tài khoản."""
+        detail_url = reverse('accounts:admin_user_detail', kwargs={'user_id': self.user.id})
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.admin_tokens['access']}")
+        payload = {
+            'role': 'TEACHER',
+            'is_active': False
+        }
+        response = self.client.patch(detail_url, payload)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']['role'], 'TEACHER')
+        self.assertFalse(response.data['data']['is_active'])
+
+    def test_admin_cannot_deactivate_self(self):
+        """Admin không thể tự khóa tài khoản của chính mình."""
+        detail_url = reverse('accounts:admin_user_detail', kwargs={'user_id': self.admin_user.id})
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.admin_tokens['access']}")
+        payload = {'is_active': False}
+        response = self.client.patch(detail_url, payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
