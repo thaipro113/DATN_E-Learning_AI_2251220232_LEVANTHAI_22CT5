@@ -108,7 +108,7 @@ class LessonSimpleSerializer(serializers.ModelSerializer):
     """
     Serializer bài học lồng trong chương học (mục lục rút gọn).
     """
-    materials_count = serializers.IntegerField(source='materials.count', read_only=True)
+    materials_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
@@ -121,6 +121,9 @@ class LessonSimpleSerializer(serializers.ModelSerializer):
             'video_url',
             'materials_count'
         ]
+
+    def get_materials_count(self, obj):
+        return obj.materials.count()
 
 
 class LessonDetailResponseSerializer(serializers.ModelSerializer):
@@ -167,7 +170,7 @@ class LessonCreateUpdateSerializer(serializers.ModelSerializer):
             'content': {'required': False, 'allow_blank': True},
             'video_url': {'required': False, 'allow_blank': True},
             'duration_minutes': {'required': False, 'default': 10},
-            'order_index': {'required': False, 'default': 1},
+            'order_index': {'required': False, 'allow_null': True},
             'is_preview': {'required': False, 'default': False}
         }
 
@@ -179,11 +182,14 @@ class ChapterSimpleSerializer(serializers.ModelSerializer):
     Serializer chương học kèm danh sách các bài học con.
     """
     lessons = LessonSimpleSerializer(many=True, read_only=True)
-    total_lessons = serializers.IntegerField(source='lessons.count', read_only=True)
+    total_lessons = serializers.SerializerMethodField()
 
     class Meta:
         model = Chapter
         fields = ['id', 'title', 'description', 'order_index', 'total_lessons', 'lessons']
+
+    def get_total_lessons(self, obj):
+        return obj.lessons.count()
 
 
 class ChapterCreateUpdateSerializer(serializers.ModelSerializer):
@@ -195,7 +201,7 @@ class ChapterCreateUpdateSerializer(serializers.ModelSerializer):
         fields = ['title', 'description', 'order_index']
         extra_kwargs = {
             'description': {'required': False, 'allow_blank': True},
-            'order_index': {'required': False, 'default': 1}
+            'order_index': {'required': False, 'allow_null': True}
         }
 
 
