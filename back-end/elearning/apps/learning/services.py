@@ -1,7 +1,8 @@
 import uuid
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from apps.accounts.models import CustomUser
 from apps.courses.models import Course, Lesson, CourseStatus
 from .models import Enrollment, LessonProgress, Certificate, EnrollmentStatus
@@ -14,11 +15,6 @@ class EnrollmentService:
 
     @staticmethod
     def enroll_course(student: CustomUser, course_id: str) -> Tuple[bool, str, Enrollment | None]:
-        """
-        Ghi danh học viên vào một khóa học:
-        - Kiểm tra khóa học đã xuất bản (PUBLISHED) chưa.
-        - Khởi tạo tự động toàn bộ bản ghi LessonProgress cho các bài học trong khóa học.
-        """
         try:
             course_uuid = uuid.UUID(str(course_id))
             course = Course.objects.filter(id=course_uuid).first()
@@ -31,11 +27,9 @@ class EnrollmentService:
         if course.status != CourseStatus.PUBLISHED:
             return False, "Khóa học này hiện chưa mở đăng ký.", None
 
-        # Kiểm tra nếu học viên là chính giáo viên của khóa học
         if course.teacher == student:
             return False, "Giáo viên không cần ghi danh vào khóa học do chính mình giảng dạy.", None
 
-        # Kiểm tra xem học viên đã từng ghi danh khóa này chưa
         existing_enrollment = Enrollment.objects.filter(student=student, course=course).first()
         if existing_enrollment:
             if existing_enrollment.status == EnrollmentStatus.ACTIVE:
@@ -55,7 +49,6 @@ class EnrollmentService:
                 progress_percent=0.00
             )
 
-            # Tự động khởi tạo LessonProgress cho tất cả các bài học hiện có của khóa học
             lessons = Lesson.objects.filter(chapter__course=course)
             progress_list = [
                 LessonProgress(enrollment=enrollment, lesson=lesson, is_completed=False)
@@ -68,9 +61,6 @@ class EnrollmentService:
 
     @staticmethod
     def list_student_enrollments(student: CustomUser, filters: Dict[str, Any] = None):
-        """
-        Lấy danh sách các khóa học đã ghi danh của học viên kèm bộ lọc.
-        """
         filters = filters or {}
         queryset = Enrollment.objects.filter(student=student).select_related(
             'course__category', 'course__teacher'
@@ -92,9 +82,6 @@ class EnrollmentService:
 
     @staticmethod
     def get_student_enrollment_detail(student: CustomUser, course_identifier: str) -> Enrollment | None:
-        """
-        Lấy chi tiết tiến độ khóa học của học viên theo ID khóa học hoặc Slug.
-        """
         queryset = Enrollment.objects.filter(student=student).select_related(
             'course__category', 'course__teacher', 'certificate'
         ).prefetch_related(
@@ -109,3 +96,101 @@ class EnrollmentService:
             enrollment = queryset.filter(course__slug=course_identifier).first()
 
         return enrollment
+
+
+class ProgressService:
+    """
+    Tầng xử lý nghiệp vụ cho việc Theo dõi Tiến độ Bài học và Hoàn thành Khóa học.
+    """
+
+    @staticmethod
+    def _get_or_create_lesson_progress(student: CustomUser, lesson_id: str) -> Tuple[LessonProgress | None, str]:
+        try:
+            lesson_uuid = uuid.UUID(str(lesson_id))
+            lesson = Lesson.objects.select_related('chapter__course').filter(id=lesson_uuid).first()
+        except (ValueError, TypeError):
+            return None, "Mã bài học không hợp lệ."
+
+        if not lesson:
+            return None, "Không tìm thấy bài học yêu cầu."
+
+        course = lesson.chapter.course
+
+        # Tìm lần ghi danh của học viên vào khóa học này
+        enrollment = Enrollment.objects.filter(student=student, course=course).first()
+        if not enrollment:
+            return None, "Bạn chưa ghi danh vào khóa học chứa bài học này."
+
+        progress, _ = LessonProgress.objects.get_or_create(
+            enrollment=enrollment,
+            lesson=lesson,
+            defaults={'is_completed': False, 'last_watched_second': 0}
+        )
+
+        return progress, "Thành công"
+
+    @staticmethod
+    def track_video_progress(student: CustomUser, lesson_id: str, last_watched_second: int) -> Tuple[bool, str, LessonProgress | None]:
+        """
+        Lưu vị trí giây dừng video của học viên trong bài học.
+        """
+        progress, msg = ProgressService._get_or_create_lesson_progress(student, lesson_id)
+        if not progress:
+            return False, msg, None
+
+        progress.last_watched_second = last_watched_second
+        progress.save(update_fields=['last_watched_second', 'updated_at'])
+        return True, "Lưu tiến độ xem video thành công!", progress
+
+    @staticmethod
+    def complete_lesson(student: CustomUser, lesson_id: str) -> Tuple[bool, str, Optional[LessonProgress], Optional[Enrollment], Optional[Certificate]]:
+        """
+        Đánh dấu hoàn thành bài học, cập nhật % tiến độ khóa học và tự động cấp chứng chỉ khi đạt 100%.
+        """
+        progress, msg = ProgressService._get_or_create_lesson_progress(student, lesson_id)
+        if not progress:
+            return False, msg, None, None, None
+
+        enrollment = progress.enrollment
+        course = enrollment.course
+
+        with transaction.atomic():
+            progress.mark_as_completed()
+            enrollment.refresh_from_db()
+
+            certificate = None
+            # Nếu khóa học đã hoàn thành 100% thì tự động cấp Chứng chỉ nếu chưa có
+            if enrollment.progress_percent >= 100.0:
+                certificate = Certificate.objects.filter(enrollment=enrollment).first()
+                if not certificate:
+                    cert_code = Certificate.generate_unique_code(course.slug)
+                    certificate = Certificate.objects.create(
+                        enrollment=enrollment,
+                        certificate_code=cert_code
+                    )
+
+        return True, "Đánh dấu hoàn thành bài học thành công!", progress, enrollment, certificate
+
+
+class CertificateService:
+    """
+    Tầng xử lý nghiệp vụ cho việc Quản lý và Tra cứu Chứng chỉ hoàn thành.
+    """
+
+    @staticmethod
+    def list_student_certificates(student: CustomUser):
+        """
+        Lấy danh sách toàn bộ các chứng chỉ đã đạt được của học viên.
+        """
+        return Certificate.objects.filter(
+            enrollment__student=student
+        ).select_related('enrollment__course__teacher', 'enrollment__student').order_by('-issued_at')
+
+    @staticmethod
+    def get_certificate_by_code(certificate_code: str) -> Certificate | None:
+        """
+        Tra cứu và xác thực tính hợp lệ của chứng chỉ theo Mã Chứng Chỉ duy nhất.
+        """
+        return Certificate.objects.filter(
+            certificate_code=certificate_code.strip()
+        ).select_related('enrollment__student', 'enrollment__course__teacher').first()
