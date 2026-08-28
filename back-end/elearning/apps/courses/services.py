@@ -260,7 +260,7 @@ class CurriculumService:
         # 3. Học viên đã đăng nhập và đã đăng ký khóa học
         if user and user.is_authenticated:
             # Kiểm tra quan hệ ghi danh nếu có bảng enrollments
-            if hasattr(course, 'enrollments') and course.enrollments.filter(student=user, is_active=True).exists():
+            if hasattr(course, 'enrollments') and course.enrollments.filter(student=user, status__in=['ACTIVE', 'COMPLETED']).exists():
                 return lesson, True, "Thành công"
 
         return None, False, "Bạn cần đăng ký khóa học để xem toàn bộ nội dung bài giảng này."
