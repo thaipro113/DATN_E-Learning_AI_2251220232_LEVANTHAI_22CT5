@@ -39,6 +39,39 @@ class CertificateSimpleSerializer(serializers.ModelSerializer):
         fields = ['id', 'certificate_code', 'issued_at', 'pdf_url']
 
 
+class CertificateDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer hiển thị chi tiết chứng chỉ hoàn thành khóa học phục vụ Tra cứu & Xác thực.
+    """
+    student_name = serializers.CharField(source='enrollment.student.full_name', read_only=True)
+    student_email = serializers.CharField(source='enrollment.student.email', read_only=True)
+    student_avatar = serializers.CharField(source='enrollment.student.avatar_url', read_only=True)
+    course_title = serializers.CharField(source='enrollment.course.title', read_only=True)
+    course_slug = serializers.CharField(source='enrollment.course.slug', read_only=True)
+    course_level = serializers.CharField(source='enrollment.course.get_level_display', read_only=True)
+    teacher_name = serializers.CharField(source='enrollment.course.teacher.full_name', read_only=True)
+    enrolled_at = serializers.DateTimeField(source='enrollment.enrolled_at', read_only=True)
+    completed_at = serializers.DateTimeField(source='enrollment.completed_at', read_only=True)
+
+    class Meta:
+        model = Certificate
+        fields = [
+            'id',
+            'certificate_code',
+            'issued_at',
+            'pdf_url',
+            'student_name',
+            'student_email',
+            'student_avatar',
+            'course_title',
+            'course_slug',
+            'course_level',
+            'teacher_name',
+            'enrolled_at',
+            'completed_at'
+        ]
+
+
 class EnrollmentListSerializer(serializers.ModelSerializer):
     """
     Serializer hiển thị danh sách các khóa học mà học viên đã ghi danh (My Courses).
@@ -104,3 +137,13 @@ class TrackLessonProgressSerializer(serializers.Serializer):
         required=True,
         help_text="Số giây video bài học mà học viên đã xem đến"
     )
+
+
+class CompleteLessonResponseSerializer(serializers.Serializer):
+    """
+    Serializer phản hồi sau khi đánh dấu hoàn thành bài học.
+    """
+    lesson_progress = LessonProgressSimpleSerializer()
+    progress_percent = serializers.DecimalField(max_digits=5, decimal_places=2)
+    is_course_completed = serializers.BooleanField()
+    certificate = CertificateDetailSerializer(required=False, allow_null=True)
