@@ -11,9 +11,12 @@ from .serializers import (
     QuizDetailStudentSerializer,
     QuizCreateUpdateSerializer,
     QuestionDetailSerializer,
-    QuestionCreateUpdateSerializer
+    QuestionCreateUpdateSerializer,
+    QuizSubmissionRequestSerializer,
+    QuizAttemptResultSerializer,
+    QuizAttemptListSerializer
 )
-from .services import QuizService, QuestionService
+from .services import QuizService, QuestionService, GradingService
 from .schemas import (
     list_quizzes_schema,
     create_quiz_schema,
@@ -23,7 +26,11 @@ from .schemas import (
     create_question_schema,
     get_question_detail_schema,
     update_question_schema,
-    delete_question_schema
+    delete_question_schema,
+    start_quiz_schema,
+    submit_quiz_schema,
+    get_attempt_results_schema,
+    list_my_attempts_schema
 )
 
 
@@ -91,7 +98,6 @@ class QuizDetailAPIView(APIView):
                 status_code=status.HTTP_404_NOT_FOUND
             )
 
-        # Giáo viên tạo đề / Admin xem đầy đủ đáp án; Học viên xem bản ẩn đáp án đúng
         is_creator_or_admin = (
             request.user and request.user.is_authenticated and
             (request.user.role == 'ADMIN' or quiz.created_by == request.user)
@@ -280,3 +286,124 @@ class QuestionDetailAPIView(APIView):
             message="Đã xóa câu hỏi thành công!",
             status_code=status.HTTP_200_OK
         )
+
+
+# ==================== QUIZ TAKING & GRADING VIEWS ====================
+
+class StartQuizAttemptAPIView(APIView):
+    """
+    API Endpoint cho học viên bắt đầu làm bài thi.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @start_quiz_schema
+    def post(self, request, quiz_id):
+        success, message, attempt, quiz = GradingService.start_quiz_attempt(
+            student=request.user,
+            quiz_id=str(quiz_id)
+        )
+
+        if not success:
+            return error_response(
+                message=message,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        response_data = {
+            'attempt_id': attempt.id,
+            'quiz': QuizDetailStudentSerializer(quiz).data,
+            'started_at': attempt.started_at,
+            'time_limit_minutes': quiz.time_limit_minutes
+        }
+
+        return success_response(
+            data=response_data,
+            message=message,
+            status_code=status.HTTP_201_CREATED
+        )
+
+
+class SubmitQuizAttemptAPIView(APIView):
+    """
+    API Endpoint cho học viên nộp bài và nhận kết quả chấm điểm tự động.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @submit_quiz_schema
+    def post(self, request, attempt_id):
+        serializer = QuizSubmissionRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu nộp bài không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        success, message, attempt = GradingService.submit_quiz_attempt(
+            student=request.user,
+            attempt_id=str(attempt_id),
+            answers_data=serializer.validated_data.get('answers', [])
+        )
+
+        if not success:
+            return error_response(
+                message=message,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        return success_response(
+            data=QuizAttemptResultSerializer(attempt).data,
+            message=message,
+            status_code=status.HTTP_200_OK
+        )
+
+
+class QuizAttemptResultAPIView(APIView):
+    """
+    API Endpoint xem kết quả chi tiết, bảng điểm và lời giải của lần thi.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @get_attempt_results_schema
+    def get(self, request, attempt_id):
+        attempt = GradingService.get_attempt_results(
+            user=request.user,
+            attempt_id=str(attempt_id)
+        )
+
+        if not attempt:
+            return error_response(
+                message="Không tìm thấy lần thi hoặc bạn không có quyền xem kết quả này.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        return success_response(
+            data=QuizAttemptResultSerializer(attempt).data,
+            message="Lấy kết quả lần thi thành công!",
+            status_code=status.HTTP_200_OK
+        )
+
+
+class MyQuizAttemptsAPIView(APIView):
+    """
+    API Endpoint xem lịch sử tất cả các lần thi của học viên hiện tại.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @list_my_attempts_schema
+    def get(self, request):
+        filters = {
+            'quiz_id': request.query_params.get('quiz_id'),
+            'is_passed': request.query_params.get('is_passed'),
+        }
+
+        attempts = GradingService.list_student_attempts(
+            student=request.user,
+            filters=filters
+        )
+
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(attempts, request)
+        serializer = QuizAttemptListSerializer(page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)

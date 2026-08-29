@@ -1,5 +1,15 @@
 from rest_framework import serializers
-from .models import Quiz, Question, AnswerOption, QuizType, QuestionType, SkillType
+from .models import (
+    Quiz,
+    Question,
+    AnswerOption,
+    QuizAttempt,
+    StudentAnswer,
+    QuizType,
+    QuestionType,
+    SkillType,
+    AttemptStatus
+)
 from apps.courses.models import Course, Lesson
 from apps.accounts.models import EnglishLevel
 
@@ -130,7 +140,6 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         question_type = attrs.get('question_type', getattr(self.instance, 'question_type', None))
         options = attrs.get('options', [])
 
-        # Kiểm tra tính hợp lệ của đáp án trắc nghiệm
         if question_type in [QuestionType.SINGLE_CHOICE, QuestionType.TRUE_FALSE] and options:
             correct_count = sum(1 for opt in options if opt.get('is_correct', False))
             if correct_count != 1:
@@ -290,3 +299,183 @@ class QuizCreateUpdateSerializer(serializers.ModelSerializer):
             'passing_score': {'required': False, 'default': 50.00},
             'is_published': {'required': False, 'default': True}
         }
+
+
+# ==================== QUIZ ATTEMPT & SUBMISSION SERIALIZERS ====================
+
+class StartQuizAttemptResponseSerializer(serializers.Serializer):
+    """
+    Serializer phản hồi khi học viên bấm Bắt đầu làm bài thi.
+    """
+    attempt_id = serializers.UUIDField()
+    quiz = QuizDetailStudentSerializer()
+    started_at = serializers.DateTimeField()
+    time_limit_minutes = serializers.IntegerField()
+
+
+class StudentAnswerSubmissionItemSerializer(serializers.Serializer):
+    """
+    Serializer từng câu trả lời trong payload nộp bài của học viên.
+    """
+    question_id = serializers.UUIDField(required=True)
+    selected_option_id = serializers.UUIDField(required=False, allow_null=True)
+    text_answer = serializers.CharField(required=False, allow_blank=True, default='')
+
+
+class QuizSubmissionRequestSerializer(serializers.Serializer):
+    """
+    Serializer tiếp nhận danh sách toàn bộ câu trả lời khi nộp bài thi.
+    """
+    answers = serializers.ListField(
+        child=StudentAnswerSubmissionItemSerializer(),
+        required=True,
+        allow_empty=True
+    )
+
+
+class StudentAnswerDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer hiển thị chi tiết từng câu trả lời của học viên trong bảng kết quả.
+    """
+    question_id = serializers.UUIDField(source='question.id', read_only=True)
+    question_content = serializers.CharField(source='question.content', read_only=True)
+    question_type = serializers.CharField(source='question.question_type', read_only=True)
+    skill = serializers.CharField(source='question.skill', read_only=True)
+    skill_display = serializers.CharField(source='question.get_skill_display', read_only=True)
+    explanation = serializers.CharField(source='question.explanation', read_only=True)
+    max_points = serializers.DecimalField(source='question.points', max_digits=4, decimal_places=2, read_only=True)
+    selected_option_content = serializers.CharField(source='selected_option.content', read_only=True, default=None)
+    all_options = AnswerOptionSerializer(source='question.options', many=True, read_only=True)
+
+    class Meta:
+        model = StudentAnswer
+        fields = [
+            'id',
+            'question_id',
+            'question_content',
+            'question_type',
+            'skill',
+            'skill_display',
+            'selected_option',
+            'selected_option_content',
+            'text_answer',
+            'is_correct',
+            'score_earned',
+            'max_points',
+            'explanation',
+            'all_options'
+        ]
+
+
+class SkillPerformanceSerializer(serializers.Serializer):
+    """
+    Serializer phân tích năng lực chi tiết theo từng Kỹ năng (Listening, Reading, Grammar,...).
+    """
+    skill = serializers.CharField()
+    skill_display = serializers.CharField()
+    score_earned = serializers.FloatField()
+    max_score = serializers.FloatField()
+    percentage = serializers.FloatField()
+    total_questions = serializers.IntegerField()
+    correct_questions = serializers.IntegerField()
+
+
+class QuizAttemptResultSerializer(serializers.ModelSerializer):
+    """
+    Serializer hiển thị toàn bộ Báo cáo kết quả bài thi sau khi nộp bài (Điểm, %, Đỗ/Trượt, Kỹ năng, Chi tiết câu hỏi).
+    """
+    quiz_id = serializers.UUIDField(source='quiz.id', read_only=True)
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    quiz_type = serializers.CharField(source='quiz.quiz_type', read_only=True)
+    quiz_type_display = serializers.CharField(source='quiz.get_quiz_type_display', read_only=True)
+    passing_score = serializers.DecimalField(source='quiz.passing_score', max_digits=5, decimal_places=2, read_only=True)
+    time_spent_seconds = serializers.SerializerMethodField()
+    skill_breakdown = serializers.SerializerMethodField()
+    answers = StudentAnswerDetailSerializer(source='student_answers', many=True, read_only=True)
+
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            'id',
+            'quiz_id',
+            'quiz_title',
+            'quiz_type',
+            'quiz_type_display',
+            'started_at',
+            'completed_at',
+            'time_spent_seconds',
+            'score',
+            'max_score',
+            'percentage',
+            'passing_score',
+            'is_passed',
+            'status',
+            'skill_breakdown',
+            'answers'
+        ]
+
+    def get_time_spent_seconds(self, obj) -> int:
+        if obj.completed_at and obj.started_at:
+            return int((obj.completed_at - obj.started_at).total_seconds())
+        return 0
+
+    def get_skill_breakdown(self, obj):
+        # Tính toán tỷ lệ phần trăm theo từng kỹ năng
+        skill_stats = {}
+        for ans in obj.student_answers.select_related('question'):
+            q = ans.question
+            skill_code = q.skill
+            skill_label = q.get_skill_display()
+
+            if skill_code not in skill_stats:
+                skill_stats[skill_code] = {
+                    'skill': skill_code,
+                    'skill_display': skill_label,
+                    'score_earned': 0.0,
+                    'max_score': 0.0,
+                    'total_questions': 0,
+                    'correct_questions': 0
+                }
+
+            skill_stats[skill_code]['score_earned'] += float(ans.score_earned)
+            skill_stats[skill_code]['max_score'] += float(q.points)
+            skill_stats[skill_code]['total_questions'] += 1
+            if ans.is_correct:
+                skill_stats[skill_code]['correct_questions'] += 1
+
+        breakdown = []
+        for s in skill_stats.values():
+            pct = (s['score_earned'] / s['max_score'] * 100.0) if s['max_score'] > 0 else 0.0
+            s['percentage'] = round(pct, 2)
+            s['score_earned'] = round(s['score_earned'], 2)
+            s['max_score'] = round(s['max_score'], 2)
+            breakdown.append(s)
+
+        return breakdown
+
+
+class QuizAttemptListSerializer(serializers.ModelSerializer):
+    """
+    Serializer hiển thị danh sách lịch sử các lần thi của học viên (My Attempts).
+    """
+    quiz_id = serializers.UUIDField(source='quiz.id', read_only=True)
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    quiz_type = serializers.CharField(source='quiz.quiz_type', read_only=True)
+    quiz_type_display = serializers.CharField(source='quiz.get_quiz_type_display', read_only=True)
+
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            'id',
+            'quiz_id',
+            'quiz_title',
+            'quiz_type',
+            'quiz_type_display',
+            'started_at',
+            'completed_at',
+            'score',
+            'max_score',
+            'percentage',
+            'is_passed',
+            'status'
+        ]
