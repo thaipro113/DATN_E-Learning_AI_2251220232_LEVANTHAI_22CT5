@@ -1,9 +1,20 @@
 import uuid
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
+from decimal import Decimal
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from apps.accounts.models import CustomUser
-from .models import Quiz, Question, AnswerOption, QuizType
+from .models import (
+    Quiz,
+    Question,
+    AnswerOption,
+    QuizAttempt,
+    StudentAnswer,
+    QuizType,
+    QuestionType,
+    AttemptStatus
+)
 
 
 class QuizService:
@@ -172,3 +183,189 @@ class QuestionService:
         """
         question.delete()
         return True
+
+
+class GradingService:
+    """
+    Tầng xử lý nghiệp vụ cho việc Làm bài thi, Nộp bài và Thuật toán Chấm điểm tự động.
+    """
+
+    @staticmethod
+    def start_quiz_attempt(student: CustomUser, quiz_id: str) -> Tuple[bool, str, Optional[QuizAttempt], Optional[Quiz]]:
+        """
+        Học viên bắt đầu làm bài thi:
+        - Kiểm tra đề thi có tồn tại và đã phát hành hay chưa.
+        - Khởi tạo bản ghi QuizAttempt mới ở trạng thái IN_PROGRESS.
+        """
+        quiz = QuizService.get_quiz_detail(quiz_id=quiz_id, user=student)
+        if not quiz:
+            return False, "Không tìm thấy đề thi yêu cầu hoặc đề thi chưa mở.", None, None
+
+        if quiz.total_questions == 0:
+            return False, "Đề thi này hiện chưa có câu hỏi nào để làm bài.", None, None
+
+        # Kiểm tra xem học viên có lần thi đang làm dở (IN_PROGRESS) hay không
+        active_attempt = QuizAttempt.objects.filter(
+            student=student,
+            quiz=quiz,
+            status=AttemptStatus.IN_PROGRESS
+        ).first()
+
+        if active_attempt:
+            # Cho phép tiếp tục bài thi đang dở
+            return True, "Tiếp tục bài thi đang làm dở.", active_attempt, quiz
+
+        # Tạo lần thi mới
+        attempt = QuizAttempt.objects.create(
+            student=student,
+            quiz=quiz,
+            status=AttemptStatus.IN_PROGRESS,
+            max_score=Decimal(str(quiz.total_points))
+        )
+
+        return True, "Bắt đầu làm bài thi thành công!", attempt, quiz
+
+    @staticmethod
+    def submit_quiz_attempt(student: CustomUser, attempt_id: str, answers_data: List[Dict[str, Any]]) -> Tuple[bool, str, Optional[QuizAttempt]]:
+        """
+        Thuật toán chấm điểm tự động (Automated Grading Algorithm):
+        1. Đối chiếu từng câu trả lời của học viên với đáp án chính xác trong CSDL.
+        2. Tính điểm theo từng câu và tính tổng điểm toàn bài.
+        3. Tính tỷ lệ % đúng và cập nhật trạng thái đỗ/trượt (is_passed).
+        """
+        try:
+            attempt_uuid = uuid.UUID(str(attempt_id))
+            attempt = QuizAttempt.objects.select_related('quiz').filter(
+                id=attempt_uuid,
+                student=student
+            ).first()
+        except (ValueError, TypeError):
+            return False, "Mã lần thi không hợp lệ.", None
+
+        if not attempt:
+            return False, "Không tìm thấy lần thi yêu cầu của bạn.", None
+
+        if attempt.status == AttemptStatus.COMPLETED:
+            return False, "Lần thi này đã được nộp bài và chấm điểm trước đó.", attempt
+
+        quiz = attempt.quiz
+        questions = quiz.questions.prefetch_related('options').all()
+
+        # Tạo dictionary tra cứu câu trả lời của học viên: {str(question_id): answer_item}
+        submission_dict = {}
+        for item in answers_data:
+            q_id_str = str(item.get('question_id'))
+            submission_dict[q_id_str] = item
+
+        total_score_earned = Decimal('0.00')
+        max_possible_score = Decimal('0.00')
+        student_answers_to_create = []
+
+        with transaction.atomic():
+            for question in questions:
+                max_possible_score += question.points
+                q_id_str = str(question.id)
+                student_sub = submission_dict.get(q_id_str)
+
+                is_correct = False
+                score_earned = Decimal('0.00')
+                selected_option = None
+                text_answer = ''
+
+                if student_sub:
+                    opt_id = student_sub.get('selected_option_id')
+                    text_answer = student_sub.get('text_answer', '').strip()
+
+                    # 1. Chấm câu hỏi trắc nghiệm (Single choice / True False)
+                    if question.question_type in [QuestionType.SINGLE_CHOICE, QuestionType.TRUE_FALSE] and opt_id:
+                        selected_option = next((opt for opt in question.options.all() if str(opt.id) == str(opt_id)), None)
+                        if selected_option and selected_option.is_correct:
+                            is_correct = True
+                            score_earned = question.points
+
+                    # 2. Chấm câu hỏi điền từ (Fill in the blank)
+                    elif question.question_type == QuestionType.FILL_IN_THE_BLANK and text_answer:
+                        correct_options = [opt.content.strip().lower() for opt in question.options.all() if opt.is_correct]
+                        if text_answer.lower() in correct_options:
+                            is_correct = True
+                            score_earned = question.points
+
+                    # 3. Chấm câu hỏi trắc nghiệm nhiều đáp án (Multiple Choice)
+                    elif question.question_type == QuestionType.MULTIPLE_CHOICE and opt_id:
+                        selected_option = next((opt for opt in question.options.all() if str(opt.id) == str(opt_id)), None)
+                        if selected_option and selected_option.is_correct:
+                            is_correct = True
+                            score_earned = question.points
+
+                total_score_earned += score_earned
+
+                student_answers_to_create.append(
+                    StudentAnswer(
+                        attempt=attempt,
+                        question=question,
+                        selected_option=selected_option,
+                        text_answer=text_answer,
+                        is_correct=is_correct,
+                        score_earned=score_earned
+                    )
+                )
+
+            # Xóa các câu trả lời cũ nếu có và lưu toàn bộ câu trả lời mới
+            attempt.student_answers.all().delete()
+            StudentAnswer.objects.bulk_create(student_answers_to_create)
+
+            # Cập nhật kết quả lần thi
+            percentage = Decimal('0.00')
+            if max_possible_score > 0:
+                percentage = Decimal(str(round((total_score_earned / max_possible_score) * 100, 2)))
+
+            is_passed = bool(percentage >= quiz.passing_score)
+
+            attempt.score = total_score_earned
+            attempt.max_score = max_possible_score
+            attempt.percentage = percentage
+            attempt.is_passed = is_passed
+            attempt.status = AttemptStatus.COMPLETED
+            attempt.completed_at = timezone.now()
+            attempt.save()
+
+        return True, "Nộp bài và chấm điểm thành công!", attempt
+
+    @staticmethod
+    def get_attempt_results(user: CustomUser, attempt_id: str) -> Optional[QuizAttempt]:
+        """
+        Lấy chi tiết bảng điểm và lời giải thích của lần thi.
+        - Học viên: Chỉ xem được lần thi của chính mình.
+        - Giáo viên/Admin: Xem được của tất cả học viên.
+        """
+        try:
+            attempt_uuid = uuid.UUID(str(attempt_id))
+            queryset = QuizAttempt.objects.select_related('quiz', 'student').prefetch_related(
+                'student_answers__question__options',
+                'student_answers__selected_option'
+            )
+
+            if user.role != 'ADMIN' and user.role != 'TEACHER':
+                queryset = queryset.filter(student=user)
+
+            return queryset.filter(id=attempt_uuid).first()
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def list_student_attempts(student: CustomUser, filters: Dict[str, Any] = None):
+        """
+        Lấy danh sách lịch sử thi của học viên.
+        """
+        filters = filters or {}
+        queryset = QuizAttempt.objects.filter(student=student).select_related('quiz')
+
+        quiz_id = filters.get('quiz_id')
+        if quiz_id:
+            queryset = queryset.filter(quiz_id=quiz_id)
+
+        is_passed = filters.get('is_passed')
+        if is_passed is not None:
+            queryset = queryset.filter(is_passed=(is_passed.lower() == 'true'))
+
+        return queryset.order_by('-started_at')

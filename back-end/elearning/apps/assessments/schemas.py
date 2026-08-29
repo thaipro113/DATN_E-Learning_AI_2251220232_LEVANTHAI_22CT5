@@ -6,7 +6,11 @@ from .serializers import (
     QuizDetailStudentSerializer,
     QuizCreateUpdateSerializer,
     QuestionDetailSerializer,
-    QuestionCreateUpdateSerializer
+    QuestionCreateUpdateSerializer,
+    StartQuizAttemptResponseSerializer,
+    QuizSubmissionRequestSerializer,
+    QuizAttemptResultSerializer,
+    QuizAttemptListSerializer
 )
 
 # ==================== QUIZ SCHEMAS ====================
@@ -140,5 +144,70 @@ delete_question_schema = extend_schema(
         200: OpenApiResponse(description='Xóa câu hỏi thành công'),
         403: OpenApiResponse(description='Không có quyền xóa câu hỏi này'),
         404: OpenApiResponse(description='Không tìm thấy câu hỏi')
+    }
+)
+
+
+# ==================== QUIZ TAKING & GRADING SCHEMAS ====================
+
+start_quiz_schema = extend_schema(
+    tags=['Assessments - Quiz Taking'],
+    summary='Bắt đầu làm bài thi (Học viên)',
+    description='Học viên bấm bắt đầu làm bài. Hệ thống tạo lần thi `QuizAttempt` mới và trả về danh sách câu hỏi làm bài (ẩn đáp án đúng).',
+    responses={
+        201: OpenApiResponse(
+            description='Bắt đầu làm bài thành công',
+            response=StartQuizAttemptResponseSerializer
+        ),
+        400: OpenApiResponse(description='Đề thi chưa có câu hỏi nào'),
+        401: OpenApiResponse(description='Chưa xác thực'),
+        404: OpenApiResponse(description='Không tìm thấy đề thi')
+    }
+)
+
+submit_quiz_schema = extend_schema(
+    tags=['Assessments - Quiz Taking'],
+    summary='Nộp bài thi & Chấm điểm tự động (Học viên)',
+    description='Gửi toàn bộ danh sách câu trả lời của học viên. Hệ thống tự động chấm điểm, tính tỷ lệ % đúng, đánh giá đỗ/trượt và phân tích chi tiết từng kỹ năng.',
+    request=QuizSubmissionRequestSerializer,
+    responses={
+        200: OpenApiResponse(
+            description='Chấm điểm thành công',
+            response=QuizAttemptResultSerializer
+        ),
+        400: OpenApiResponse(description='Bài thi đã nộp trước đó hoặc dữ liệu không hợp lệ'),
+        401: OpenApiResponse(description='Chưa xác thực'),
+        404: OpenApiResponse(description='Không tìm thấy lần thi')
+    }
+)
+
+get_attempt_results_schema = extend_schema(
+    tags=['Assessments - Quiz Taking'],
+    summary='Xem kết quả & Lời giải chi tiết của lần thi',
+    description='Xem bảng điểm, biểu đồ phân tích kỹ năng, chi tiết từng câu trả lời đúng/sai và lời giải thích.',
+    responses={
+        200: OpenApiResponse(
+            description='Lấy kết quả thành công',
+            response=QuizAttemptResultSerializer
+        ),
+        401: OpenApiResponse(description='Chưa xác thực'),
+        404: OpenApiResponse(description='Không tìm thấy lần thi')
+    }
+)
+
+list_my_attempts_schema = extend_schema(
+    tags=['Assessments - Quiz Taking'],
+    summary='Lịch sử làm bài thi của tôi (Học viên)',
+    description='Lấy danh sách tất cả các lần thi đã thực hiện của học viên.',
+    parameters=[
+        OpenApiParameter(name='quiz_id', type=OpenApiTypes.UUID, location=OpenApiParameter.QUERY, description='Lọc theo đề thi cụ thể'),
+        OpenApiParameter(name='is_passed', type=OpenApiTypes.BOOL, location=OpenApiParameter.QUERY, description='Lọc theo kết quả Đạt (true) hoặc Không đạt (false)'),
+    ],
+    responses={
+        200: OpenApiResponse(
+            description='Lấy lịch sử thành công',
+            response=QuizAttemptListSerializer(many=True)
+        ),
+        401: OpenApiResponse(description='Chưa xác thực')
     }
 )
