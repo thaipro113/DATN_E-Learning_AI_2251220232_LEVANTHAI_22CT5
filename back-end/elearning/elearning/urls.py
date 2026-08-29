@@ -29,7 +29,7 @@ urlpatterns = [
     path('api/v1/courses/', include('apps.courses.urls')),
     path('api/v1/learning/', include('apps.learning.urls')),
     path('api/v1/assessments/', include('apps.assessments.urls')),
-    # path('api/v1/ai/', include('apps.ai.urls')),
+    path('api/v1/ai/', include('apps.ai.urls')),
     # path('api/v1/recommendations/', include('apps.recommendations.urls')),
     # path('api/v1/quiz-import/', include('apps.quiz_import.urls')),
 ]
