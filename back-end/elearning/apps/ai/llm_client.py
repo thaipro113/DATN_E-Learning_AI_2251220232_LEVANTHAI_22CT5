@@ -4,10 +4,15 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple, Optional
 from django.conf import settings
-import urllib.request
-import urllib.error
 
 from .prompts import GRAMMAR_ANALYZER_SYSTEM_PROMPT
+
+try:
+    from google import genai
+    from google.genai import types
+    HAS_GOOGLE_GENAI = True
+except ImportError:
+    HAS_GOOGLE_GENAI = False
 
 logger = logging.getLogger(__name__)
 
@@ -39,87 +44,97 @@ class BaseLLMProvider(ABC):
 
 class GeminiLLMProvider(BaseLLMProvider):
     """
-    Tích hợp trực tiếp Google Gemini API (gemini-1.5-flash / gemini-1.5-pro).
+    Tích hợp trực tiếp Google Gemini API (gemini-3.6-flash / gemini-3.7-flash).
+    Sử dụng Google GenAI SDK chính hãng.
     """
 
-    def __init__(self, api_key: str, model: str = 'gemini-1.5-flash'):
+    def __init__(self, api_key: str, model: str = 'gemini-3.6-flash'):
         self.api_key = api_key
         self.model = model
-        self.endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+        self.client = genai.Client(api_key=self.api_key) if HAS_GOOGLE_GENAI else None
 
     def generate_chat_response(
         self,
         messages: List[Dict[str, str]],
         system_prompt: str
     ) -> Tuple[str, Dict[str, Any], int, str]:
-        contents = []
-        # Chuyển đổi lịch sử hội thoại sang format của Gemini API
-        for msg in messages:
-            role = 'user' if msg.get('role') == 'user' else 'model'
-            contents.append({
-                'role': role,
-                'parts': [{'text': msg.get('content', '')}]
-            })
+        if self.client:
+            try:
+                formatted_contents = []
+                for msg in messages:
+                    role = 'user' if msg.get('role') == 'user' else 'model'
+                    formatted_contents.append(f"{role.upper()}: {msg.get('content', '')}")
 
-        payload = {
-            'contents': contents,
-            'systemInstruction': {
-                'parts': [{'text': system_prompt}]
-            },
-            'generationConfig': {
-                'temperature': 0.7,
-                'maxOutputTokens': 1024
-            }
-        }
+                full_prompt = (
+                    f"SYSTEM INSTRUCTION:\n{system_prompt}\n\n"
+                    f"CONVERSATION HISTORY:\n" + "\n".join(formatted_contents)
+                )
 
-        try:
-            req = urllib.request.Request(
-                self.endpoint,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json'}
-            )
-            with urllib.request.urlopen(req, timeout=15) as response:
-                result = json.loads(response.read().decode('utf-8'))
-                candidates = result.get('candidates', [])
-                if candidates:
-                    parts = candidates[0].get('content', {}).get('parts', [])
-                    reply_text = parts[0].get('text', '') if parts else ''
-                    token_count = result.get('usageMetadata', {}).get('totalTokenCount', 150)
-                    return reply_text, {}, token_count, self.model
-        except Exception as e:
-            logger.warning(f"Gemini API call failed: {e}. Falling back to Mock Provider.")
+                config = types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=1024,
+                )
 
-        # Fallback nếu gọi API thất bại
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=full_prompt,
+                    config=config
+                )
+
+                reply_text = response.text or ""
+                token_count = 150
+                if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                    token_count = getattr(response.usage_metadata, 'total_token_count', 150)
+
+                # Phân tích lỗi ngữ pháp trong câu của học viên nếu có
+                last_user_text = ""
+                for m in reversed(messages):
+                    if m.get('role') == 'user':
+                        last_user_text = m.get('content', '')
+                        break
+
+                grammar_analysis = self.analyze_grammar(last_user_text) if last_user_text else {}
+                return reply_text, grammar_analysis, token_count, self.model
+
+            except Exception as e:
+                logger.warning(f"Gemini SDK call failed: {e}. Falling back to Mock Provider.")
+
+        # Fallback nếu gọi API không thành công
         return FallbackMockLLMProvider().generate_chat_response(messages, system_prompt)
 
     def analyze_grammar(self, text: str, target_level: str = 'B1') -> Dict[str, Any]:
-        payload = {
-            'contents': [
-                {'role': 'user', 'parts': [{'text': f"Vui lòng phân tích đoạn văn bản tiếng Anh sau:\n\n{text}"}]}
-            ],
-            'systemInstruction': {
-                'parts': [{'text': GRAMMAR_ANALYZER_SYSTEM_PROMPT}]
-            },
-            'generationConfig': {
-                'temperature': 0.2,
-                'responseMimeType': 'application/json'
-            }
-        }
+        if self.client and text.strip():
+            try:
+                prompt = (
+                    f"{GRAMMAR_ANALYZER_SYSTEM_PROMPT}\n\n"
+                    f"Trình độ học viên mục tiêu: {target_level}\n"
+                    f"Văn bản cần kiểm tra:\n{text}\n\n"
+                    "LƯU Ý: Chỉ trả về JSON hợp lệ, không có bất kỳ văn bản giải thích nào ngoài khối JSON."
+                )
 
-        try:
-            req = urllib.request.Request(
-                self.endpoint,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json'}
-            )
-            with urllib.request.urlopen(req, timeout=15) as response:
-                result = json.loads(response.read().decode('utf-8'))
-                candidates = result.get('candidates', [])
-                if candidates:
-                    raw_json = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
-                    return json.loads(raw_json)
-        except Exception as e:
-            logger.warning(f"Gemini Grammar Analysis failed: {e}. Falling back to Mock Provider.")
+                config = types.GenerateContentConfig(
+                    temperature=0.2,
+                    response_mime_type="application/json"
+                )
+
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=config
+                )
+
+                raw_text = response.text.strip()
+                if raw_text.startswith('```json'):
+                    raw_text = raw_text[7:]
+                if raw_text.startswith('```'):
+                    raw_text = raw_text[3:]
+                if raw_text.endswith('```'):
+                    raw_text = raw_text[:-3]
+
+                return json.loads(raw_text.strip())
+
+            except Exception as e:
+                logger.warning(f"Gemini Grammar Analysis via SDK failed: {e}. Falling back to Mock Provider.")
 
         return FallbackMockLLMProvider().analyze_grammar(text, target_level)
 
@@ -139,6 +154,7 @@ class GroqLLMProvider(BaseLLMProvider):
         messages: List[Dict[str, str]],
         system_prompt: str
     ) -> Tuple[str, Dict[str, Any], int, str]:
+        import urllib.request
         formatted_messages = [{'role': 'system', 'content': system_prompt}]
         for msg in messages:
             formatted_messages.append({
@@ -173,6 +189,7 @@ class GroqLLMProvider(BaseLLMProvider):
         return FallbackMockLLMProvider().generate_chat_response(messages, system_prompt)
 
     def analyze_grammar(self, text: str, target_level: str = 'B1') -> Dict[str, Any]:
+        import urllib.request
         payload = {
             'model': self.model,
             'messages': [
@@ -294,7 +311,7 @@ def get_llm_provider() -> BaseLLMProvider:
     """
     gemini_key = os.getenv('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', '')
     if gemini_key:
-        return GeminiLLMProvider(api_key=gemini_key)
+        return GeminiLLMProvider(api_key=gemini_key, model='gemini-3.6-flash')
 
     groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
     if groq_key:
