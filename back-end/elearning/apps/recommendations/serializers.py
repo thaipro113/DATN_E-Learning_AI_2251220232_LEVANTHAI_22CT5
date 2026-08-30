@@ -23,12 +23,12 @@ class CourseMiniSerializer(serializers.ModelSerializer):
             'id',
             'title',
             'slug',
-            'thumbnail',
+            'thumbnail_url',
             'level',
             'level_display',
             'category_name',
-            'rating',
-            'total_students'
+            'price',
+            'is_free'
         ]
 
 

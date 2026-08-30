@@ -125,8 +125,8 @@ class CourseRecommendationService:
 
         # 3. Lọc các khóa học chưa đăng ký và đang phát hành
         candidate_courses = Course.objects.filter(
-            is_published=True
-        ).exclude(id__in=enrolled_course_ids).select_related('category', 'instructor')
+            status='PUBLISHED'
+        ).exclude(id__in=enrolled_course_ids).select_related('category', 'teacher')
 
         scored_courses = []
         for course in candidate_courses:
@@ -245,7 +245,7 @@ class LearningPathService:
             )
 
             # 4. Tìm kiếm nội dung phù hợp trong CSDL để gắn vào lộ trình
-            available_courses = list(Course.objects.filter(is_published=True)[:3])
+            available_courses = list(Course.objects.filter(status='PUBLISHED')[:3])
             available_quizzes = list(Quiz.objects.filter(is_published=True)[:3])
 
             step_course = available_courses[0] if available_courses else None
