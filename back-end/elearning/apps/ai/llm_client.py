@@ -97,7 +97,10 @@ class GeminiLLMProvider(BaseLLMProvider):
                 return reply_text, grammar_analysis, token_count, self.model
 
             except Exception as e:
-                logger.warning(f"Gemini SDK call failed: {e}. Falling back to Mock Provider.")
+                logger.warning(f"Gemini SDK call failed: {e}. Trying Groq fallback...")
+                groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
+                if groq_key:
+                    return GroqLLMProvider(api_key=groq_key).generate_chat_response(messages, system_prompt)
 
         # Fallback nếu gọi API không thành công
         return FallbackMockLLMProvider().generate_chat_response(messages, system_prompt)
@@ -134,17 +137,20 @@ class GeminiLLMProvider(BaseLLMProvider):
                 return json.loads(raw_text.strip())
 
             except Exception as e:
-                logger.warning(f"Gemini Grammar Analysis via SDK failed: {e}. Falling back to Mock Provider.")
+                logger.warning(f"Gemini Grammar Analysis failed: {e}. Trying Groq fallback...")
+                groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
+                if groq_key:
+                    return GroqLLMProvider(api_key=groq_key).analyze_grammar(text, target_level)
 
         return FallbackMockLLMProvider().analyze_grammar(text, target_level)
 
 
 class GroqLLMProvider(BaseLLMProvider):
     """
-    Tích hợp Groq Cloud API (Llama-3.1, Mixtral) với tốc độ phản hồi cực nhanh.
+    Tích hợp Groq Cloud API (Qwen 3.8 27B / GPT-OSS) với tốc độ phản hồi cực nhanh.
     """
 
-    def __init__(self, api_key: str, model: str = 'llama-3.1-70b-versatile'):
+    def __init__(self, api_key: str, model: str = 'qwen/qwen3.8-27b'):
         self.api_key = api_key
         self.model = model
         self.endpoint = "https://api.groq.com/openai/v1/chat/completions"
@@ -175,7 +181,8 @@ class GroqLLMProvider(BaseLLMProvider):
                 data=json.dumps(payload).encode('utf-8'),
                 headers={
                     'Content-Type': 'application/json',
-                    'Authorization': f"Bearer {self.api_key}"
+                    'Authorization': f"Bearer {self.api_key}",
+                    'User-Agent': 'Mozilla/5.0'
                 }
             )
             with urllib.request.urlopen(req, timeout=15) as response:
@@ -206,7 +213,8 @@ class GroqLLMProvider(BaseLLMProvider):
                 data=json.dumps(payload).encode('utf-8'),
                 headers={
                     'Content-Type': 'application/json',
-                    'Authorization': f"Bearer {self.api_key}"
+                    'Authorization': f"Bearer {self.api_key}",
+                    'User-Agent': 'Mozilla/5.0'
                 }
             )
             with urllib.request.urlopen(req, timeout=15) as response:
