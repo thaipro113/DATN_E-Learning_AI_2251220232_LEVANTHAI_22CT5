@@ -75,7 +75,7 @@ class RawTextQuizParser(BaseQuizParser):
 
         questions = []
         # Tách các khối câu hỏi dựa trên số thứ tự câu (VD: "1.", "Câu 1:", "Question 1:")
-        raw_blocks = re.split(r'\n(?=(?:Câu\s*\d+[:.]|\d+[:.]|Question\s*\d+[:.]))\s*', text.strip())
+        raw_blocks = re.split(r'\n\s*(?=(?:Câu\s*\d+[:.]|\d+[:.]|Question\s*\d+[:.]))\s*', text.strip())
 
         for block in raw_blocks:
             if not block.strip():
