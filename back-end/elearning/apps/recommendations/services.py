@@ -132,11 +132,20 @@ class CourseRecommendationService:
         for course in candidate_courses:
             score = 50.0  # Điểm cơ sở
 
-            # Cộng điểm nếu trình độ khóa học trùng hoặc tiệm cận trình độ học viên
-            if course.level == student.level or course.level == 'ALL':
-                score += 30.0
-            elif course.level in [EnglishLevel.B1, EnglishLevel.B2]:
-                score += 15.0
+            # Ưu tiên số 1: Trình độ khóa học trùng khớp chính xác với trình độ học viên (ví dụ B1)
+            if course.level == student.level:
+                score += 40.0
+            # Ưu tiên số 2: Trình độ khóa học kế tiếp (ví dụ B1 -> B2 để nâng cao mục tiêu)
+            elif student.level == EnglishLevel.B1 and course.level == EnglishLevel.B2:
+                score += 25.0
+            elif student.level == EnglishLevel.A2 and course.level == EnglishLevel.B1:
+                score += 25.0
+            elif student.level == EnglishLevel.B2 and course.level == EnglishLevel.C1:
+                score += 25.0
+            elif course.level == 'ALL' or course.level == EnglishLevel.ALL:
+                score += 20.0
+            else:
+                score += 10.0
 
             # Cộng điểm nếu tiêu đề hoặc mô tả chứa từ khóa kỹ năng yếu
             for skill in weakest_skills:
@@ -148,8 +157,8 @@ class CourseRecommendationService:
             final_score = min(score, 99.0)
 
             reason = (
-                f"Khóa học này phù hợp với trình độ {student.get_level_display()} của bạn "
-                f"và giúp tăng cường các kỹ năng trọng tâm cần cải thiện."
+                f"Khóa học CEFR {course.get_level_display()} được gợi ý phù hợp với trình độ {student.get_level_display()} của bạn "
+                f"để củng cố kiến thức trọng tâm và nâng cao năng lực."
             )
 
             scored_courses.append((course, final_score, reason))

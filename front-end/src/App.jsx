@@ -18,7 +18,7 @@ import UserProfileModal from './components/UserProfileModal';
 import CertificateVerifyView from './components/CertificateVerifyView';
 import GuestUdemyHomeView from './components/GuestUdemyHomeView';
 import CourseDetailModal from './components/CourseDetailModal';
-import { recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
+import { authAPI, recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
 
 export default function App() {
   // Lấy tab ban đầu từ URL hash nếu có
@@ -58,6 +58,32 @@ export default function App() {
       level: 'B1',
     };
   });
+
+  // Tự động kiểm tra và đồng bộ Profile từ CSDL mỗi khi F5 / mở lại trang
+  useEffect(() => {
+    const syncUserProfileOnLoad = async () => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          const res = await authAPI.getProfile();
+          const liveUser = res.data?.data || res.data;
+          if (liveUser) {
+            setUser(liveUser);
+            setIsLoggedIn(true);
+            localStorage.setItem('user_info', JSON.stringify(liveUser));
+          }
+        } catch (err) {
+          if (err.response?.status === 401) {
+            handleLogout();
+          }
+        }
+      } else {
+        setIsLoggedIn(false);
+      }
+    };
+
+    syncUserProfileOnLoad();
+  }, []);
 
   // Dữ liệu SỐNG từ Database PostgreSQL
   const [learningPath, setLearningPath] = useState(null);
@@ -121,7 +147,7 @@ export default function App() {
 
   useEffect(() => {
     fetchAllLiveData();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, user?.level]);
 
   // Xử lý Đăng nhập thành công
   const handleLoginSuccess = (loggedInUser) => {
@@ -503,7 +529,10 @@ export default function App() {
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         user={user}
-        onUpdateUserSuccess={(updated) => setUser(updated)}
+        onUpdateUserSuccess={(updated) => {
+          setUser(updated);
+          fetchAllLiveData();
+        }}
       />
 
       {/* 8. Mobile Bottom Navigation Bar */}

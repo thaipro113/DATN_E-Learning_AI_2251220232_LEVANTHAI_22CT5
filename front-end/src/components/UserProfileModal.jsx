@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { authAPI } from '../services/api';
 
 export default function UserProfileModal({ isOpen, onClose, user, onUpdateUserSuccess }) {
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' or 'password'
   
   // Profile state
-  const [fullName, setFullName] = useState(user?.full_name || '');
-  const [bio, setBio] = useState(user?.bio || '');
-  const [level, setLevel] = useState(user?.level || 'B1');
-  const [phone, setPhone] = useState(user?.phone_number || '');
+  const [fullName, setFullName] = useState('');
+  const [bio, setBio] = useState('');
+  const [level, setLevel] = useState('B1');
+  const [phone, setPhone] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   // Password state
@@ -17,6 +17,20 @@ export default function UserProfileModal({ isOpen, onClose, user, onUpdateUserSu
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
+
+  // Đồng bộ lại form mỗi khi mở modal hoặc khi prop user thay đổi
+  useEffect(() => {
+    if (isOpen && user) {
+      setFullName(user.full_name || '');
+      setBio(user.bio || '');
+      setLevel(user.level || 'B1');
+      setPhone(user.phone_number || '');
+      setMsg({ type: '', text: '' });
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+  }, [isOpen, user]);
 
   if (!isOpen) return null;
 
@@ -30,15 +44,15 @@ export default function UserProfileModal({ isOpen, onClose, user, onUpdateUserSu
         bio: bio.trim(),
         level: level,
       });
-      const updated = res.data?.data || { ...user, full_name: fullName, bio, level };
+      const updated = res.data?.data || { ...user, full_name: fullName.trim(), bio: bio.trim(), level };
       localStorage.setItem('user_info', JSON.stringify(updated));
       if (onUpdateUserSuccess) onUpdateUserSuccess(updated);
       setMsg({ type: 'success', text: '✓ Cập nhật hồ sơ cá nhân thành công!' });
     } catch (err) {
-      setMsg({ type: 'success', text: '✓ Đã lưu thay đổi hồ sơ!' });
-      const updated = { ...user, full_name: fullName, bio, level };
+      const updated = { ...user, full_name: fullName.trim(), bio: bio.trim(), level };
       localStorage.setItem('user_info', JSON.stringify(updated));
       if (onUpdateUserSuccess) onUpdateUserSuccess(updated);
+      setMsg({ type: 'success', text: '✓ Đã lưu thay đổi hồ sơ!' });
     } finally {
       setIsUpdatingProfile(false);
     }
