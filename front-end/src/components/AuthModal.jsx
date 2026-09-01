@@ -13,6 +13,13 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   if (!isOpen) return null;
 
+  const handleQuickFill = (demoEmail, demoPassword, demoRole, demoName) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setRole(demoRole);
+    setFullName(demoName);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -21,7 +28,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     try {
       if (isRegisterMode) {
         // Đăng ký tài khoản mới
-        const res = await authAPI.register({
+        await authAPI.register({
           email,
           password,
           full_name: fullName,
@@ -37,15 +44,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           const { access, refresh, user } = res.data?.data || {};
           if (access) localStorage.setItem('access_token', access);
           if (refresh) localStorage.setItem('refresh_token', refresh);
-          onLoginSuccess(user || { email, full_name: 'Lê Văn Thái', role, level: targetLevel });
+          onLoginSuccess(user || { email, full_name: fullName || 'Lê Văn Thái', role, level: targetLevel });
           onClose();
         } catch (apiErr) {
-          // Fallback demo login nếu backend chưa chạy
+          // Fallback demo session nếu offline
           console.warn('API login error, using fallback demo session:', apiErr);
+          const computedRole = email.includes('teacher') ? 'TEACHER' : email.includes('admin') ? 'ADMIN' : role;
+          const computedName = fullName || (computedRole === 'TEACHER' ? 'Thầy Nguyễn Văn An' : computedRole === 'ADMIN' ? 'Admin Quản Trị Hệ Thống' : 'Lê Văn Thái');
           onLoginSuccess({
             email,
-            full_name: fullName || (email.includes('teacher') ? 'Thầy Lê Văn Thái' : email.includes('admin') ? 'Admin Hệ Thống' : 'Lê Văn Thái'),
-            role: email.includes('teacher') ? 'TEACHER' : email.includes('admin') ? 'ADMIN' : role,
+            full_name: computedName,
+            role: computedRole,
             level: targetLevel,
           });
           onClose();
@@ -67,7 +76,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.6)',
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -79,26 +88,63 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderRadius: 'var(--radius-lg)',
-          maxWidth: '460px',
+          maxWidth: '480px',
           width: '100%',
           padding: '28px',
           boxShadow: 'var(--shadow-lg)',
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="brand-logo-icon" style={{ width: '32px', height: '32px', fontSize: '0.95rem' }}>
+            <div className="brand-logo-icon" style={{ width: '34px', height: '34px', fontSize: '1rem' }}>
               <i className="fa-solid fa-graduation-cap"></i>
             </div>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
-              {isRegisterMode ? 'Đăng Ký Tài Khoản Mới' : 'Đăng Nhập E-Learning AI'}
-            </h3>
+            <div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                {isRegisterMode ? 'Đăng Ký Tài Khoản Mới' : 'Đăng Nhập E-Learning AI'}
+              </h3>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                Hệ thống học tập cá nhân hóa & Gia sư AI tiếng Anh
+              </p>
+            </div>
           </div>
           <button onClick={onClose} style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>
             <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
+
+        {/* Quick Demo Fill Buttons */}
+        {!isRegisterMode && (
+          <div style={{ padding: '12px', borderRadius: 'var(--radius-md)', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#64748b', display: 'block', marginBottom: '8px' }}>
+              ⚡ CHỌN NHANH TÀI KHOẢN MẪU (DATABASE SEEDER):
+            </span>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('thaipro1132004@gmail.com', 'levanthai113', 'STUDENT', 'Lê Văn Thái')}
+                style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0284c7', fontSize: '0.72rem', fontWeight: '700', border: '1px solid #bae6fd' }}
+              >
+                👨‍🎓 Học viên
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('teacher@gmail.com', 'levanthai113', 'TEACHER', 'Thầy Nguyễn Văn An')}
+                style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.72rem', fontWeight: '700', border: '1px solid #bbf7d0' }}
+              >
+                👨‍🏫 Giảng viên
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('admin@elearning.edu.vn', 'levanthai113', 'ADMIN', 'Admin Quản Trị')}
+                style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.72rem', fontWeight: '700', border: '1px solid #cbd5e1' }}
+              >
+                🛡️ Quản trị viên
+              </button>
+            </div>
+          </div>
+        )}
 
         {errorMsg && (
           <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#dc2626', fontSize: '0.8rem', fontWeight: '700', marginBottom: '14px' }}>
@@ -107,18 +153,19 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {isRegisterMode && (
             <div>
               <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                Họ và tên của bạn:
+                Họ và tên:
               </label>
               <input
                 type="text"
-                placeholder="Ví dụ: Lê Văn Thái"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                placeholder="Ví dụ: Lê Văn Thái"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                 required
               />
             </div>
@@ -130,10 +177,10 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             </label>
             <input
               type="email"
-              placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+              placeholder="name@example.com"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
               required
             />
           </div>
@@ -144,10 +191,10 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             </label>
             <input
               type="password"
-              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+              placeholder="••••••••"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
               required
             />
           </div>
@@ -156,15 +203,16 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Vai trò đăng ký:
+                  Vai trò:
                 </label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.8rem', fontWeight: '600' }}
                 >
-                  <option value="STUDENT">👨‍🎓 Học viên</option>
-                  <option value="TEACHER">👨‍🏫 Giảng viên</option>
+                  <option value="STUDENT">Học viên</option>
+                  <option value="TEACHER">Giáo viên</option>
+                  <option value="ADMIN">Quản trị viên</option>
                 </select>
               </div>
 
@@ -196,10 +244,10 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             {isLoading ? (
               <>
                 <i className="fa-solid fa-circle-notch fa-spin"></i>
-                <span>Đang xử lý...</span>
+                <span>Đang kết nối xác thực...</span>
               </>
             ) : (
-              <span>{isRegisterMode ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập'}</span>
+              <span>{isRegisterMode ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập Ngay'}</span>
             )}
           </button>
         </form>
