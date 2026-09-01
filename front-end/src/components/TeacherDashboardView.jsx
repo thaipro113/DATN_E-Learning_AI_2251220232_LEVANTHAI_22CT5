@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import TeacherGradebookView from './TeacherGradebookView';
 import TeacherAIQuizModal from './TeacherAIQuizModal';
+import TeacherCourseCurriculumModal from './TeacherCourseCurriculumModal';
 import { courseAPI } from '../services/api';
 
 export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToDashboard }) {
   const [activeTab, setActiveTab] = useState('courses');
   const [showAIQuizModal, setShowAIQuizModal] = useState(false);
+  const [showCurriculumModal, setShowCurriculumModal] = useState(false);
+  const [selectedCourseForCurriculum, setSelectedCourseForCurriculum] = useState(null);
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,15 +22,6 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80');
   const [newPrice, setNewPrice] = useState(0);
   const [isFree, setIsFree] = useState(true);
-
-  // Modal Quản lý nội dung bài học (Chapters & Lessons)
-  const [selectedCourseForLessons, setSelectedCourseForLessons] = useState(null);
-  const [showLessonManagerModal, setShowLessonManagerModal] = useState(false);
-  const [newChapterTitle, setNewChapterTitle] = useState('');
-  const [newLessonTitle, setNewLessonTitle] = useState('');
-  const [newLessonVideoUrl, setNewLessonVideoUrl] = useState('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-  const [newLessonDuration, setNewLessonDuration] = useState(15);
-  const [selectedChapterId, setSelectedChapterId] = useState('');
 
   // Sample Thumbnail Suggestions
   const sampleThumbnails = [
@@ -119,41 +113,6 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       alert(`🎉 Đã lưu khóa học "${newTitle}" vào CSDL!`);
       setShowCreateModal(false);
       fetchTeacherCourses();
-    }
-  };
-
-  const handleAddChapter = async () => {
-    if (!newChapterTitle.trim() || !selectedCourseForLessons) return;
-    try {
-      await courseAPI.createChapter(selectedCourseForLessons.id, {
-        title: newChapterTitle.trim(),
-        description: `Chương học thuộc khóa ${selectedCourseForLessons.title}`,
-      });
-      alert(`✓ Đã thêm chương "${newChapterTitle}" thành công!`);
-      setNewChapterTitle('');
-      fetchTeacherCourses();
-    } catch (e) {
-      alert('Đã thêm chương học!');
-    }
-  };
-
-  const handleAddLesson = async () => {
-    if (!newLessonTitle.trim() || !selectedChapterId) {
-      alert('Vui lòng nhập tên bài học và chọn chương!');
-      return;
-    }
-    try {
-      await courseAPI.createLesson(selectedChapterId, {
-        title: newLessonTitle.trim(),
-        video_url: newLessonVideoUrl.trim(),
-        duration_minutes: Number(newLessonDuration),
-        content: `Nội dung chi tiết bài học ${newLessonTitle}`,
-      });
-      alert(`✓ Đã thêm bài học "${newLessonTitle}" thành công!`);
-      setNewLessonTitle('');
-      fetchTeacherCourses();
-    } catch (e) {
-      alert('Đã thêm bài học!');
     }
   };
 
@@ -375,7 +334,13 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                   }}
                 >
                   {/* Course Thumbnail Image */}
-                  <div style={{ height: '150px', position: 'relative', overflow: 'hidden', backgroundColor: '#0284c7' }}>
+                  <div
+                    style={{ height: '150px', position: 'relative', overflow: 'hidden', backgroundColor: '#0284c7', cursor: 'pointer' }}
+                    onClick={() => {
+                      setSelectedCourseForCurriculum(course);
+                      setShowCurriculumModal(true);
+                    }}
+                  >
                     {course.thumbnail_url ? (
                       <img
                         src={course.thumbnail_url}
@@ -435,7 +400,13 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                       </span>
                     </div>
 
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.3' }}>
+                    <h3
+                      style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.3', cursor: 'pointer' }}
+                      onClick={() => {
+                        setSelectedCourseForCurriculum(course);
+                        setShowCurriculumModal(true);
+                      }}
+                    >
                       {course.title}
                     </h3>
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -452,13 +423,13 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                       <button
                         className="btn-outline"
                         onClick={() => {
-                          setSelectedCourseForLessons(course);
-                          setShowLessonManagerModal(true);
+                          setSelectedCourseForCurriculum(course);
+                          setShowCurriculumModal(true);
                         }}
-                        style={{ flex: 1, justifyContent: 'center', fontSize: '0.78rem' }}
+                        style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
                       >
-                        <i className="fa-solid fa-pen-to-square"></i>
-                        <span>Soạn giáo trình</span>
+                        <i className="fa-solid fa-pen-ruler"></i>
+                        <span>Quản lý giáo trình (Chi tiết)</span>
                       </button>
 
                       <button
@@ -483,6 +454,14 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         <TeacherGradebookView />
       )}
 
+      {/* Modal Studio Quản lý Toàn Diện Giáo Trình Khóa Học (Thêm, Sửa, Xóa Course, Chapter, Lesson, Material) */}
+      <TeacherCourseCurriculumModal
+        isOpen={showCurriculumModal}
+        onClose={() => setShowCurriculumModal(false)}
+        course={selectedCourseForCurriculum}
+        onCourseUpdated={fetchTeacherCourses}
+      />
+
       {/* Modal AI Quiz Generator cho Giáo Viên (UC_T4) */}
       <TeacherAIQuizModal
         isOpen={showAIQuizModal}
@@ -490,7 +469,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         onSaveSuccess={fetchTeacherCourses}
       />
 
-      {/* Modal 1: Tạo Khóa Học Mới với Hình Ảnh */}
+      {/* Modal Tạo Khóa Học Mới với Hình Ảnh */}
       {showCreateModal && (
         <div
           style={{
@@ -708,126 +687,6 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 2: Quản lý Soạn Giáo Trình (Chapters & Lessons) */}
-      {showLessonManagerModal && selectedCourseForLessons && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.65)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'var(--bg-surface)',
-              borderRadius: 'var(--radius-lg)',
-              maxWidth: '640px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              padding: '26px',
-              boxShadow: 'var(--shadow-lg)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                  Soạn Giáo Trình: {selectedCourseForLessons.title}
-                </h3>
-                <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: '700' }}>
-                  Trình độ: CEFR {selectedCourseForLessons.level || 'B1'}
-                </span>
-              </div>
-              <button onClick={() => setShowLessonManagerModal(false)} style={{ fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            {/* 1. Thêm Chương học mới */}
-            <div style={{ padding: '14px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px', marginBottom: '16px' }}>
-              <strong style={{ fontSize: '0.88rem', display: 'block', marginBottom: '8px' }}>
-                1. Thêm Chương học mới (Chapter):
-              </strong>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Chương 1: Cấu trúc câu cơ bản..."
-                  value={newChapterTitle}
-                  onChange={(e) => setNewChapterTitle(e.target.value)}
-                  style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                />
-                <button className="btn-primary" type="button" onClick={handleAddChapter}>
-                  <i className="fa-solid fa-plus"></i>
-                  <span>Thêm chương</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 2. Thêm Bài học Video mới */}
-            <div style={{ padding: '14px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px' }}>
-              <strong style={{ fontSize: '0.88rem', display: 'block', marginBottom: '8px' }}>
-                2. Thêm Bài giảng Video (Lesson):
-              </strong>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Tên bài học:</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Bài 1: Thì Hiện Tại Đơn..."
-                    value={newLessonTitle}
-                    onChange={(e) => setNewLessonTitle(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Video URL (YouTube/MP4):</label>
-                    <input
-                      type="url"
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      value={newLessonVideoUrl}
-                      onChange={(e) => setNewLessonVideoUrl(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Thời lượng (phút):</label>
-                    <input
-                      type="number"
-                      value={newLessonDuration}
-                      onChange={(e) => setNewLessonDuration(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                    />
-                  </div>
-                </div>
-
-                <button className="btn-primary" type="button" onClick={handleAddLesson} style={{ marginTop: '6px', justifyContent: 'center' }}>
-                  <i className="fa-solid fa-circle-plus"></i>
-                  <span>Lưu Bài Giảng Vào Chương</span>
-                </button>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn-outline" onClick={() => setShowLessonManagerModal(false)}>
-                Hoàn tất
-              </button>
-            </div>
           </div>
         </div>
       )}
