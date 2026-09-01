@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function StatCounters() {
+export default function StatCounters({ onSelectTab }) {
   const [activeTab, setActiveTab] = useState('today');
 
   return (
@@ -44,19 +44,29 @@ export default function StatCounters() {
       {/* 4 Stat Counter Cards with Distinct Soft Colors */}
       <div className="stat-counters-grid">
         {/* Counter 1: Thời gian học */}
-        <div className="stat-counter-card">
+        <div
+          className="stat-counter-card"
+          onClick={() => onSelectTab && onSelectTab('learning')}
+          style={{ cursor: 'pointer' }}
+          title="Vào phòng học & xem tiến độ video"
+        >
           <div className="stat-counter-icon sky">
             <i className="fa-regular fa-clock"></i>
           </div>
           <div className="stat-counter-content">
             <span className="stat-counter-title">THỜI GIAN HỌC</span>
             <span className="stat-counter-val">25m</span>
-            <span className="stat-counter-sub">Hôm nay</span>
+            <span className="stat-counter-sub">Hôm nay · Bấm vào học</span>
           </div>
         </div>
 
         {/* Counter 2: Luyện đề */}
-        <div className="stat-counter-card">
+        <div
+          className="stat-counter-card"
+          onClick={() => onSelectTab && onSelectTab('quizzes')}
+          style={{ cursor: 'pointer' }}
+          title="Vào ngân hàng đề thi & luyện tập"
+        >
           <div className="stat-counter-icon cyan">
             <i className="fa-regular fa-circle-question"></i>
           </div>
@@ -68,7 +78,12 @@ export default function StatCounters() {
         </div>
 
         {/* Counter 3: Đọc */}
-        <div className="stat-counter-card">
+        <div
+          className="stat-counter-card"
+          onClick={() => onSelectTab && onSelectTab('quizzes')}
+          style={{ cursor: 'pointer' }}
+          title="Làm bài kiểm tra đọc hiểu"
+        >
           <div className="stat-counter-icon emerald">
             <i className="fa-solid fa-book-open"></i>
           </div>
@@ -85,7 +100,12 @@ export default function StatCounters() {
         </div>
 
         {/* Counter 4: Nghe */}
-        <div className="stat-counter-card">
+        <div
+          className="stat-counter-card"
+          onClick={() => onSelectTab && onSelectTab('quizzes')}
+          style={{ cursor: 'pointer' }}
+          title="Làm bài kiểm tra nghe hiểu"
+        >
           <div className="stat-counter-icon purple">
             <i className="fa-solid fa-headphones"></i>
           </div>

@@ -1,7 +1,6 @@
 import React from 'react';
 
 export default function RecommendedCoursesSection({ courses, recommendations, onEnroll }) {
-  // Lấy danh sách khóa học hiển thị (ưu tiên khóa học từ recommendation engine)
   const displayCourses = recommendations && recommendations.length > 0
     ? recommendations.map((r) => ({
         ...r.course,
@@ -16,90 +15,106 @@ export default function RecommendedCoursesSection({ courses, recommendations, on
           title: 'Ngữ Pháp Tiếng Anh Toàn Diện (CEFR B1-B2)',
           category_name: 'Ngữ pháp',
           level: 'B1',
-          level_display: 'B1 Intermediate',
           description: 'Hệ thống hóa toàn bộ các thì, câu điều kiện, mệnh đề quan hệ và bài tập thực hành theo chuẩn quốc tế.',
           price: 0,
           is_free: true,
           recommendation_reason: 'Phù hợp để củng cố lỗ hổng ngữ pháp của bạn.',
+          color: '#0284c7',
+          bgColor: '#e0f2fe',
         },
         {
           id: '2',
           title: 'Luyện Phản Xạ Giao Tiếp Cùng AI Tutor',
           category_name: 'Giao tiếp & Nói',
           level: 'B1',
-          level_display: 'B1 Intermediate',
           description: 'Luyện tập hội thoại tiếng Anh theo chủ đề thực tế, được AI sửa lỗi phát âm và ngữ pháp tức thì.',
           price: 0,
           is_free: true,
           recommendation_reason: 'Tăng cường phản xạ giao tiếp tự nhiên.',
+          color: '#7c3aed',
+          bgColor: '#ede9fe',
         },
         {
           id: '3',
           title: 'Chiến Thuật Đọc Hiểu & Bổ Sung 1000 Từ Vựng',
           category_name: 'Từ vựng & Đọc',
           level: 'B2',
-          level_display: 'B2 Upper-Intermediate',
           description: 'Phương pháp Skimming & Scanning, nắm bắt từ khóa và mở rộng vốn từ học thuật.',
           price: 0,
           is_free: true,
           recommendation_reason: 'Nâng cao kỹ năng đọc để đạt mục tiêu B2.',
+          color: '#059669',
+          bgColor: '#d1fae5',
         },
       ];
 
   return (
-    <div>
-      <div className="section-title-row">
-        <h2 className="section-title">
-          <i className="fa-solid fa-sparkles"></i>
-          <span>KHÓA HỌC DÀNH RIÊNG CHO BẠN</span>
-        </h2>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Gợi ý bởi AI Recommendation Engine
-        </span>
+    <div style={{ marginTop: '28px' }}>
+      <div className="section-header">
+        <div>
+          <h2 className="section-title">
+            <i className="fa-solid fa-sparkles section-title-icon"></i>
+            <span>KHÓA HỌC DÀNH RIÊNG CHO BẠN</span>
+          </h2>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Gợi ý thông minh bởi AI Recommendation Engine
+          </span>
+        </div>
       </div>
 
       <div className="course-grid">
         {displayCourses.map((course, idx) => (
           <div key={course.id || idx} className="course-card">
-            <div className="course-card-header">
+            {/* Top Thumbnail Banner with Soft Pastel Background */}
+            <div
+              className="course-card-top"
+              style={{
+                backgroundColor: course.bgColor || '#f1f5f9',
+                color: course.color || '#0284c7',
+              }}
+            >
               <i className="fa-solid fa-graduation-cap"></i>
-              <span className="course-level-badge">{course.level || 'B1'}</span>
+              <span className="course-level-tag">{course.level || 'B1'}</span>
             </div>
 
-            <div className="course-card-body">
+            {/* Content Body */}
+            <div className="course-card-content">
               <div>
-                <span className="course-category">
+                <span className="course-cat-tag">
                   {course.category_name || 'Tiếng Anh Tổng Quát'}
                 </span>
-                <h3 className="course-title">{course.title}</h3>
-                <p className="course-desc">
-                  {course.description || 'Khóa học cung cấp kiến thức nền tảng và bài tập thực hành chất lượng.'}
-                </p>
+                <h3 className="course-card-title">{course.title}</h3>
+                <p className="course-card-desc">{course.description}</p>
 
+                {/* AI Recommendation Reason Tag */}
                 {course.recommendation_reason && (
                   <div
                     style={{
                       backgroundColor: '#eff6ff',
-                      color: '#1e40af',
+                      color: '#1d4ed8',
                       padding: '6px 10px',
                       borderRadius: '6px',
                       fontSize: '0.75rem',
                       fontWeight: '600',
                       marginBottom: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
                   >
-                    <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: '6px' }}></i>
-                    {course.recommendation_reason}
+                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>{course.recommendation_reason}</span>
                   </div>
                 )}
               </div>
 
+              {/* Card Footer */}
               <div className="course-card-footer">
-                <span className="course-price">
+                <span className="course-price-text">
                   {course.is_free || course.price === 0 ? 'Miễn phí' : `${course.price?.toLocaleString()} đ`}
                 </span>
                 <button
-                  className="btn-primary"
+                  className="btn-enroll-primary"
                   onClick={() => onEnroll && onEnroll(course)}
                 >
                   <i className="fa-solid fa-play"></i>

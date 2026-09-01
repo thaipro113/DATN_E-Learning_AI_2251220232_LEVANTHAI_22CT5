@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function MetricCardsGrid({ learningPath, skillGaps, user }) {
+export default function MetricCardsGrid({ learningPath, skillGaps, user, onSelectTab }) {
   const [currentScore, setCurrentScore] = useState(650);
   const [targetScore, setTargetScore] = useState(800);
 
@@ -59,41 +59,60 @@ export default function MetricCardsGrid({ learningPath, skillGaps, user }) {
               <i className="fa-solid fa-plus"></i>
             </button>
           </div>
-          <a
-            href="#preset"
-            style={{ fontSize: '0.7rem', color: 'var(--color-primary)', fontWeight: '600' }}
+          <span
+            onClick={() => onSelectTab && onSelectTab('quizzes')}
+            style={{ fontSize: '0.7rem', color: 'var(--color-primary)', fontWeight: '600', cursor: 'pointer' }}
           >
-            Đặt bằng preset [500/650/750/850/900] →
-          </a>
+            Làm bài thi thử để cập nhật điểm →
+          </span>
         </div>
       </div>
 
-      {/* Card 2: ĐIỂM CÒN THIẾU / PHÂN TÍCH KỸ NĂNG */}
-      <div className="metric-card">
-        <div className="metric-card-title">ĐIỂM CÒN THIẾU</div>
+      {/* Card 2: ĐIỂM CÒN THIẾU / PHÂN TÍCH KỸ NĂNG (Click chuyển sang trang Lỗ hổng Kỹ năng) */}
+      <div
+        className="metric-card"
+        onClick={() => onSelectTab && onSelectTab('skills')}
+        style={{ cursor: 'pointer' }}
+        title="Xem chi tiết phân tích lỗ hổng kỹ năng"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="metric-card-title">ĐIỂM CÒN THIẾU & KỸ NĂNG</div>
+          <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}></i>
+        </div>
         <div className="donut-circle-container">
           <div className="donut-circle-ring">
             <i className="fa-solid fa-bullseye" style={{ color: '#e11d48' }}></i>
           </div>
-          <span className="donut-label">
+          <span className="donut-label" style={{ fontWeight: '700', color: '#0284c7' }}>
             {targetScore > currentScore ? `Còn thiếu ${targetScore - currentScore} điểm` : 'Đã đạt mục tiêu!'}
+          </span>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '2px' }}>
+            Bấm để xem ma trận 6 kỹ năng →
           </span>
         </div>
       </div>
 
-      {/* Card 3: SỐ NGÀY ĐẾN NGÀY THI / LỘ TRÌNH AI */}
-      <div className="metric-card">
-        <div className="metric-card-title">SỐ NGÀY ĐẾN NGÀY THI</div>
+      {/* Card 3: SỐ NGÀY ĐẾN NGÀY THI / LỘ TRÌNH AI (Click chuyển sang Lộ trình AI) */}
+      <div
+        className="metric-card"
+        onClick={() => onSelectTab && onSelectTab('path')}
+        style={{ cursor: 'pointer' }}
+        title="Xem chi tiết lộ trình thích ứng 5 chặng"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="metric-card-title">LỘ TRÌNH HỌC TẬP AI</div>
+          <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}></i>
+        </div>
         <div className="calendar-target-box">
           <div className="calendar-icon-soft">
-            <i className="fa-regular fa-calendar-check" style={{ color: '#0284c7' }}></i>
+            <i className="fa-solid fa-compass" style={{ color: '#6366f1' }}></i>
           </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-            Chưa đặt ngày thi
+          <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px' }}>
+            Đang học chặng 2/5 (40%)
           </span>
-          <button className="btn-set-date">
-            <i className="fa-regular fa-calendar"></i>
-            <span>Đặt ngày thi</span>
+          <button className="btn-set-date" style={{ backgroundColor: '#6366f1' }}>
+            <i className="fa-solid fa-route"></i>
+            <span>Vào xem lộ trình</span>
           </button>
         </div>
       </div>

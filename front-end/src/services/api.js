@@ -46,9 +46,15 @@ export const assessmentAPI = {
 export const aiAPI = {
   getSessions: () => apiClient.get('ai/sessions/'),
   sendMessage: (sessionId, message, targetLevel = 'B1') =>
-    apiClient.post('ai/send/', { session_id: sessionId, message, target_level: targetLevel }),
+    apiClient.post(`ai/sessions/${sessionId}/send/`, { content: message, target_level: targetLevel }),
   checkGrammar: (text, targetLevel = 'B1') =>
     apiClient.post('ai/grammar-check/', { text, target_level: targetLevel }),
+  // UC_S7: Sinh đề ôn tập AI theo tiến độ bài học đã hoàn thành trong Chapter
+  generateProgressQuiz: (chapterId, numQuestions = 5) =>
+    apiClient.post('ai/quizzes/generate-by-progress/', { chapter_id: chapterId, num_questions: numQuestions }),
+  // UC_T4: Giáo viên / Admin sinh câu hỏi trắc nghiệm AI theo Chủ đề & Trình độ
+  generateTeacherQuiz: (topic, level = 'B1', count = 5, skill = 'GRAMMAR') =>
+    apiClient.post('ai/quizzes/generate/', { topic, level, count, skill }),
 };
 
 export const recommendationAPI = {
