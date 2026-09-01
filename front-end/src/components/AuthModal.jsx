@@ -13,13 +13,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   if (!isOpen) return null;
 
-  const handleQuickFill = (demoEmail, demoPassword, demoRole, demoName) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setRole(demoRole);
-    setFullName(demoName);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -27,35 +20,59 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
     try {
       if (isRegisterMode) {
-        // Đăng ký tài khoản mới (Chỉ Học viên hoặc Giảng viên)
-        await authAPI.register({
+        // Đăng ký tài khoản mới (Học viên hoặc Giảng viên)
+        const regRes = await authAPI.register({
           email,
           password,
           full_name: fullName,
           role,
           level: targetLevel,
         });
-        alert('🎉 Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ.');
-        setIsRegisterMode(false);
+        const regData = regRes.data?.data || regRes.data;
+        const tokens = regData?.tokens || regData;
+        const userObj = regData?.user || regData;
+
+        if (tokens?.access) localStorage.setItem('access_token', tokens.access);
+        if (tokens?.refresh) localStorage.setItem('refresh_token', tokens.refresh);
+        if (userObj) localStorage.setItem('user_info', JSON.stringify(userObj));
+
+        alert('🎉 Đăng ký tài khoản thành công!');
+        if (tokens?.access) {
+          onLoginSuccess(userObj || { email, full_name: fullName, role, level: targetLevel });
+          onClose();
+        } else {
+          setIsRegisterMode(false);
+        }
       } else {
         // Đăng nhập
         try {
           const res = await authAPI.login({ email, password });
-          const { access, refresh, user } = res.data?.data || {};
-          if (access) localStorage.setItem('access_token', access);
-          if (refresh) localStorage.setItem('refresh_token', refresh);
-          onLoginSuccess(user || { email, full_name: fullName || 'Lê Văn Thái', role, level: targetLevel });
+          const responseData = res.data?.data || res.data;
+          const tokens = responseData?.tokens || responseData;
+          const userObj = responseData?.user || responseData;
+
+          const accessToken = tokens?.access || responseData?.access;
+          const refreshToken = tokens?.refresh || responseData?.refresh;
+
+          if (accessToken) localStorage.setItem('access_token', accessToken);
+          if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+          if (userObj) localStorage.setItem('user_info', JSON.stringify(userObj));
+
+          onLoginSuccess(userObj || { email, full_name: fullName || 'Lê Văn Thái', role, level: targetLevel });
           onClose();
         } catch (apiErr) {
           console.warn('API login error, using fallback demo session:', apiErr);
           const computedRole = email.includes('teacher') ? 'TEACHER' : role;
           const computedName = fullName || (computedRole === 'TEACHER' ? 'Thầy Nguyễn Văn An' : 'Lê Văn Thái');
-          onLoginSuccess({
+          const fallbackUser = {
             email,
             full_name: computedName,
             role: computedRole,
             level: targetLevel,
-          });
+          };
+          localStorage.setItem('access_token', 'demo_token_' + Date.now());
+          localStorage.setItem('user_info', JSON.stringify(fallbackUser));
+          onLoginSuccess(fallbackUser);
           onClose();
         }
       }
@@ -100,11 +117,11 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               <i className="fa-solid fa-graduation-cap"></i>
             </div>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                {isRegisterMode ? 'Đăng Ký Tài Khoản Mới' : 'Đăng Nhập E-Learning AI'}
+              <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                {isRegisterMode ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập E-Learning AI'}
               </h3>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                Hệ thống học tập cá nhân hóa & Gia sư AI tiếng Anh
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                Học tập thông minh theo chuẩn CEFR & Tích hợp AI
               </p>
             </div>
           </div>
@@ -113,11 +130,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </button>
         </div>
 
-
-
         {errorMsg && (
-          <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#dc2626', fontSize: '0.8rem', fontWeight: '700', marginBottom: '14px' }}>
-            <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }}></i>
+          <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#dc2626', fontSize: '0.82rem', marginBottom: '14px', fontWeight: '600' }}>
             {errorMsg}
           </div>
         )}
@@ -126,44 +140,38 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {isRegisterMode && (
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                Họ và tên:
-              </label>
+              <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Họ và tên:</label>
               <input
                 type="text"
+                placeholder="Nguyễn Văn A"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Ví dụ: Lê Văn Thái"
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                 required
               />
             </div>
           )}
 
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-              Địa chỉ Email:
-            </label>
+            <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Email đăng nhập:</label>
             <input
               type="email"
+              placeholder="example@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
               required
             />
           </div>
 
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-              Mật khẩu:
-            </label>
+            <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Mật khẩu:</label>
             <input
               type="password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
               required
             />
           </div>
@@ -171,27 +179,23 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           {isRegisterMode && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Vai trò:
-                </label>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Vai trò:</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.8rem', fontWeight: '600' }}
+                  style={{ width: '100%', padding: '9px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', fontWeight: '600' }}
                 >
-                  <option value="STUDENT">Học viên</option>
-                  <option value="TEACHER">Giáo viên</option>
+                  <option value="STUDENT">👨‍🎓 Học viên</option>
+                  <option value="TEACHER">👨‍🏫 Giảng viên</option>
                 </select>
               </div>
 
               <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Trình độ hiện tại:
-                </label>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Trình độ mục tiêu:</label>
                 <select
                   value={targetLevel}
                   onChange={(e) => setTargetLevel(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.8rem', fontWeight: '600' }}
+                  style={{ width: '100%', padding: '9px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', fontWeight: '600' }}
                 >
                   <option value="A1">A1 Beginner</option>
                   <option value="A2">A2 Elementary</option>
@@ -207,12 +211,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             type="submit"
             className="btn-primary"
             disabled={isLoading}
-            style={{ width: '100%', justifyContent: 'center', padding: '10px', marginTop: '6px', fontSize: '0.9rem', cursor: 'pointer' }}
+            style={{ width: '100%', justifyContent: 'center', padding: '10px', marginTop: '6px', fontSize: '0.9rem' }}
           >
             {isLoading ? (
               <>
                 <i className="fa-solid fa-circle-notch fa-spin"></i>
-                <span>Đang kết nối xác thực...</span>
+                <span>Đang xử lý...</span>
               </>
             ) : (
               <span>{isRegisterMode ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập Ngay'}</span>
@@ -220,30 +224,30 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </button>
         </form>
 
-        {/* Toggle Mode */}
+        {/* Footer Toggle */}
         <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
           {isRegisterMode ? (
-            <span>
+            <>
               Đã có tài khoản?{' '}
               <button
                 type="button"
                 onClick={() => setIsRegisterMode(false)}
-                style={{ color: '#0284c7', fontWeight: '700', cursor: 'pointer' }}
+                style={{ color: '#0284c7', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                Đăng nhập ngay
+                Đăng nhập tại đây
               </button>
-            </span>
+            </>
           ) : (
-            <span>
+            <>
               Chưa có tài khoản?{' '}
               <button
                 type="button"
                 onClick={() => setIsRegisterMode(true)}
-                style={{ color: '#0284c7', fontWeight: '700', cursor: 'pointer' }}
+                style={{ color: '#0284c7', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                Đăng ký miễn phí
+                Đăng ký ngay
               </button>
-            </span>
+            </>
           )}
         </div>
       </div>

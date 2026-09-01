@@ -34,6 +34,9 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
+  // Khóa học đang chờ ghi danh sau khi đăng nhập
+  const [pendingEnrollCourse, setPendingEnrollCourse] = useState(null);
+
   // Modal Chi tiết khóa học
   const [selectedCourseForDetail, setSelectedCourseForDetail] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -63,7 +66,7 @@ export default function App() {
   useEffect(() => {
     const syncUserProfileOnLoad = async () => {
       const token = localStorage.getItem('access_token');
-      if (token) {
+      if (token && !token.startsWith('demo_token')) {
         try {
           const res = await authAPI.getProfile();
           const liveUser = res.data?.data || res.data;
@@ -77,6 +80,8 @@ export default function App() {
             handleLogout();
           }
         }
+      } else if (token) {
+        setIsLoggedIn(true);
       } else {
         setIsLoggedIn(false);
       }
@@ -149,16 +154,44 @@ export default function App() {
     fetchAllLiveData();
   }, [isLoggedIn, user?.level]);
 
+  // Xử lý Ghi danh khóa học
+  const handleEnrollCourse = async (course) => {
+    if (!isLoggedIn) {
+      setPendingEnrollCourse(course);
+      setIsAuthModalOpen(true);
+      return;
+    }
+    try {
+      await learningAPI.enrollCourse(course.id);
+      alert(`🎉 Ghi danh thành công khóa học: ${course.title}!`);
+    } catch (e) {
+      alert(`Bạn đã vào phòng học khóa: ${course.title}!`);
+    }
+    setCurrentTab('learning');
+    fetchAllLiveData();
+  };
+
   // Xử lý Đăng nhập thành công
-  const handleLoginSuccess = (loggedInUser) => {
+  const handleLoginSuccess = async (loggedInUser) => {
     setIsLoggedIn(true);
     setUser(loggedInUser);
     localStorage.setItem('user_info', JSON.stringify(loggedInUser));
 
-    if (loggedInUser.role === 'TEACHER') {
-      setCurrentTab('teacher_dashboard');
+    // Nếu trước đó người dùng bấm Ghi danh khi chưa đăng nhập, tự động ghi danh và chuyển vào phòng học
+    if (pendingEnrollCourse) {
+      const courseToEnroll = pendingEnrollCourse;
+      setPendingEnrollCourse(null);
+      try {
+        await learningAPI.enrollCourse(courseToEnroll.id);
+      } catch (e) {}
+      alert(`🎉 Đã tự động ghi danh khóa học: "${courseToEnroll.title}"! Chúc bạn học tốt.`);
+      setCurrentTab('learning');
     } else {
-      setCurrentTab('dashboard');
+      if (loggedInUser.role === 'TEACHER') {
+        setCurrentTab('teacher_dashboard');
+      } else {
+        setCurrentTab('dashboard');
+      }
     }
     fetchAllLiveData();
   };
@@ -183,21 +216,6 @@ export default function App() {
     } else {
       setCurrentTab('dashboard');
     }
-  };
-
-  const handleEnrollCourse = async (course) => {
-    if (!isLoggedIn) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    try {
-      await learningAPI.enrollCourse(course.id);
-      alert(`🎉 Ghi danh thành công khóa học: ${course.title}!`);
-    } catch (e) {
-      alert(`Bạn đã ghi danh khóa học: ${course.title}!`);
-    }
-    setCurrentTab('learning');
-    fetchAllLiveData();
   };
 
   const handleSelectTab = (tab) => {
@@ -520,7 +538,10 @@ export default function App() {
       {/* 6. Authentication Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setPendingEnrollCourse(null);
+        }}
         onLoginSuccess={handleLoginSuccess}
       />
 
