@@ -3,9 +3,9 @@ import CertificateModal from './CertificateModal';
 import StudentProgressQuizModal from './StudentProgressQuizModal';
 import { learningAPI, courseAPI } from '../services/api';
 
-export default function MyLearningView({ user }) {
+export default function MyLearningView({ user, currentCourse, onSelectCourseToLearn }) {
   const [enrolledCourses, setEnrolledCourses] = useState([]);
-  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [selectedCourse, setSelectedCourse] = useState(currentCourse || null);
   const [courseDetail, setCourseDetail] = useState(null);
   const [activeLesson, setActiveLesson] = useState(null);
   const [activeTab, setActiveTab] = useState('video');
@@ -28,16 +28,31 @@ export default function MyLearningView({ user }) {
       const list = res.data?.data || res.data || [];
       if (Array.isArray(list) && list.length > 0) {
         setEnrolledCourses(list);
-        const first = list[0];
-        setSelectedCourse(first.course || first);
-        await loadCourseDetail(first.course?.slug || first.course?.id || first.slug || first.id);
+
+        // Nếu có currentCourse được truyền vào, ưu tiên chọn currentCourse
+        let target = null;
+        if (currentCourse) {
+          target = list.find((item) => {
+            const c = item.course || item;
+            return c.id === currentCourse.id || c.slug === currentCourse.slug;
+          });
+          if (target) target = target.course || target;
+        }
+
+        if (!target) {
+          target = list[0].course || list[0];
+        }
+
+        setSelectedCourse(target);
+        await loadCourseDetail(target.slug || target.id);
       } else {
         // Fallback: nếu chưa ghi danh thì lấy khóa học đầu tiên để học viên trải nghiệm
         const allRes = await courseAPI.getCourses();
         const allList = allRes.data?.results || allRes.data?.data?.results || allRes.data?.data || [];
         if (allList.length > 0) {
-          setSelectedCourse(allList[0]);
-          await loadCourseDetail(allList[0].slug || allList[0].id);
+          const target = currentCourse || allList[0];
+          setSelectedCourse(target);
+          await loadCourseDetail(target.slug || target.id);
         }
       }
     } catch (e) {
@@ -67,7 +82,20 @@ export default function MyLearningView({ user }) {
 
   useEffect(() => {
     fetchEnrolledCourses();
-  }, []);
+  }, [currentCourse?.id]);
+
+  const handleSwitchCourse = async (cId) => {
+    const found = enrolledCourses.find((item) => {
+      const c = item.course || item;
+      return String(c.id) === String(cId);
+    });
+    const target = found ? (found.course || found) : null;
+    if (target) {
+      setSelectedCourse(target);
+      if (onSelectCourseToLearn) onSelectCourseToLearn(target);
+      await loadCourseDetail(target.slug || target.id);
+    }
+  };
 
   // Xử lý hoàn thành bài học và gửi tiến độ về Backend
   const handleCompleteLesson = async (lesson) => {
@@ -78,12 +106,11 @@ export default function MyLearningView({ user }) {
         is_completed: true,
         last_watched_second: (lesson.duration_minutes || 15) * 60,
       });
-      alert(`🎉 Chúc mừng! Bạn đã hoàn thành bài học: "${lesson.title}"!`);
       if (selectedCourse) {
         await loadCourseDetail(selectedCourse.slug || selectedCourse.id);
       }
     } catch (e) {
-      alert(`✓ Đã ghi nhận hoàn thành bài học "${lesson.title}"!`);
+      // Done silently without blocking popup
     }
   };
 
@@ -161,15 +188,43 @@ export default function MyLearningView({ user }) {
   return (
     <div>
       {/* Page Header */}
-      <div className="page-header-box">
-        <div>
+      <div className="page-header-box" style={{ flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ flex: 1, minWidth: '280px' }}>
           <h2 className="page-title">
             <i className="fa-solid fa-circle-play" style={{ color: '#7c3aed' }}></i>
             <span>PHÒNG HỌC & TIẾN ĐỘ BÀI GIẢNG TRỰC TUYẾN</span>
           </h2>
-          <p className="page-subtitle">
-            Khóa học: <strong>{selectedCourse?.title || 'Đang tải khóa học...'}</strong>
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Khóa học đang học:</span>
+            {enrolledCourses.length > 1 ? (
+              <select
+                value={selectedCourse?.id || ''}
+                onChange={(e) => handleSwitchCourse(e.target.value)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  color: 'var(--text-main)',
+                  backgroundColor: 'var(--bg-surface)',
+                }}
+              >
+                {enrolledCourses.map((item) => {
+                  const c = item.course || item;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.title} (CEFR {c.level || 'B1'})
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                {selectedCourse?.title || 'Đang tải khóa học...'}
+              </strong>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -560,7 +615,7 @@ export default function MyLearningView({ user }) {
         isOpen={showProgressQuizModal}
         onClose={() => setShowProgressQuizModal(false)}
         chapterId={courseDetail?.chapters?.[0]?.id}
-        chapterTitle={courseDetail?.chapters?.[0]?.title || 'Chương 1: Các Thì Cơ Bản'}
+        chapterTitle={courseDetail?.chapters?.[0]?.title || 'Chương 1'}
         onStartQuiz={handleStartGeneratedQuiz}
       />
     </div>

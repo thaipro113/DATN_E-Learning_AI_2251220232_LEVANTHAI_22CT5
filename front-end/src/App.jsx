@@ -18,6 +18,7 @@ import UserProfileModal from './components/UserProfileModal';
 import CertificateVerifyView from './components/CertificateVerifyView';
 import GuestUdemyHomeView from './components/GuestUdemyHomeView';
 import CourseDetailModal from './components/CourseDetailModal';
+import PaymentCheckoutModal from './components/PaymentCheckoutModal';
 import { authAPI, recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
 
 export default function App() {
@@ -33,6 +34,12 @@ export default function App() {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // Khóa học đang chọn để học trong MyLearningView
+  const [selectedCourseToLearn, setSelectedCourseToLearn] = useState(null);
+
+  // Khóa học đang thanh toán (Paid courses)
+  const [checkoutCourse, setCheckoutCourse] = useState(null);
 
   // Khóa học đang chờ ghi danh sau khi đăng nhập
   const [pendingEnrollCourse, setPendingEnrollCourse] = useState(null);
@@ -154,21 +161,46 @@ export default function App() {
     fetchAllLiveData();
   }, [isLoggedIn, user?.level]);
 
-  // Xử lý Ghi danh khóa học
+  // Xử lý Ghi danh / Mua khóa học
   const handleEnrollCourse = async (course) => {
     if (!isLoggedIn) {
       setPendingEnrollCourse(course);
       setIsAuthModalOpen(true);
       return;
     }
+
+    // Nếu khóa học có phí -> Mở Checkout modal
+    const isFree = course.is_free || Number(course.price) === 0;
+    if (!isFree) {
+      setCheckoutCourse(course);
+      return;
+    }
+
+    // Khóa học miễn phí -> Ghi danh và vào học ngay lập tức
     try {
       await learningAPI.enrollCourse(course.id);
-      alert(`🎉 Ghi danh thành công khóa học: ${course.title}!`);
-    } catch (e) {
-      alert(`Bạn đã vào phòng học khóa: ${course.title}!`);
-    }
+    } catch (e) {}
+
+    setSelectedCourseToLearn(course);
     setCurrentTab('learning');
     fetchAllLiveData();
+  };
+
+  // Xử lý Thanh toán thành công cho khóa học có phí
+  const handlePaymentSuccess = async (course) => {
+    try {
+      await learningAPI.enrollCourse(course.id);
+    } catch (e) {}
+
+    setSelectedCourseToLearn(course);
+    setCurrentTab('learning');
+    fetchAllLiveData();
+  };
+
+  // Chuyển thẳng vào phòng học của khóa học đó
+  const handleNavigateToLearning = (course) => {
+    setSelectedCourseToLearn(course);
+    setCurrentTab('learning');
   };
 
   // Xử lý Đăng nhập thành công
@@ -177,15 +209,21 @@ export default function App() {
     setUser(loggedInUser);
     localStorage.setItem('user_info', JSON.stringify(loggedInUser));
 
-    // Nếu trước đó người dùng bấm Ghi danh khi chưa đăng nhập, tự động ghi danh và chuyển vào phòng học
+    // Nếu trước đó người dùng bấm Ghi danh khi chưa đăng nhập
     if (pendingEnrollCourse) {
       const courseToEnroll = pendingEnrollCourse;
       setPendingEnrollCourse(null);
-      try {
-        await learningAPI.enrollCourse(courseToEnroll.id);
-      } catch (e) {}
-      alert(`🎉 Đã tự động ghi danh khóa học: "${courseToEnroll.title}"! Chúc bạn học tốt.`);
-      setCurrentTab('learning');
+
+      const isFree = courseToEnroll.is_free || Number(courseToEnroll.price) === 0;
+      if (!isFree) {
+        setCheckoutCourse(courseToEnroll);
+      } else {
+        try {
+          await learningAPI.enrollCourse(courseToEnroll.id);
+        } catch (e) {}
+        setSelectedCourseToLearn(courseToEnroll);
+        setCurrentTab('learning');
+      }
     } else {
       if (loggedInUser.role === 'TEACHER') {
         setCurrentTab('teacher_dashboard');
@@ -457,8 +495,10 @@ export default function App() {
                     <RecommendedCoursesSection
                       courses={courses}
                       recommendations={recommendations}
+                      myCourses={myCourses}
                       onEnroll={handleEnrollCourse}
                       onSelectCourse={handleOpenCourseDetail}
+                      onNavigateToLearning={handleNavigateToLearning}
                     />
                   </>
                 )}
@@ -466,11 +506,20 @@ export default function App() {
             )}
 
             {currentTab === 'courses' && (
-              <CourseCatalogView courses={courses} onEnroll={handleEnrollCourse} />
+              <CourseCatalogView
+                courses={courses}
+                myCourses={myCourses}
+                onEnroll={handleEnrollCourse}
+                onNavigateToLearning={handleNavigateToLearning}
+              />
             )}
 
             {currentTab === 'learning' && (
-              <MyLearningView user={user} />
+              <MyLearningView
+                user={user}
+                currentCourse={selectedCourseToLearn}
+                onSelectCourseToLearn={(c) => setSelectedCourseToLearn(c)}
+              />
             )}
 
             {currentTab === 'quizzes' && (
@@ -503,7 +552,12 @@ export default function App() {
             )}
 
             {currentTab === 'courses' && (
-              <CourseCatalogView courses={courses} onEnroll={handleEnrollCourse} />
+              <CourseCatalogView
+                courses={courses}
+                myCourses={myCourses}
+                onEnroll={handleEnrollCourse}
+                onNavigateToLearning={handleNavigateToLearning}
+              />
             )}
 
             {currentTab === 'quizzes' && (
@@ -532,10 +586,20 @@ export default function App() {
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         course={selectedCourseForDetail}
+        myCourses={myCourses}
         onEnroll={handleEnrollCourse}
+        onNavigateToLearning={handleNavigateToLearning}
       />
 
-      {/* 6. Authentication Modal */}
+      {/* 6. Payment Checkout Modal for Paid Courses */}
+      <PaymentCheckoutModal
+        isOpen={!!checkoutCourse}
+        onClose={() => setCheckoutCourse(null)}
+        course={checkoutCourse}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
+
+      {/* 7. Authentication Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => {
@@ -545,7 +609,7 @@ export default function App() {
         onLoginSuccess={handleLoginSuccess}
       />
 
-      {/* 7. User Profile & Password Change Modal */}
+      {/* 8. User Profile & Password Change Modal */}
       <UserProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
@@ -556,7 +620,7 @@ export default function App() {
         }}
       />
 
-      {/* 8. Mobile Bottom Navigation Bar */}
+      {/* 9. Mobile Bottom Navigation Bar */}
       <MobileBottomNav
         currentTab={currentTab}
         onSelectTab={handleSelectTab}

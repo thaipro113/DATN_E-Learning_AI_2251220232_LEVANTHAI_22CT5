@@ -1,6 +1,13 @@
 import React from 'react';
 
-export default function RecommendedCoursesSection({ courses = [], recommendations = [], onEnroll, onSelectCourse }) {
+export default function RecommendedCoursesSection({
+  courses = [],
+  recommendations = [],
+  myCourses = [],
+  onEnroll,
+  onSelectCourse,
+  onNavigateToLearning,
+}) {
   // Kết hợp đề xuất AI và các khóa học phong phú (gồm cả Miễn phí và Trả phí)
   let displayCourses = [];
 
@@ -12,7 +19,9 @@ export default function RecommendedCoursesSection({ courses = [], recommendation
     }));
 
     // Bổ sung thêm khóa học miễn phí từ danh sách nếu chưa có trong đề xuất
-    const freeCourse = courses.find((c) => (c.is_free || Number(c.price) === 0) && !displayCourses.some((d) => d.id === c.id));
+    const freeCourse = courses.find(
+      (c) => (c.is_free || Number(c.price) === 0) && !displayCourses.some((d) => d.id === c.id)
+    );
     if (freeCourse) {
       displayCourses.push({
         ...freeCourse,
@@ -40,6 +49,7 @@ export default function RecommendedCoursesSection({ courses = [], recommendation
       <div className="course-grid">
         {displayCourses.map((course, idx) => {
           const isFree = course.is_free || Number(course.price) === 0;
+          const isEnrolled = myCourses.some((m) => (m.course?.id || m.id) === course.id);
 
           return (
             <div
@@ -128,7 +138,7 @@ export default function RecommendedCoursesSection({ courses = [], recommendation
                 <div className="course-card-footer" onClick={(e) => e.stopPropagation()}>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Học phí:</span>
-                    <strong style={{ fontSize: '1rem', color: isFree ? '#059669' : 'var(--text-main)' }}>
+                    <strong style={{ fontSize: '1rem', color: isFree ? '#059669' : '#ea580c' }}>
                       {isFree ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
                     </strong>
                   </div>
@@ -137,20 +147,35 @@ export default function RecommendedCoursesSection({ courses = [], recommendation
                     <button
                       className="btn-outline"
                       onClick={() => onSelectCourse && onSelectCourse(course)}
-                      style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                      style={{ padding: '6px 10px', fontSize: '0.78rem' }}
                     >
                       <i className="fa-regular fa-eye"></i>
                       <span>Chi tiết</span>
                     </button>
 
-                    <button
-                      className="btn-primary"
-                      onClick={() => onEnroll && onEnroll(course)}
-                      style={{ padding: '6px 12px', fontSize: '0.78rem' }}
-                    >
-                      <i className="fa-solid fa-plus"></i>
-                      <span>Ghi danh</span>
-                    </button>
+                    {isEnrolled ? (
+                      <button
+                        className="btn-primary"
+                        onClick={() => onNavigateToLearning && onNavigateToLearning(course)}
+                        style={{ padding: '6px 12px', fontSize: '0.78rem', backgroundColor: '#059669' }}
+                      >
+                        <i className="fa-solid fa-circle-play"></i>
+                        <span>Vào học</span>
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-primary"
+                        onClick={() => onEnroll && onEnroll(course)}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.78rem',
+                          backgroundColor: isFree ? '#0284c7' : '#ea580c',
+                        }}
+                      >
+                        <i className={`fa-solid ${isFree ? 'fa-plus' : 'fa-cart-shopping'}`}></i>
+                        <span>{isFree ? 'Ghi danh' : 'Mua ngay'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
