@@ -15,14 +15,14 @@ from apps.recommendations.models import (
 
 
 class Command(BaseCommand):
-    help = 'Nạp dữ liệu mẫu thực tế, đầy đủ và phong phú cho hệ thống E-Learning AI (Idempotent Database Seeder).'
+    help = 'Nạp dữ liệu mẫu thực tế, chất lượng cao và phong phú cho hệ thống E-Learning AI (Idempotent Database Seeder).'
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.NOTICE('=== BẮT ĐẦU NẠP DỮ LIỆU MẪU CHO E-LEARNING AI PLATFORM ==='))
 
         with transaction.atomic():
             # 1. TẠO TÀI KHOẢN NGƯỜI DÙNG (USERS)
-            self.stdout.write('1. Khởi tạo tài khoản Học viên, Giảng viên và Quản trị viên...')
+            self.stdout.write('1. Khởi tạo tài khoản Học viên và Giảng viên...')
 
             student, _ = CustomUser.objects.get_or_create(
                 email='thaipro1132004@gmail.com',
@@ -60,21 +60,7 @@ class Command(BaseCommand):
             teacher2.set_password('levanthai113')
             teacher2.save()
 
-            admin_user, _ = CustomUser.objects.get_or_create(
-                email='admin@elearning.edu.vn',
-                defaults={
-                    'full_name': 'Admin Quản Trị Hệ Thống',
-                    'role': UserRole.ADMIN,
-                    'level': EnglishLevel.C2,
-                    'is_active': True,
-                    'is_staff': True,
-                    'is_superuser': True
-                }
-            )
-            admin_user.set_password('levanthai113')
-            admin_user.save()
-
-            self.stdout.write(self.style.SUCCESS('   ✓ Đã tạo 4 tài khoản chuẩn.'))
+            self.stdout.write(self.style.SUCCESS('   ✓ Đã tạo các tài khoản chuẩn (Học viên & Giảng viên).'))
 
             # 2. TẠO DANH MỤC KHÓA HỌC (CATEGORIES)
             self.stdout.write('2. Khởi tạo danh mục khóa học...')
@@ -95,8 +81,8 @@ class Command(BaseCommand):
                 defaults={'name': 'Luyện thi Tổng hợp', 'description': 'Chiến thuật làm bài thi TOEIC, IELTS đạt điểm cao.'}
             )
 
-            # 3. TẠO CÁC KHÓA HỌC (COURSES, CHAPTERS, LESSONS)
-            self.stdout.write('3. Khởi tạo khóa học, chương và bài học video...')
+            # 3. TẠO CÁC KHÓA HỌC CHẤT LƯỢNG CAO (COURSES, CHAPTERS, LESSONS)
+            self.stdout.write('3. Khởi tạo khóa học kèm ảnh đại diện chất lượng cao...')
 
             # Khóa 1: Ngữ Pháp Nền Tảng A1-A2
             course1, _ = Course.objects.get_or_create(
@@ -104,9 +90,10 @@ class Command(BaseCommand):
                 defaults={
                     'category': cat_grammar,
                     'teacher': teacher1,
-                    'title': 'Ngữ Pháp Tiếng Anh Nền Tảng (CEFR A1-A2)',
+                    'title': 'Ngữ Pháp Tiếng Anh Nền Tảng (CEFR A1–A2)',
                     'description': 'Làm chủ các thì cơ bản, đại từ, mạo từ và cách đặt câu chuẩn xác trong tiếng Anh.',
                     'level': EnglishLevel.A2,
+                    'thumbnail_url': 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80',
                     'price': Decimal('0'),
                     'is_free': True,
                     'status': CourseStatus.PUBLISHED
@@ -182,6 +169,7 @@ class Command(BaseCommand):
                     'title': 'Luyện Đọc Hiểu & Mở Rộng 1500 Từ Vựng (CEFR B1)',
                     'description': 'Kỹ năng Skimming & Scanning, phương pháp ghi nhớ từ vựng học thuật qua ngữ cảnh.',
                     'level': EnglishLevel.B1,
+                    'thumbnail_url': 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&auto=format&fit=crop&q=80',
                     'price': Decimal('0'),
                     'is_free': True,
                     'status': CourseStatus.PUBLISHED
@@ -199,27 +187,80 @@ class Command(BaseCommand):
                 order_index=1,
                 defaults={
                     'title': 'Bài 1: Kỹ Năng Đọc Lướt Skimming & Đọc Quét Scanning',
+                    'video_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                    'content': 'Làm chủ kỹ thuật đọc lấy ý chính và định vị từ khóa quan trọng.',
                     'duration_minutes': 15,
                     'is_preview': True
                 }
             )
 
-            # Khóa 3: Tiếng Anh B2
+            # Khóa 3: Tiếng Anh B2 Giao Tiếp Công Sở
             course3, _ = Course.objects.get_or_create(
                 slug='chinh-phuc-tieng-anh-trung-cao-cap-b2',
                 defaults={
-                    'category': cat_exam,
+                    'category': cat_comm,
                     'teacher': teacher1,
-                    'title': 'Chinh Phục Tiếng Anh Trung Cao Cấp (CEFR B2)',
-                    'description': 'Cấu trúc câu phức, mệnh đề quan hệ rút gọn, đảo ngữ và phản xạ giao tiếp tự nhiên.',
+                    'title': 'Chinh Phục Tiếng Anh Trung Cao Cấp & Giao Tiếp Công Sở (CEFR B2)',
+                    'description': 'Cấu trúc câu phức, mệnh đề quan hệ rút gọn, kỹ năng thuyết trình và đàm phán bằng tiếng Anh.',
                     'level': EnglishLevel.B2,
+                    'thumbnail_url': 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&auto=format&fit=crop&q=80',
                     'price': Decimal('299000'),
                     'is_free': False,
                     'status': CourseStatus.PUBLISHED
                 }
             )
 
-            self.stdout.write(self.style.SUCCESS('   ✓ Đã tạo 3 khóa học chuẩn kèm chương & bài học.'))
+            ch3_1, _ = Chapter.objects.get_or_create(
+                course=course3,
+                order_index=1,
+                defaults={'title': 'Chương 1: Thuyết Trình & Phỏng Vấn Chuyên Nghiệp', 'description': 'Cách trình bày ý tưởng lưu loát và tự tin.'}
+            )
+
+            Lesson.objects.get_or_create(
+                chapter=ch3_1,
+                order_index=1,
+                defaults={
+                    'title': 'Bài 1: Cấu Trúc Trình Bày Quan Điểm Trong Cuộc Họp',
+                    'video_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                    'content': 'Sử dụng các linking words và cụm từ chuyên nghiệp trong giao tiếp.',
+                    'duration_minutes': 20,
+                    'is_preview': True
+                }
+            )
+
+            # Khóa 4: TOEIC 800+
+            course4, _ = Course.objects.get_or_create(
+                slug='chien-thuat-luyen-thi-toeic-800-plus',
+                defaults={
+                    'category': cat_exam,
+                    'teacher': teacher2,
+                    'title': 'Chiến Thuật Luyện Thi TOEIC 800+ Bứt Phá Mục Tiêu',
+                    'description': 'Bí kíp xử lý bẫy Listening Part 2, 3, 4 và kỹ năng giải quyết nhanh Reading Part 5, 7.',
+                    'level': EnglishLevel.B2,
+                    'thumbnail_url': 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&auto=format&fit=crop&q=80',
+                    'price': Decimal('399000'),
+                    'is_free': False,
+                    'status': CourseStatus.PUBLISHED
+                }
+            )
+
+            # Khóa 5: IELTS Masterclass 7.5+
+            course5, _ = Course.objects.get_or_create(
+                slug='ielts-masterclass-75-toan-dien-4-ky-nang',
+                defaults={
+                    'category': cat_exam,
+                    'teacher': teacher1,
+                    'title': 'IELTS Masterclass 7.5+ Toàn Diện 4 Kỹ Năng',
+                    'description': 'Làm chủ Writing Task 2 học thuật, Speaking phản xạ tự nhiên và Listening / Reading đạt điểm tối đa.',
+                    'level': EnglishLevel.C1,
+                    'thumbnail_url': 'https://images.unsplash.com/photo-1513258496099-48168024aec0?w=600&auto=format&fit=crop&q=80',
+                    'price': Decimal('599000'),
+                    'is_free': False,
+                    'status': CourseStatus.PUBLISHED
+                }
+            )
+
+            self.stdout.write(self.style.SUCCESS('   ✓ Đã tạo 5 khóa học chất lượng cao kèm ảnh đại diện & bài học.'))
 
             # 4. TẠO ĐỀ THI TRẮC NGHIỆM CHUẨN (QUIZZES, QUESTIONS, OPTIONS)
             self.stdout.write('4. Khởi tạo ngân hàng đề thi trắc nghiệm...')
@@ -436,4 +477,3 @@ class Command(BaseCommand):
         self.stdout.write('  👨‍🎓 Học viên:    thaipro1132004@gmail.com        / levanthai113')
         self.stdout.write('  👨‍🏫 Giảng viên:  teacher@gmail.com               / levanthai113')
         self.stdout.write('  👨‍🏫 Giảng viên:  teacher1@gmail.com              / levanthai113')
-        self.stdout.write('  🛡️ Quản trị:    admin@elearning.edu.vn          / levanthai113')

@@ -275,46 +275,7 @@ export default function Header({
                       </div>
                     </div>
 
-                    {/* Chuyển vai trò nhanh: Chỉ Học viên & Giảng viên */}
-                    <div style={{ padding: '6px 8px', backgroundColor: 'var(--bg-subtle)', borderRadius: '6px' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                        CHUYỂN VAI TRÒ DEMO:
-                      </span>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          onClick={() => { onSwitchRole('STUDENT'); setIsProfileOpen(false); }}
-                          style={{
-                            flex: 1,
-                            padding: '4px 8px',
-                            fontSize: '0.75rem',
-                            fontWeight: '700',
-                            borderRadius: '4px',
-                            backgroundColor: role === 'STUDENT' ? '#0284c7' : 'var(--bg-surface)',
-                            color: role === 'STUDENT' ? 'white' : 'var(--text-main)',
-                            border: '1px solid var(--border-color)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Học viên
-                        </button>
-                        <button
-                          onClick={() => { onSwitchRole('TEACHER'); setIsProfileOpen(false); }}
-                          style={{
-                            flex: 1,
-                            padding: '4px 8px',
-                            fontSize: '0.75rem',
-                            fontWeight: '700',
-                            borderRadius: '4px',
-                            backgroundColor: role === 'TEACHER' ? '#0284c7' : 'var(--bg-surface)',
-                            color: role === 'TEACHER' ? 'white' : 'var(--text-main)',
-                            border: '1px solid var(--border-color)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Giảng viên
-                        </button>
-                      </div>
-                    </div>
+
 
                     {/* Nút Đăng Xuất */}
                     <button

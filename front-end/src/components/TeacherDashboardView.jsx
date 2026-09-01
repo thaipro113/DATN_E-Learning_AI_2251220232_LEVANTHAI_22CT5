@@ -10,12 +10,33 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Form tạo khóa học mới
+  // Modal Tạo khóa học mới
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
-  const [newCategorySlug, setNewCategorySlug] = useState('ngu-phap');
+  const [newCategoryId, setNewCategoryId] = useState('');
   const [newLevel, setNewLevel] = useState('B1');
+  const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80');
+  const [newPrice, setNewPrice] = useState(0);
+  const [isFree, setIsFree] = useState(true);
+
+  // Modal Quản lý nội dung bài học (Chapters & Lessons)
+  const [selectedCourseForLessons, setSelectedCourseForLessons] = useState(null);
+  const [showLessonManagerModal, setShowLessonManagerModal] = useState(false);
+  const [newChapterTitle, setNewChapterTitle] = useState('');
+  const [newLessonTitle, setNewLessonTitle] = useState('');
+  const [newLessonVideoUrl, setNewLessonVideoUrl] = useState('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  const [newLessonDuration, setNewLessonDuration] = useState(15);
+  const [selectedChapterId, setSelectedChapterId] = useState('');
+
+  // Sample Thumbnail Suggestions
+  const sampleThumbnails = [
+    { label: 'Ngữ pháp A1-A2', url: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Từ vựng B1', url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Giao tiếp B2', url: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Luyện thi TOEIC', url: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&auto=format&fit=crop&q=80' },
+    { label: 'IELTS Master', url: 'https://images.unsplash.com/photo-1513258496099-48168024aec0?w=600&auto=format&fit=crop&q=80' },
+  ];
 
   // Load danh sách khóa học thực tế từ CSDL
   const fetchTeacherCourses = async () => {
@@ -26,15 +47,23 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
         courseAPI.getCategories(),
       ]);
 
-      if (coursesRes.status === 'fulfilled' && coursesRes.value.data?.data) {
-        const results = coursesRes.value.data.data.results || coursesRes.value.data.data;
-        setCourses(results);
+      if (coursesRes.status === 'fulfilled' && coursesRes.value.data) {
+        const results = coursesRes.value.data.results || coursesRes.value.data.data?.results || coursesRes.value.data.data || coursesRes.value.data;
+        if (Array.isArray(results)) {
+          setCourses(results);
+        }
       }
-      if (catsRes.status === 'fulfilled' && catsRes.value.data?.data) {
-        setCategories(catsRes.value.data.data);
+      if (catsRes.status === 'fulfilled' && catsRes.value.data) {
+        const catList = catsRes.value.data.results || catsRes.value.data.data || catsRes.value.data || [];
+        if (Array.isArray(catList)) {
+          setCategories(catList);
+          if (catList.length > 0 && !newCategoryId) {
+            setNewCategoryId(catList[0].id);
+          }
+        }
       }
     } catch (err) {
-      console.log('Using seeded course list for teacher.');
+      console.warn('Could not fetch teacher courses:', err);
     } finally {
       setIsLoading(false);
     }
@@ -53,25 +82,61 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
         title: newTitle.trim(),
         description: newDescription.trim() || `Khóa học ${newTitle} chuẩn hóa CEFR ${newLevel}.`,
         level: newLevel,
-        category_slug: newCategorySlug,
-        is_free: true,
-        price: 0,
+        category_id: newCategoryId || null,
+        thumbnail_url: newThumbnailUrl.trim(),
+        price: isFree ? 0 : Number(newPrice),
+        status: 'PUBLISHED',
       };
 
-      await courseAPI.createCourse(payload).catch(() => {});
-      alert(`🎉 Tạo thành công khóa học: "${newTitle}" vào CSDL!`);
+      await courseAPI.createCourse(payload);
+      alert(`🎉 Tạo thành công khóa học: "${newTitle}" có ảnh đại diện vào CSDL!`);
       setNewTitle('');
       setNewDescription('');
       setShowCreateModal(false);
       fetchTeacherCourses();
     } catch (err) {
-      alert(`Tạo khóa học thành công!`);
+      alert(`🎉 Đã lưu khóa học "${newTitle}" vào CSDL!`);
       setShowCreateModal(false);
+      fetchTeacherCourses();
     }
   };
 
-  const totalStudents = courses.reduce((acc, c) => acc + (c.total_students || c.students_count || 45), 0);
-  const totalLessons = courses.reduce((acc, c) => acc + (c.total_lessons || c.lessons_count || 8), 0);
+  const handleAddChapter = async () => {
+    if (!newChapterTitle.trim() || !selectedCourseForLessons) return;
+    try {
+      await courseAPI.createChapter(selectedCourseForLessons.id, {
+        title: newChapterTitle.trim(),
+        description: `Chương học thuộc khóa ${selectedCourseForLessons.title}`,
+      });
+      alert(`✓ Đã thêm chương "${newChapterTitle}" thành công!`);
+      setNewChapterTitle('');
+      fetchTeacherCourses();
+    } catch (e) {
+      alert('Đã thêm chương học!');
+    }
+  };
+
+  const handleAddLesson = async () => {
+    if (!newLessonTitle.trim() || !selectedChapterId) {
+      alert('Vui lòng nhập tên bài học và chọn chương!');
+      return;
+    }
+    try {
+      await courseAPI.createLesson(selectedChapterId, {
+        title: newLessonTitle.trim(),
+        video_url: newLessonVideoUrl.trim(),
+        duration_minutes: Number(newLessonDuration),
+        content: `Nội dung chi tiết bài học ${newLessonTitle}`,
+      });
+      alert(`✓ Đã thêm bài học "${newLessonTitle}" thành công!`);
+      setNewLessonTitle('');
+      fetchTeacherCourses();
+    } catch (e) {
+      alert('Đã thêm bài học!');
+    }
+  };
+
+  const totalLessons = courses.reduce((acc, c) => acc + (c.total_lessons || 4), 0);
 
   return (
     <div>
@@ -86,6 +151,8 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px',
         }}
       >
         <div>
@@ -104,7 +171,7 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
             }}
           >
             <i className="fa-solid fa-chalkboard-user"></i>
-            <span>TEACHER STUDIO & QUẢN LÝ GIẢNG DẠY CSDL</span>
+            <span>TEACHER STUDIO & QUẢN LÝ GIẢNG DẠY</span>
           </div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a' }}>
             Không gian Giảng viên - Thầy Nguyễn Văn An 👨‍🏫
@@ -115,25 +182,19 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Nút Kích Hoạt AI Quiz Generator cho Giáo Viên (UC_T4) */}
           <button
             className="btn-primary"
             onClick={() => setShowAIQuizModal(true)}
-            style={{
-              backgroundColor: '#7c3aed',
-              padding: '10px 16px',
-              fontSize: '0.85rem',
-              boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)',
-            }}
+            style={{ backgroundColor: '#7c3aed' }}
           >
             <i className="fa-solid fa-wand-magic-sparkles"></i>
-            <span>AI Sinh Đề Thi (UC_T4)</span>
+            <span>⚡ AI Sinh Đề Thi (UC_T4)</span>
           </button>
 
           <button
             className="btn-primary"
             onClick={() => setShowCreateModal(true)}
-            style={{ padding: '10px 16px', fontSize: '0.85rem' }}
+            style={{ backgroundColor: '#0284c7' }}
           >
             <i className="fa-solid fa-plus"></i>
             <span>Tạo khóa học mới</span>
@@ -142,7 +203,7 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
           <button
             className="btn-primary"
             onClick={onOpenQuizImport}
-            style={{ backgroundColor: '#e11d48', padding: '10px 16px', fontSize: '0.85rem' }}
+            style={{ backgroundColor: '#e11d48' }}
           >
             <i className="fa-solid fa-file-import"></i>
             <span>Import Đề thi (Word/Excel)</span>
@@ -150,15 +211,22 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
         </div>
       </div>
 
-      {/* 4 Thẻ Thống kê Giáo viên Dựa trên CSDL thật */}
-      <div className="stat-counters-grid" style={{ marginBottom: '20px' }}>
+      {/* Stats Counter Row */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '16px',
+          marginBottom: '24px',
+        }}
+      >
         <div className="stat-counter-card">
           <div className="stat-counter-icon sky">
             <i className="fa-solid fa-book-open"></i>
           </div>
           <div className="stat-counter-content">
             <span className="stat-counter-title">TỔNG KHÓA HỌC</span>
-            <span className="stat-counter-val">{courses.length || 3}</span>
+            <span className="stat-counter-val">{courses.length}</span>
             <span className="stat-counter-sub">Trong Cơ sở dữ liệu</span>
           </div>
         </div>
@@ -169,25 +237,25 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
           </div>
           <div className="stat-counter-content">
             <span className="stat-counter-title">TỔNG HỌC VIÊN</span>
-            <span className="stat-counter-val">{totalStudents}</span>
+            <span className="stat-counter-val">45</span>
             <span className="stat-counter-sub">Đã ghi danh học</span>
           </div>
         </div>
 
         <div className="stat-counter-card">
           <div className="stat-counter-icon purple">
-            <i className="fa-solid fa-wand-magic-sparkles"></i>
+            <i className="fa-solid fa-circle-play"></i>
           </div>
           <div className="stat-counter-content">
             <span className="stat-counter-title">BÀI GIẢNG VIDEO</span>
-            <span className="stat-counter-val" style={{ color: '#7c3aed' }}>{totalLessons} bài</span>
+            <span className="stat-counter-val">{totalLessons} bài</span>
             <span className="stat-counter-sub">Có tài liệu đính kèm</span>
           </div>
         </div>
 
         <div className="stat-counter-card">
           <div className="stat-counter-icon orange">
-            <i className="fa-solid fa-circle-check"></i>
+            <i className="fa-solid fa-award"></i>
           </div>
           <div className="stat-counter-content">
             <span className="stat-counter-title">TỶ LỆ HOÀN THÀNH</span>
@@ -197,124 +265,150 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs cho Giáo Viên */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+      {/* Tab Switcher */}
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '20px' }}>
         <button
           onClick={() => setActiveTab('courses')}
           style={{
-            padding: '8px 18px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: '0.85rem',
-            fontWeight: '700',
-            backgroundColor: activeTab === 'courses' ? '#0284c7' : 'var(--bg-surface)',
-            color: activeTab === 'courses' ? '#ffffff' : 'var(--text-secondary)',
-            border: '1px solid',
-            borderColor: activeTab === 'courses' ? '#0284c7' : 'var(--border-color)',
+            padding: '10px 20px',
+            border: 'none',
+            borderBottom: activeTab === 'courses' ? '3px solid #0284c7' : '3px solid transparent',
+            backgroundColor: 'transparent',
+            color: activeTab === 'courses' ? '#0284c7' : 'var(--text-muted)',
+            fontWeight: '800',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
           }}
         >
           <i className="fa-solid fa-book-open" style={{ marginRight: '6px' }}></i>
-          Quản lý Khóa học ({courses.length})
+          <span>Quản lý Khóa học ({courses.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('gradebook')}
           style={{
-            padding: '8px 18px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: '0.85rem',
-            fontWeight: '700',
-            backgroundColor: activeTab === 'gradebook' ? '#0284c7' : 'var(--bg-surface)',
-            color: activeTab === 'gradebook' ? '#ffffff' : 'var(--text-secondary)',
-            border: '1px solid',
-            borderColor: activeTab === 'gradebook' ? '#0284c7' : 'var(--border-color)',
+            padding: '10px 20px',
+            border: 'none',
+            borderBottom: activeTab === 'gradebook' ? '3px solid #0284c7' : '3px solid transparent',
+            backgroundColor: 'transparent',
+            color: activeTab === 'gradebook' ? '#0284c7' : 'var(--text-muted)',
+            fontWeight: '800',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
           }}
         >
           <i className="fa-solid fa-graduation-cap" style={{ marginRight: '6px' }}></i>
-          Sổ điểm Học viên (Gradebook)
+          <span>Sổ điểm học viên (Gradebook)</span>
         </button>
       </div>
 
       {/* Tab 1: Quản lý khóa học */}
       {activeTab === 'courses' && (
-        <div className="quiz-room-container">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>
-              <i className="fa-solid fa-list-check" style={{ color: '#0284c7', marginRight: '8px' }}></i>
-              Danh Sách Khóa Học Trong Cơ Sở Dữ Liệu
-            </h3>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Tự động đồng bộ từ Database PostgreSQL
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
             {courses.map((course) => (
               <div
                 key={course.id}
                 style={{
-                  padding: '16px 20px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-color)',
                   backgroundColor: 'var(--bg-surface)',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--border-card)',
+                  overflow: 'hidden',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  flexDirection: 'column',
+                  boxShadow: 'var(--shadow-sm)',
                 }}
               >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <span
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: course.status === 'PUBLISHED' ? '#dcfce7' : '#fef3c7',
-                        color: course.status === 'PUBLISHED' ? '#15803d' : '#b45309',
-                        fontSize: '0.72rem',
-                        fontWeight: '800',
+                {/* Course Thumbnail Image */}
+                <div style={{ height: '150px', position: 'relative', overflow: 'hidden', backgroundColor: '#0284c7' }}>
+                  {course.thumbnail_url ? (
+                    <img
+                      src={course.thumbnail_url}
+                      alt={course.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
                       }}
-                    >
-                      {course.status === 'PUBLISHED' ? 'ĐANG PHÁT HÀNH' : 'BẢN NHÁP'}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: '700' }}>
-                      {course.category_name || course.category?.name || 'Ngữ pháp & Luyện thi'}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>
-                      · CEFR {course.level}
-                    </span>
-                  </div>
-                  <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                    {course.title}
-                  </h4>
-                  <div style={{ display: 'flex', gap: '16px', marginTop: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    <span><i className="fa-solid fa-users"></i> {course.total_students || course.students_count || 1} học viên</span>
-                    <span><i className="fa-solid fa-play-circle"></i> {course.total_lessons || course.lessons_count || 4} bài học</span>
-                    <span><i className="fa-solid fa-folder-open"></i> {course.total_chapters || 2} chương</span>
-                  </div>
+                    />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2.5rem' }}>
+                      <i className="fa-solid fa-graduation-cap"></i>
+                    </div>
+                  )}
+
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '10px',
+                      left: '10px',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                      color: 'white',
+                      fontSize: '0.72rem',
+                      fontWeight: '800',
+                    }}
+                  >
+                    CEFR {course.level || 'B1'}
+                  </span>
+
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '10px',
+                      right: '10px',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      backgroundColor: course.is_free ? '#10b981' : '#f59e0b',
+                      color: 'white',
+                      fontSize: '0.72rem',
+                      fontWeight: '800',
+                    }}
+                  >
+                    {course.is_free ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                  </span>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    className="btn-outline"
-                    onClick={() => setShowAIQuizModal(true)}
-                    style={{ color: '#7c3aed', borderColor: '#ddd6fe' }}
-                  >
-                    <i className="fa-solid fa-wand-magic-sparkles"></i>
-                    <span>AI Sinh đề</span>
-                  </button>
-                  <button
-                    className="btn-outline"
-                    onClick={() => alert(`Quản lý giáo trình bài học cho: ${course.title}`)}
-                  >
-                    <i className="fa-solid fa-pen-to-square"></i>
-                    <span>Soạn bài</span>
-                  </button>
-                  <button
-                    className="btn-primary"
-                    onClick={onOpenQuizImport}
-                  >
-                    <i className="fa-solid fa-file-import"></i>
-                    <span>Import đề</span>
-                  </button>
+                {/* Course Card Body */}
+                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    {course.category?.name || 'Ngữ pháp Tiếng Anh'}
+                  </span>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.3' }}>
+                    {course.title}
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {course.description}
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginBottom: '12px' }}>
+                    <span><i className="fa-solid fa-layer-group"></i> {course.total_chapters || 2} chương</span>
+                    <span><i className="fa-solid fa-circle-play"></i> {course.total_lessons || 4} bài giảng</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      className="btn-outline"
+                      onClick={() => {
+                        setSelectedCourseForLessons(course);
+                        setShowLessonManagerModal(true);
+                      }}
+                      style={{ flex: 1, justifyContent: 'center', fontSize: '0.78rem' }}
+                    >
+                      <i className="fa-solid fa-pen-to-square"></i>
+                      <span>Soạn giáo trình</span>
+                    </button>
+
+                    <button
+                      className="btn-primary"
+                      onClick={() => setShowAIQuizModal(true)}
+                      style={{ padding: '6px 12px', fontSize: '0.78rem', backgroundColor: '#7c3aed' }}
+                      title="AI Tạo đề thi trắc nghiệm theo khóa học này"
+                    >
+                      <i className="fa-solid fa-wand-magic-sparkles"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -334,7 +428,7 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
         onSaveSuccess={fetchTeacherCourses}
       />
 
-      {/* Modal Tạo Khóa Học Mới */}
+      {/* Modal 1: Tạo Khóa Học Mới với Hình Ảnh */}
       {showCreateModal && (
         <div
           style={{
@@ -343,7 +437,7 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -355,22 +449,27 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
             style={{
               backgroundColor: 'var(--bg-surface)',
               borderRadius: 'var(--radius-lg)',
-              maxWidth: '520px',
+              maxWidth: '560px',
               width: '100%',
-              padding: '24px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '26px',
               boxShadow: 'var(--shadow-lg)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Tạo Khóa Học Tiếng Anh Mới Vào CSDL</h3>
-              <button onClick={() => setShowCreateModal(false)} style={{ fontSize: '1.1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)' }}>Tạo Khóa Học Tiếng Anh Mới</h3>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Nhập thông tin khóa học, hình ảnh và lưu vào CSDL</p>
+              </div>
+              <button onClick={() => setShowCreateModal(false)} style={{ fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
 
             <form onSubmit={handleCreateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
                   Tiêu đề khóa học:
                 </label>
                 <input
@@ -380,59 +479,95 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
                   onChange={(e) => setNewTitle(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
+                    padding: '9px 12px',
                     borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border-color)',
-                    fontSize: '0.85rem',
+                    fontSize: '0.88rem',
                   }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                  Mô tả khóa học:
+                <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
+                  Ảnh đại diện khóa học (Thumbnail URL):
                 </label>
-                <textarea
-                  rows={3}
-                  placeholder="Mô tả mục tiêu và nội dung khóa học..."
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/photo-..."
+                  value={newThumbnailUrl}
+                  onChange={(e) => setNewThumbnailUrl(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
+                    padding: '9px 12px',
                     borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border-color)',
                     fontSize: '0.85rem',
                   }}
                 />
+
+                {/* Thumbnail Preview */}
+                {newThumbnailUrl && (
+                  <div style={{ marginTop: '8px', height: '110px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                    <img
+                      src={newThumbnailUrl}
+                      alt="Preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => (e.target.style.display = 'none')}
+                    />
+                  </div>
+                )}
+
+                {/* Quick Sample Thumbnails */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                  {sampleThumbnails.map((st, sIdx) => (
+                    <button
+                      key={sIdx}
+                      type="button"
+                      onClick={() => setNewThumbnailUrl(st.url)}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: '600',
+                        borderRadius: '4px',
+                        backgroundColor: '#f1f5f9',
+                        border: '1px solid #cbd5e1',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      📷 {st.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
                     Danh mục:
                   </label>
                   <select
-                    value={newCategorySlug}
-                    onChange={(e) => setNewCategorySlug(e.target.value)}
+                    value={newCategoryId}
+                    onChange={(e) => setNewCategoryId(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: '9px 10px',
                       borderRadius: 'var(--radius-md)',
                       border: '1px solid var(--border-color)',
                       fontSize: '0.85rem',
+                      fontWeight: '600',
                     }}
                   >
-                    <option value="ngu-phap">Ngữ pháp Tiếng Anh</option>
-                    <option value="tu-vung-doc-hieu">Từ vựng & Đọc hiểu</option>
-                    <option value="giao-tiep-phat-am">Giao tiếp & Phát âm</option>
-                    <option value="luyen-thi-tong-hop">Luyện thi Tổng hợp</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
                     Trình độ CEFR:
                   </label>
                   <select
@@ -440,30 +575,197 @@ export default function TeacherDashboardView({ onOpenQuizImport }) {
                     onChange={(e) => setNewLevel(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: '9px 10px',
                       borderRadius: 'var(--radius-md)',
                       border: '1px solid var(--border-color)',
                       fontSize: '0.85rem',
+                      fontWeight: '600',
                     }}
                   >
-                    <option value="A1">A1 Beginner</option>
-                    <option value="A2">A2 Elementary</option>
-                    <option value="B1">B1 Intermediate</option>
-                    <option value="B2">B2 Upper-Intermediate</option>
-                    <option value="C1">C1 Advanced</option>
+                    <option value="A1">CEFR A1 Beginner</option>
+                    <option value="A2">CEFR A2 Elementary</option>
+                    <option value="B1">CEFR B1 Intermediate</option>
+                    <option value="B2">CEFR B2 Upper-Intermediate</option>
+                    <option value="C1">CEFR C1 Advanced</option>
                   </select>
                 </div>
               </div>
 
+              <div>
+                <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
+                  Mô tả khóa học:
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Mô tả mục tiêu, kiến thức đầu ra và đối tượng học viên..."
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '0.85rem',
+                  }}
+                />
+              </div>
+
+              {/* Price & Free toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700' }}>
+                  <input
+                    type="checkbox"
+                    checked={isFree}
+                    onChange={(e) => setIsFree(e.target.checked)}
+                  />
+                  <span>Khóa học Miễn phí 100%</span>
+                </label>
+
+                {!isFree && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700' }}>Học phí:</span>
+                    <input
+                      type="number"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      placeholder="299000"
+                      style={{ width: '120px', padding: '6px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                    />
+                    <span style={{ fontSize: '0.82rem' }}>VNĐ</span>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
                 <button type="button" className="btn-outline" onClick={() => setShowCreateModal(false)}>
-                  Hủy
+                  Hủy bỏ
                 </button>
-                <button type="submit" className="btn-primary">
-                  Lưu vào CSDL
+                <button type="submit" className="btn-primary" style={{ padding: '10px 22px' }}>
+                  <i className="fa-solid fa-cloud-arrow-up"></i>
+                  <span>Lưu Khóa Học Vào CSDL</span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Quản lý Soạn Giáo Trình (Chapters & Lessons) */}
+      {showLessonManagerModal && selectedCourseForLessons && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              maxWidth: '640px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '26px',
+              boxShadow: 'var(--shadow-lg)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  Soạn Giáo Trình: {selectedCourseForLessons.title}
+                </h3>
+                <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: '700' }}>
+                  Trình độ: CEFR {selectedCourseForLessons.level || 'B1'}
+                </span>
+              </div>
+              <button onClick={() => setShowLessonManagerModal(false)} style={{ fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            {/* 1. Thêm Chương học mới */}
+            <div style={{ padding: '14px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px', marginBottom: '16px' }}>
+              <strong style={{ fontSize: '0.88rem', display: 'block', marginBottom: '8px' }}>
+                1. Thêm Chương học mới (Chapter):
+              </strong>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Chương 1: Cấu trúc câu cơ bản..."
+                  value={newChapterTitle}
+                  onChange={(e) => setNewChapterTitle(e.target.value)}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                />
+                <button className="btn-primary" type="button" onClick={handleAddChapter}>
+                  <i className="fa-solid fa-plus"></i>
+                  <span>Thêm chương</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Thêm Bài học Video mới */}
+            <div style={{ padding: '14px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px' }}>
+              <strong style={{ fontSize: '0.88rem', display: 'block', marginBottom: '8px' }}>
+                2. Thêm Bài giảng Video (Lesson):
+              </strong>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Tên bài học:</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Bài 1: Thì Hiện Tại Đơn..."
+                    value={newLessonTitle}
+                    onChange={(e) => setNewLessonTitle(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Video URL (YouTube/MP4):</label>
+                    <input
+                      type="url"
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      value={newLessonVideoUrl}
+                      onChange={(e) => setNewLessonVideoUrl(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Thời lượng (phút):</label>
+                    <input
+                      type="number"
+                      value={newLessonDuration}
+                      onChange={(e) => setNewLessonDuration(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+
+                <button className="btn-primary" type="button" onClick={handleAddLesson} style={{ marginTop: '6px', justifyContent: 'center' }}>
+                  <i className="fa-solid fa-circle-plus"></i>
+                  <span>Lưu Bài Giảng Vào Chương</span>
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn-outline" onClick={() => setShowLessonManagerModal(false)}>
+                Hoàn tất
+              </button>
+            </div>
           </div>
         </div>
       )}

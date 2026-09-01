@@ -113,30 +113,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </button>
         </div>
 
-        {/* Quick Demo Fill Buttons (Chỉ Học viên và Giảng viên) */}
-        {!isRegisterMode && (
-          <div style={{ padding: '12px', borderRadius: 'var(--radius-md)', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#64748b', display: 'block', marginBottom: '8px' }}>
-              ⚡ CHỌN NHANH TÀI KHOẢN MẪU (DATABASE SEEDER):
-            </span>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('thaipro1132004@gmail.com', 'levanthai113', 'STUDENT', 'Lê Văn Thái')}
-                style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', fontSize: '0.78rem', fontWeight: '700', border: '1px solid #bae6fd', cursor: 'pointer' }}
-              >
-                👨‍🎓 Học viên
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('teacher@gmail.com', 'levanthai113', 'TEACHER', 'Thầy Nguyễn Văn An')}
-                style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.78rem', fontWeight: '700', border: '1px solid #bbf7d0', cursor: 'pointer' }}
-              >
-                👨‍🏫 Giảng viên
-              </button>
-            </div>
-          </div>
-        )}
+
 
         {errorMsg && (
           <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#dc2626', fontSize: '0.8rem', fontWeight: '700', marginBottom: '14px' }}>

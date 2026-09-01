@@ -1,27 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { courseAPI } from '../services/api';
 
 export default function CourseDetailModal({ isOpen, onClose, course, onEnroll }) {
+  const [courseDetail, setCourseDetail] = useState(course);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !course) return;
+
+    const fetchDetail = async () => {
+      setIsLoading(true);
+      try {
+        const identifier = course.slug || course.id;
+        const res = await courseAPI.getCourseDetail(identifier);
+        const data = res.data?.data || res.data;
+        if (data) {
+          setCourseDetail(data);
+        }
+      } catch (err) {
+        setCourseDetail(course);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDetail();
+  }, [isOpen, course]);
+
   if (!isOpen || !course) return null;
 
-  const sampleChapters = [
-    {
-      id: 1,
-      title: 'Chương 1: Khởi Động & Nền Tảng Ngữ Pháp',
-      lessons: [
-        { id: 1, title: 'Bài 1: Các Thì Quá Khứ Cơ Bản', duration: '12:30', is_preview: true },
-        { id: 2, title: 'Bài 2: Mệnh Đề Quan Hệ & Rút Gọn', duration: '15:45', is_preview: false },
-        { id: 3, title: 'Bài 3: Cụm Động Từ (Phrasal Verbs)', duration: '18:10', is_preview: false },
-      ],
-    },
-    {
-      id: 2,
-      title: 'Chương 2: Luyện Phản Xạ Giao Tiếp Thực Chiến',
-      lessons: [
-        { id: 4, title: 'Bài 4: Hội thoại Giao tiếp Công sở', duration: '20:15', is_preview: false },
-        { id: 5, title: 'Bài 5: Thuyết trình & Đàm phán bằng Tiếng Anh', duration: '22:00', is_preview: false },
-      ],
-    },
-  ];
+  const currentData = courseDetail || course;
+  const chapters = currentData.chapters || [];
+  const teacher = currentData.teacher || {};
 
   return (
     <div
@@ -52,35 +62,71 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll })
           overflow: 'hidden',
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            padding: '20px 24px',
-            backgroundColor: course.bgColor || '#f0f9ff',
-            borderBottom: '1px solid var(--border-color)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
+        {/* Header with Image Banner */}
+        <div style={{ position: 'relative', height: '180px', backgroundColor: '#0284c7', overflow: 'hidden' }}>
+          {currentData.thumbnail_url ? (
+            <img
+              src={currentData.thumbnail_url}
+              alt={currentData.title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={(e) => (e.target.style.display = 'none')}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '3rem' }}>
+              <i className="fa-solid fa-graduation-cap"></i>
+            </div>
+          )}
+
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.3) 100%)',
+              padding: '20px 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              color: '#ffffff',
+            }}
+          >
             <span
               style={{
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-full)',
+                alignSelf: 'flex-start',
+                padding: '3px 10px',
+                borderRadius: '4px',
                 fontSize: '0.75rem',
                 fontWeight: '800',
-                backgroundColor: 'var(--bg-surface)',
-                color: '#0284c7',
+                backgroundColor: '#38bdf8',
+                color: '#0f172a',
+                marginBottom: '6px',
               }}
             >
-              Trình độ {course.level || 'B1'}
+              CEFR {currentData.level || 'B1'}
             </span>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '6px' }}>
-              {course.title}
+            <h2 style={{ fontSize: '1.35rem', fontWeight: '900', color: '#ffffff', margin: 0 }}>
+              {currentData.title}
             </h2>
           </div>
-          <button onClick={onClose} style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>
+
+          <button
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: '14px',
+              right: '14px',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              border: 'none',
+              fontSize: '1rem',
+            }}
+          >
             <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -94,21 +140,25 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll })
                 GIỚI THIỆU KHÓA HỌC
               </h4>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {course.description || 'Khóa học được thiết kế chuẩn sư phạm quốc tế, kết hợp thực hành và sửa lỗi thời gian thực bằng Trí tuệ Nhân tạo AI.'}
+                {currentData.description || 'Khóa học được thiết kế chuẩn sư phạm quốc tế, kết hợp thực hành và sửa lỗi thời gian thực bằng Trí tuệ Nhân tạo AI.'}
               </p>
             </div>
 
-            <div style={{ padding: '12px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '6px' }}>
+            <div style={{ padding: '14px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '8px' }}>
                 GIẢNG VIÊN PHỤ TRÁCH
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div className="user-avatar-circle" style={{ width: '32px', height: '32px' }}>
-                  T
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="user-avatar-circle" style={{ width: '36px', height: '36px', fontSize: '0.9rem', backgroundColor: '#dbeafe', color: '#0284c7' }}>
+                  {teacher.full_name ? teacher.full_name.charAt(0).toUpperCase() : 'G'}
                 </div>
                 <div>
-                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'block' }}>Thầy Lê Văn Thái</strong>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Giảng viên Tiếng Anh</span>
+                  <strong style={{ fontSize: '0.88rem', color: 'var(--text-main)', display: 'block' }}>
+                    {teacher.full_name || 'Thầy Nguyễn Văn An'}
+                  </strong>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {teacher.email || 'teacher@elearning.edu.vn'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -117,44 +167,55 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll })
           {/* Chương trình giảng dạy chi tiết */}
           <div>
             <h4 style={{ fontSize: '0.9rem', fontWeight: '800', marginBottom: '12px', color: 'var(--text-main)' }}>
-              CHƯƠNG TRÌNH HỌC ({sampleChapters.length} Chương · 5 Bài học Video)
+              CHƯƠNG TRÌNH HỌC ({chapters.length} Chương · {currentData.total_lessons || 4} Bài học Video)
             </h4>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {sampleChapters.map((ch) => (
-                <div key={ch.id} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                  <div style={{ padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', fontWeight: '700', fontSize: '0.85rem' }}>
-                    {ch.title}
-                  </div>
-                  <div>
-                    {ch.lessons.map((les) => (
-                      <div
-                        key={les.id}
-                        style={{
-                          padding: '10px 14px',
-                          borderTop: '1px solid var(--border-color)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          fontSize: '0.82rem',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <i className="fa-regular fa-circle-play" style={{ color: '#0284c7' }}></i>
-                          <span>{les.title}</span>
-                          {les.is_preview && (
-                            <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: '700' }}>
-                              Học thử miễn phí
-                            </span>
-                          )}
+            {isLoading ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <i className="fa-solid fa-circle-notch fa-spin"></i>
+                <span style={{ marginLeft: '8px' }}>Đang tải giáo trình từ CSDL...</span>
+              </div>
+            ) : chapters.length === 0 ? (
+              <div style={{ padding: '16px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Khóa học bao gồm 4 bài giảng video trọng tâm và bài tập ôn luyện chuẩn CEFR.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {chapters.map((ch, idx) => (
+                  <div key={ch.id || idx} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', fontWeight: '800', fontSize: '0.88rem', color: 'var(--text-main)' }}>
+                      {ch.title}
+                    </div>
+                    <div>
+                      {(ch.lessons || []).map((les, lIdx) => (
+                        <div
+                          key={les.id || lIdx}
+                          style={{
+                            padding: '10px 14px',
+                            borderTop: '1px solid var(--border-color)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <i className="fa-regular fa-circle-play" style={{ color: '#0284c7' }}></i>
+                            <span style={{ color: 'var(--text-main)' }}>{les.title}</span>
+                            {les.is_preview && (
+                              <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: '700' }}>
+                                Học thử miễn phí
+                              </span>
+                            )}
+                          </div>
+                          <span style={{ color: 'var(--text-muted)' }}>{les.duration_minutes || 15} phút</span>
                         </div>
-                        <span style={{ color: 'var(--text-light)' }}>{les.duration}</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -170,9 +231,11 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll })
           }}
         >
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Học phí:</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Học phí khóa học:</span>
             <strong style={{ fontSize: '1.2rem', color: '#059669' }}>
-              {course.is_free || course.price === 0 ? 'Miễn phí' : `${course.price?.toLocaleString()} đ`}
+              {currentData.is_free || Number(currentData.price) === 0
+                ? 'Miễn phí 100%'
+                : `${Number(currentData.price || 0).toLocaleString('vi-VN')} đ`}
             </strong>
           </div>
 
@@ -183,7 +246,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll })
             <button
               className="btn-primary"
               onClick={() => {
-                onEnroll(course);
+                onEnroll(currentData);
                 onClose();
               }}
               style={{ padding: '8px 20px', fontSize: '0.9rem' }}

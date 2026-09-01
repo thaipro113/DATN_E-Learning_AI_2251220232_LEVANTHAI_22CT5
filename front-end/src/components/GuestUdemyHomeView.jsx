@@ -155,12 +155,23 @@ export default function GuestUdemyHomeView({
           {filteredCourses.map((course) => (
             <div key={course.id} className="udemy-course-card" onClick={() => onSelectCourse(course)}>
               {/* Thumbnail Header */}
-              <div className="udemy-card-thumb">
-                <div className="udemy-thumb-placeholder">
-                  <i className="fa-solid fa-graduation-cap"></i>
-                </div>
+              <div className="udemy-card-thumb" style={{ overflow: 'hidden' }}>
+                {course.thumbnail_url ? (
+                  <img
+                    src={course.thumbnail_url}
+                    alt={course.title}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="udemy-thumb-placeholder">
+                    <i className="fa-solid fa-graduation-cap"></i>
+                  </div>
+                )}
                 <span className={`udemy-level-badge level-${course.level?.toLowerCase() || 'b1'}`}>
-                  {course.level || 'B1'}
+                  CEFR {course.level || 'B1'}
                 </span>
                 {course.is_free && (
                   <span className="udemy-free-badge">Miễn phí</span>
