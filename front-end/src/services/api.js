@@ -24,19 +24,30 @@ export const authAPI = {
   login: (credentials) => apiClient.post('auth/login/', credentials),
   register: (data) => apiClient.post('auth/register/', data),
   getProfile: () => apiClient.get('auth/me/'),
+  updateProfile: (data) => apiClient.patch('auth/me/', data),
+  changePassword: (data) => apiClient.post('auth/change-password/', data),
   getUsers: (params) => apiClient.get('auth/users/', { params }),
   updateUser: (userId, data) => apiClient.patch(`auth/users/${userId}/`, data),
 };
 
 export const courseAPI = {
   getCategories: () => apiClient.get('courses/categories/'),
+  createCategory: (data) => apiClient.post('courses/categories/', data),
   getCourses: (params) => apiClient.get('courses/', { params }),
   getCourseDetail: (identifier) => apiClient.get(`courses/${identifier}/`),
   getTeachingCourses: () => apiClient.get('courses/teaching/'),
   createCourse: (data) => apiClient.post('courses/', data),
-  createChapter: (courseId, data) => apiClient.post(`courses/${courseId}/chapters/`, data),
-  createLesson: (chapterId, data) => apiClient.post(`courses/chapters/${chapterId}/lessons/`, data),
+  updateCourse: (identifier, data) => apiClient.patch(`courses/${identifier}/`, data),
+  deleteCourse: (identifier) => apiClient.delete(`courses/${identifier}/`),
   publishCourse: (identifier) => apiClient.post(`courses/${identifier}/publish/`),
+  createChapter: (courseId, data) => apiClient.post(`courses/${courseId}/chapters/`, data),
+  updateChapter: (chapterId, data) => apiClient.patch(`courses/chapters/${chapterId}/`, data),
+  deleteChapter: (chapterId) => apiClient.delete(`courses/chapters/${chapterId}/`),
+  createLesson: (chapterId, data) => apiClient.post(`courses/chapters/${chapterId}/lessons/`, data),
+  updateLesson: (lessonId, data) => apiClient.patch(`courses/lessons/${lessonId}/`, data),
+  deleteLesson: (lessonId) => apiClient.delete(`courses/lessons/${lessonId}/`),
+  uploadMaterial: (lessonId, data) => apiClient.post(`courses/lessons/${lessonId}/materials/`, data),
+  deleteMaterial: (materialId) => apiClient.delete(`courses/materials/${materialId}/`),
 };
 
 export const learningAPI = {
@@ -46,13 +57,18 @@ export const learningAPI = {
   trackLessonProgress: (lessonId, data) => apiClient.post(`learning/lessons/${lessonId}/track-progress/`, data),
   completeLesson: (lessonId) => apiClient.post(`learning/lessons/${lessonId}/complete/`),
   getMyCertificates: () => apiClient.get('learning/certificates/'),
+  verifyCertificate: (certificateCode) => apiClient.get(`learning/certificates/${certificateCode}/`),
 };
 
 export const assessmentAPI = {
   getQuizzes: (params) => apiClient.get('assessments/quizzes/', { params }),
   getQuizDetail: (id) => apiClient.get(`assessments/quizzes/${id}/`),
   createQuiz: (data) => apiClient.post('assessments/quizzes/', data),
+  updateQuiz: (id, data) => apiClient.patch(`assessments/quizzes/${id}/`, data),
+  deleteQuiz: (id) => apiClient.delete(`assessments/quizzes/${id}/`),
   createQuestion: (quizId, data) => apiClient.post(`assessments/quizzes/${quizId}/questions/`, data),
+  updateQuestion: (questionId, data) => apiClient.patch(`assessments/questions/${questionId}/`, data),
+  deleteQuestion: (questionId) => apiClient.delete(`assessments/questions/${questionId}/`),
   startAttempt: (quizId) => apiClient.post(`assessments/quizzes/${quizId}/start/`),
   submitAttempt: (attemptId, answers) => apiClient.post(`assessments/attempts/${attemptId}/submit/`, { answers }),
   getAttemptResult: (attemptId) => apiClient.get(`assessments/attempts/${attemptId}/results/`),
@@ -62,6 +78,7 @@ export const assessmentAPI = {
 export const aiAPI = {
   getSessions: () => apiClient.get('ai/sessions/'),
   createSession: (data) => apiClient.post('ai/sessions/', data),
+  deleteSession: (sessionId) => apiClient.delete(`ai/sessions/${sessionId}/`),
   sendMessage: (sessionId, content, targetLevel = 'B1') =>
     apiClient.post(`ai/sessions/${sessionId}/send/`, { content, target_level: targetLevel }),
   checkGrammar: (text, targetLevel = 'B1') =>
@@ -90,6 +107,7 @@ export const quizImportAPI = {
     apiClient.post('quiz-import/upload/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  getBatches: () => apiClient.get('quiz-import/batches/'),
   getBatchDetail: (batchId) => apiClient.get(`quiz-import/batches/${batchId}/`),
   confirmImport: (batchId, quizId, customQuestions) =>
     apiClient.post(`quiz-import/batches/${batchId}/confirm/`, { quiz_id: quizId, questions: customQuestions }),

@@ -14,6 +14,8 @@ import FloatingAITutor from './components/FloatingAITutor';
 import QuizImportModal from './components/QuizImportModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import AuthModal from './components/AuthModal';
+import UserProfileModal from './components/UserProfileModal';
+import CertificateVerifyView from './components/CertificateVerifyView';
 import GuestUdemyHomeView from './components/GuestUdemyHomeView';
 import CourseDetailModal from './components/CourseDetailModal';
 import { recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
@@ -22,7 +24,7 @@ export default function App() {
   // Lấy tab ban đầu từ URL hash nếu có
   const getTabFromHash = () => {
     const hash = window.location.hash.replace('#/', '').replace('#', '');
-    const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'teacher_dashboard'];
+    const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'teacher_dashboard', 'cert_verify'];
     return validTabs.includes(hash) ? hash : 'dashboard';
   };
 
@@ -30,6 +32,7 @@ export default function App() {
   const [isQuizImportOpen, setIsQuizImportOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Modal Chi tiết khóa học
   const [selectedCourseForDetail, setSelectedCourseForDetail] = useState(null);
@@ -143,7 +146,7 @@ export default function App() {
     setCurrentTab('dashboard');
   };
 
-  // Chuyển đổi vai trò linh hoạt giữa Học viên và Giảng viên
+  // Chuyển đổi vai trò
   const handleSwitchRole = (newRole) => {
     const updatedUser = { ...user, role: newRole };
     setUser(updatedUser);
@@ -194,6 +197,7 @@ export default function App() {
     path: 'Lộ trình AI',
     skills: 'Lỗ hổng Kỹ năng',
     teacher_dashboard: 'Studio Giảng dạy',
+    cert_verify: 'Tra cứu Chứng chỉ số',
   };
 
   return (
@@ -206,6 +210,7 @@ export default function App() {
           setIsQuizImportOpen(true);
           setIsMobileDrawerOpen(false);
         }}
+        onOpenProfileModal={() => setIsProfileModalOpen(true)}
         onToggleMobileDrawer={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
         user={user}
         isLoggedIn={isLoggedIn}
@@ -300,6 +305,11 @@ export default function App() {
                 </button>
               </>
             )}
+
+            <button className={`nav-link ${currentTab === 'cert_verify' ? 'active' : ''}`} onClick={() => handleSelectTab('cert_verify')}>
+              <i className="fa-solid fa-award nav-icon-orange"></i>
+              <span>Tra cứu Chứng chỉ số</span>
+            </button>
           </div>
         </div>
 
@@ -365,7 +375,11 @@ export default function App() {
           </div>
         )}
 
-        {/* ==================== A. STUDENT / GUEST VIEWS ==================== */}
+        {/* ==================== A. PUBLIC / STUDENT / GUEST VIEWS ==================== */}
+        {currentTab === 'cert_verify' && (
+          <CertificateVerifyView onBackToDashboard={() => handleSelectTab(user.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')} />
+        )}
+
         {(!isLoggedIn || user.role === 'STUDENT') && (
           <>
             {currentTab === 'dashboard' && (
@@ -455,17 +469,18 @@ export default function App() {
         )}
       </main>
 
-      {/* 3. Floating Interactive AI English Tutor Widget */}
+      {/* 3. Floating Interactive AI English Tutor Widget with History */}
       <FloatingAITutor
         user={user}
         isLoggedIn={isLoggedIn}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
 
-      {/* 4. Quiz Import Tool Modal for Teachers */}
+      {/* 4. Quiz Import Tool Modal for Teachers with CSDL Confirm */}
       <QuizImportModal
         isOpen={isQuizImportOpen}
         onClose={() => setIsQuizImportOpen(false)}
+        onImportSuccess={fetchAllLiveData}
       />
 
       {/* 5. Course Detail Modal */}
@@ -483,7 +498,15 @@ export default function App() {
         onLoginSuccess={handleLoginSuccess}
       />
 
-      {/* 7. Mobile Bottom Navigation Bar */}
+      {/* 7. User Profile & Password Change Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        user={user}
+        onUpdateUserSuccess={(updated) => setUser(updated)}
+      />
+
+      {/* 8. Mobile Bottom Navigation Bar */}
       <MobileBottomNav
         currentTab={currentTab}
         onSelectTab={handleSelectTab}
