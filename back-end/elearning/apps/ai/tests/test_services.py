@@ -1,12 +1,15 @@
 from django.test import TestCase
 from apps.accounts.models import CustomUser, UserRole, EnglishLevel
+from apps.courses.models import Category, Course, Chapter, Lesson
+from apps.learning.models import Enrollment, LessonProgress
+from apps.assessments.models import Quiz, QuizType
 from apps.ai.models import ChatSession, ChatMessage, SessionType, MessageSenderType
-from apps.ai.services import AIService
+from apps.ai.services import AIService, AIQuizService
 
 
 class AIServicesTest(TestCase):
     """
-    Bộ kiểm thử cho AIService và AI LLM Engine.
+    Bộ kiểm thử cho AIService, AIQuizService và AI LLM Engine.
     """
 
     def setUp(self):
@@ -17,6 +20,13 @@ class AIServicesTest(TestCase):
             role=UserRole.STUDENT,
             level=EnglishLevel.B1
         )
+        self.teacher = CustomUser.objects.create_user(
+            email='teacher.ai.svc@example.com',
+            password='Password123!',
+            full_name='Teacher AI Svc',
+            role=UserRole.TEACHER,
+            level=EnglishLevel.C1
+        )
 
         self.session = AIService.create_session(
             student=self.student,
@@ -26,6 +36,19 @@ class AIServicesTest(TestCase):
                 'target_level': EnglishLevel.B1
             }
         )
+
+        # Tạo cấu trúc khóa học & chương học & bài học
+        self.category = Category.objects.create(name='Grammar Category')
+        self.course = Course.objects.create(
+            category=self.category,
+            teacher=self.teacher,
+            title='English Mastery B1',
+            level=EnglishLevel.B1,
+            status='PUBLISHED'
+        )
+        self.chapter = Chapter.objects.create(course=self.course, title='Chapter 1: Past Tenses', order_index=1)
+        self.lesson1 = Lesson.objects.create(chapter=self.chapter, title='Lesson 1: Past Simple', order_index=1)
+        self.lesson2 = Lesson.objects.create(chapter=self.chapter, title='Lesson 2: Past Continuous', order_index=2)
 
     def test_session_lifecycle(self):
         """
@@ -94,3 +117,66 @@ class AIServicesTest(TestCase):
         )
         self.assertFalse(result_clean['has_errors'])
         self.assertEqual(result_clean['errors_count'], 0)
+
+    def test_generate_quiz_for_teacher(self):
+        """
+        Kiểm tra Giáo viên sinh câu hỏi trắc nghiệm theo chủ đề bằng AI.
+        """
+        success, msg, questions = AIQuizService.generate_quiz_for_teacher(
+            teacher=self.teacher,
+            topic='Past Tenses and Irregular Verbs',
+            level='B1',
+            count=5,
+            skill='GRAMMAR'
+        )
+        self.assertTrue(success)
+        self.assertEqual(len(questions), 5)
+        for q in questions:
+            self.assertIn('content', q)
+            self.assertIn('options', q)
+            self.assertEqual(len(q['options']), 4)
+            # Phải có ít nhất 1 đáp án đúng
+            has_correct = any(opt['is_correct'] for opt in q['options'])
+            self.assertTrue(has_correct)
+
+    def test_generate_practice_quiz_by_progress(self):
+        """
+        Kiểm tra Học viên sinh đề ôn tập AI dựa trên các bài học đã hoàn thành.
+        """
+        # 1. Chưa ghi danh -> Báo lỗi
+        success, msg, quiz = AIQuizService.generate_practice_quiz_by_progress(
+            student=self.student,
+            chapter_id=str(self.chapter.id)
+        )
+        self.assertFalse(success)
+        self.assertIn("chưa ghi danh", msg)
+
+        # 2. Đã ghi danh nhưng chưa học xong bài nào -> Báo lỗi
+        enrollment = Enrollment.objects.create(student=self.student, course=self.course)
+        success, msg, quiz = AIQuizService.generate_practice_quiz_by_progress(
+            student=self.student,
+            chapter_id=str(self.chapter.id)
+        )
+        self.assertFalse(success)
+        self.assertIn("chưa hoàn thành bài học nào", msg)
+
+        # 3. Đã học xong Lesson 1 -> Sinh đề thành công
+        LessonProgress.objects.create(
+            enrollment=enrollment,
+            lesson=self.lesson1,
+            is_completed=True
+        )
+
+        success, msg, quiz = AIQuizService.generate_practice_quiz_by_progress(
+            student=self.student,
+            chapter_id=str(self.chapter.id),
+            num_questions=5
+        )
+        self.assertTrue(success)
+        self.assertIsNotNone(quiz)
+        self.assertEqual(quiz.quiz_type, QuizType.PRACTICE)
+        self.assertEqual(quiz.course, self.course)
+        self.assertEqual(quiz.created_by, self.student)
+        self.assertTrue(quiz.total_questions >= 3)
+        self.assertTrue(quiz.is_published)
+

@@ -187,3 +187,65 @@ class GrammarCheckResponseSerializer(serializers.Serializer):
     errors = GrammarErrorItemSerializer(many=True)
     better_alternatives = serializers.ListField(child=serializers.CharField())
     overall_comment_vi = serializers.CharField()
+
+
+# ==================== AI QUIZ GENERATOR SERIALIZERS ====================
+
+class GenerateProgressQuizRequestSerializer(serializers.Serializer):
+    """
+    Serializer tiếp nhận yêu cầu sinh đề ôn tập AI theo tiến độ bài học của học viên.
+    """
+    chapter_id = serializers.UUIDField(
+        required=True,
+        error_messages={'required': "Vui lòng cung cấp mã chương học (chapter_id)."}
+    )
+    num_questions = serializers.IntegerField(
+        required=False,
+        default=5,
+        min_value=3,
+        max_value=10,
+        help_text="Số lượng câu hỏi cần sinh (3 - 10 câu)"
+    )
+
+
+class GenerateTeacherQuizRequestSerializer(serializers.Serializer):
+    """
+    Serializer tiếp nhận yêu cầu sinh câu hỏi trắc nghiệm theo chủ đề cho Giáo viên.
+    """
+    topic = serializers.CharField(
+        required=True,
+        max_length=255,
+        error_messages={'required': "Vui lòng nhập chủ đề câu hỏi (topic)."}
+    )
+    level = serializers.ChoiceField(
+        choices=EnglishLevel.choices,
+        required=False,
+        default=EnglishLevel.B1
+    )
+    count = serializers.IntegerField(
+        required=False,
+        default=5,
+        min_value=1,
+        max_value=20,
+        help_text="Số lượng câu hỏi (1 - 20 câu)"
+    )
+    skill = serializers.CharField(
+        required=False,
+        default='GRAMMAR',
+        help_text="Kỹ năng trọng tâm (GRAMMAR, VOCABULARY, READING, LISTENING)"
+    )
+
+
+class GeneratedOptionPreviewSerializer(serializers.Serializer):
+    content = serializers.CharField()
+    is_correct = serializers.BooleanField()
+
+
+class GeneratedQuestionPreviewSerializer(serializers.Serializer):
+    content = serializers.CharField()
+    skill = serializers.CharField()
+    level = serializers.CharField()
+    explanation_vi = serializers.CharField()
+    points = serializers.FloatField(default=1.0)
+    options = GeneratedOptionPreviewSerializer(many=True)
+

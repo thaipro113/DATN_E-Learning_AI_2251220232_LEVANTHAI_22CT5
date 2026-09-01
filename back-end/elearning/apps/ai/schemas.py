@@ -6,8 +6,12 @@ from .serializers import (
     ChatSessionCreateSerializer,
     SendMessageRequestSerializer,
     SendMessageResponseSerializer,
+    ChatMessageSerializer,
     GrammarCheckRequestSerializer,
-    GrammarCheckResponseSerializer
+    GrammarCheckResponseSerializer,
+    GenerateProgressQuizRequestSerializer,
+    GenerateTeacherQuizRequestSerializer,
+    GeneratedQuestionPreviewSerializer
 )
 
 
@@ -103,3 +107,35 @@ grammar_check_schema = extend_schema(
         401: OpenApiResponse(description='Chưa xác thực')
     }
 )
+
+
+# ==================== AI QUIZ GENERATOR SCHEMAS ====================
+
+generate_progress_quiz_schema = extend_schema(
+    tags=['AI Quiz Generator'],
+    summary='Học viên: Sinh đề ôn tập AI dựa trên bài học đã hoàn thành (UC_S7)',
+    description='Tự động quét các bài học mà học viên ĐÃ HOÀN THÀNH trong Chapter chỉ định, gọi AI tạo đề trắc nghiệm tức thời và lưu vào cơ sở dữ liệu để làm bài ngay.',
+    request=GenerateProgressQuizRequestSerializer,
+    responses={
+        201: OpenApiResponse(description='Tạo đề ôn tập AI thành công!'),
+        400: OpenApiResponse(description='Chưa hoàn thành bài học nào trong chương hoặc lỗi dữ liệu'),
+        401: OpenApiResponse(description='Chưa xác thực')
+    }
+)
+
+generate_teacher_quiz_schema = extend_schema(
+    tags=['AI Quiz Generator'],
+    summary='Giáo viên: Sinh câu hỏi trắc nghiệm theo Chủ đề & Trình độ (UC_T4)',
+    description='Cho phép Giáo viên / Admin nhập chủ đề (topic), trình độ (level) và kỹ năng để AI sinh bộ câu hỏi trắc nghiệm kèm 4 đáp án và lời giải thích xem trước.',
+    request=GenerateTeacherQuizRequestSerializer,
+    responses={
+        200: OpenApiResponse(
+            description='Sinh câu hỏi trắc nghiệm thành công',
+            response=GeneratedQuestionPreviewSerializer(many=True)
+        ),
+        400: OpenApiResponse(description='Dữ liệu không hợp lệ'),
+        401: OpenApiResponse(description='Chưa xác thực'),
+        403: OpenApiResponse(description='Chỉ dành cho Giáo viên hoặc Admin')
+    }
+)
+

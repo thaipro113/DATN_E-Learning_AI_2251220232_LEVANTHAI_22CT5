@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple, Optional
 from django.conf import settings
 
-from .prompts import GRAMMAR_ANALYZER_SYSTEM_PROMPT
+from .prompts import GRAMMAR_ANALYZER_SYSTEM_PROMPT, QUIZ_GENERATOR_SYSTEM_PROMPT
 
 try:
     from google import genai
@@ -38,6 +38,13 @@ class BaseLLMProvider(ABC):
     def analyze_grammar(self, text: str, target_level: str = 'B1') -> Dict[str, Any]:
         """
         Phân tích chi tiết lỗi ngữ pháp & từ vựng trong văn bản.
+        """
+        pass
+
+    @abstractmethod
+    def generate_quiz_questions(self, prompt: str) -> List[Dict[str, Any]]:
+        """
+        Sinh danh sách các câu hỏi trắc nghiệm tiếng Anh bám sát ngữ cảnh yêu cầu.
         """
         pass
 
@@ -144,6 +151,46 @@ class GeminiLLMProvider(BaseLLMProvider):
 
         return FallbackMockLLMProvider().analyze_grammar(text, target_level)
 
+    def generate_quiz_questions(self, prompt: str) -> List[Dict[str, Any]]:
+        """
+        Sinh câu hỏi trắc nghiệm qua Gemini API có cấu trúc JSON.
+        """
+        if self.client and HAS_GOOGLE_GENAI:
+            try:
+                config = types.GenerateContentConfig(
+                    system_instruction=QUIZ_GENERATOR_SYSTEM_PROMPT,
+                    temperature=0.7,
+                    response_mime_type="application/json"
+                )
+
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=config
+                )
+
+                raw_text = response.text.strip()
+                if raw_text.startswith('```json'):
+                    raw_text = raw_text[7:]
+                if raw_text.startswith('```'):
+                    raw_text = raw_text[3:]
+                if raw_text.endswith('```'):
+                    raw_text = raw_text[:-3]
+
+                data = json.loads(raw_text.strip())
+                if isinstance(data, list):
+                    return data
+                if isinstance(data, dict) and 'questions' in data:
+                    return data['questions']
+                return []
+            except Exception as e:
+                logger.warning(f"Gemini Quiz Generation failed: {e}. Trying Groq fallback...")
+                groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
+                if groq_key:
+                    return GroqLLMProvider(api_key=groq_key).generate_quiz_questions(prompt)
+
+        return FallbackMockLLMProvider().generate_quiz_questions(prompt)
+
 
 class GroqLLMProvider(BaseLLMProvider):
     """
@@ -225,6 +272,42 @@ class GroqLLMProvider(BaseLLMProvider):
             logger.warning(f"Groq Grammar Analysis failed: {e}. Falling back to Mock Provider.")
 
         return FallbackMockLLMProvider().analyze_grammar(text, target_level)
+
+    def generate_quiz_questions(self, prompt: str) -> List[Dict[str, Any]]:
+        import urllib.request
+        payload = {
+            'model': self.model,
+            'messages': [
+                {'role': 'system', 'content': QUIZ_GENERATOR_SYSTEM_PROMPT},
+                {'role': 'user', 'content': prompt}
+            ],
+            'temperature': 0.7,
+            'response_format': {'type': 'json_object'}
+        }
+
+        try:
+            req = urllib.request.Request(
+                self.endpoint,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f"Bearer {self.api_key}",
+                    'User-Agent': 'Mozilla/5.0'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=15) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                raw_json = result['choices'][0]['message']['content']
+                data = json.loads(raw_json)
+                if isinstance(data, list):
+                    return data
+                if isinstance(data, dict) and 'questions' in data:
+                    return data['questions']
+                return []
+        except Exception as e:
+            logger.warning(f"Groq Quiz Generation failed: {e}. Falling back to Mock Provider.")
+
+        return FallbackMockLLMProvider().generate_quiz_questions(prompt)
 
 
 class FallbackMockLLMProvider(BaseLLMProvider):
@@ -312,6 +395,78 @@ class FallbackMockLLMProvider(BaseLLMProvider):
             )
         }
 
+    def generate_quiz_questions(self, prompt: str) -> List[Dict[str, Any]]:
+        """
+        Bộ sinh câu hỏi trắc nghiệm AI Mock đa dạng bám sát chủ đề yêu cầu.
+        """
+        return [
+            {
+                "content": "Which sentence uses the Past Simple tense correctly?",
+                "skill": "GRAMMAR",
+                "level": "B1",
+                "explanation_vi": "Động từ bất quy tắc của 'go' ở quá khứ đơn là 'went'. Mốc thời gian 'yesterday' yêu cầu thì quá khứ đơn.",
+                "points": 1.0,
+                "options": [
+                    {"content": "She goed to London yesterday.", "is_correct": False},
+                    {"content": "She went to London yesterday.", "is_correct": True},
+                    {"content": "She has gone to London yesterday.", "is_correct": False},
+                    {"content": "She was go to London yesterday.", "is_correct": False}
+                ]
+            },
+            {
+                "content": "Choose the correct word to fill in the blank: 'He ______ his homework before dinner every day.'",
+                "skill": "GRAMMAR",
+                "level": "B1",
+                "explanation_vi": "Chủ ngữ 'He' là ngôi thứ 3 số ít, động từ kết thúc bằng 'o' ('do') thêm 'es' thành 'does' ở thì Hiện tại đơn.",
+                "points": 1.0,
+                "options": [
+                    {"content": "finish", "is_correct": False},
+                    {"content": "finishes", "is_correct": True},
+                    {"content": "finishing", "is_correct": False},
+                    {"content": "finished", "is_correct": False}
+                ]
+            },
+            {
+                "content": "What is the synonym of the word 'essential'?",
+                "skill": "VOCABULARY",
+                "level": "B1",
+                "explanation_vi": "'Essential' có nghĩa là 'thiết yếu / cần thiết', đồng nghĩa với 'necessary' hoặc 'crucial'.",
+                "points": 1.0,
+                "options": [
+                    {"content": "Crucial", "is_correct": True},
+                    {"content": "Trivial", "is_correct": False},
+                    {"content": "Optional", "is_correct": False},
+                    {"content": "Unimportant", "is_correct": False}
+                ]
+            },
+            {
+                "content": "If it ______ tomorrow, we will postpone the outdoor picnic.",
+                "skill": "GRAMMAR",
+                "level": "B1",
+                "explanation_vi": "Mệnh đề 'If' trong câu điều kiện loại 1 chia ở thì Hiện tại đơn (ngôi thứ 3 số ít: 'rains').",
+                "points": 1.0,
+                "options": [
+                    {"content": "will rain", "is_correct": False},
+                    {"content": "rains", "is_correct": True},
+                    {"content": "rained", "is_correct": False},
+                    {"content": "is raining", "is_correct": False}
+                ]
+            },
+            {
+                "content": "Complete the sentence: 'She has been working here ______ five years.'",
+                "skill": "GRAMMAR",
+                "level": "B1",
+                "explanation_vi": "Dùng 'for' đi với một khoảng thời gian ('five years') trong thì Hiện tại hoàn thành.",
+                "points": 1.0,
+                "options": [
+                    {"content": "since", "is_correct": False},
+                    {"content": "for", "is_correct": True},
+                    {"content": "during", "is_correct": False},
+                    {"content": "at", "is_correct": False}
+                ]
+            }
+        ]
+
 
 def get_llm_provider() -> BaseLLMProvider:
     """
@@ -326,3 +481,4 @@ def get_llm_provider() -> BaseLLMProvider:
         return GroqLLMProvider(api_key=groq_key)
 
     return FallbackMockLLMProvider()
+

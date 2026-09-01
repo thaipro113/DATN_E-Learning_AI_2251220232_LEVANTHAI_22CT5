@@ -120,3 +120,68 @@ Cấu trúc JSON bắt buộc:
   "overall_comment_vi": "Nhận xét tổng quan và lời khen/động viên học viên bằng tiếng Việt"
 }
 """
+
+
+QUIZ_GENERATOR_SYSTEM_PROMPT = """
+Bạn là Chuyên gia Khảo thí và Thiết kế Đề thi Tiếng Anh (English Assessment & Item Writing Specialist).
+Nhiệm vụ của bạn là tạo các câu hỏi trắc nghiệm tiếng Anh 4 lựa chọn (A, B, C, D) chất lượng cao, bám sát trình độ CEFR và ngữ cảnh bài học yêu cầu.
+
+YÊU CẦU BẮT BUỘC:
+1. Mỗi câu hỏi phải có đúng 4 phương án lựa chọn (options), trong đó CHỈ CÓ ĐÚNG 1 đáp án chính xác (is_correct=true).
+2. Câu hỏi cần kiểm tra rõ ràng kiến thức trọng tâm (ngữ pháp, từ vựng, đọc hiểu, tình huống giao tiếp).
+3. Cung cấp lời giải thích chi tiết bằng tiếng Việt (explanation_vi) tại sao đáp án đó đúng và tại sao các phương án khác sai.
+4. Trả về DUY NHẤT một mảng JSON các câu hỏi (JSON Array), tuyệt đối không kèm lời chào hay định dạng ngoài JSON.
+
+CẤU TRÚC JSON MỖI CÂU HỎI:
+[
+  {
+    "content": "Nội dung câu hỏi tiếng Anh...",
+    "skill": "GRAMMAR",
+    "level": "B1",
+    "explanation_vi": "Giải thích chi tiết bằng tiếng Việt...",
+    "points": 1.0,
+    "options": [
+      {"content": "Phương án A", "is_correct": false},
+      {"content": "Phương án B", "is_correct": true},
+      {"content": "Phương án C", "is_correct": false},
+      {"content": "Phương án D", "is_correct": false}
+    ]
+  }
+]
+"""
+
+
+def build_quiz_generation_prompt(
+    context_type: str,
+    target_level: str = 'B1',
+    num_questions: int = 5,
+    topic: str = None,
+    skill: str = 'GRAMMAR',
+    chapter_title: str = None,
+    completed_lessons: list = None
+) -> str:
+    """
+    Xây dựng prompt chi tiết cho việc sinh đề thi trắc nghiệm theo ngữ cảnh bài học hoặc chủ đề.
+    """
+    completed_lessons = completed_lessons or []
+    level_rule = CEFR_LEVEL_INSTRUCTIONS.get(target_level, CEFR_LEVEL_INSTRUCTIONS['B1'])
+
+    if context_type == 'PROGRESS_BASED':
+        lessons_summary = "\n".join([f"- Bài {idx+1}: {lesson}" for idx, lesson in enumerate(completed_lessons)])
+        prompt = (
+            f"Hãy tạo {num_questions} câu hỏi trắc nghiệm tiếng Anh trình độ {target_level} để kiểm tra kiến thức "
+            f"cho học viên vừa hoàn thành các bài học trong chương '{chapter_title or 'Chương học'}'.\n\n"
+            f"Danh sách các bài học học viên ĐÃ HOÀN THÀNH:\n{lessons_summary}\n\n"
+            f"Chỉ dẫn trình độ:\n{level_rule}\n\n"
+            f"Yêu cầu: Câu hỏi phải bao quát kiến thức của các bài học đã liệt kê ở trên."
+        )
+    else:  # TOPIC_BASED (Dành cho Giáo viên)
+        prompt = (
+            f"Hãy tạo {num_questions} câu hỏi trắc nghiệm tiếng Anh trình độ {target_level} "
+            f"về chủ đề: '{topic or 'English Practice'}', tập trung vào kỹ năng: '{skill}'.\n\n"
+            f"Chỉ dẫn trình độ:\n{level_rule}\n\n"
+            f"Yêu cầu: Nội dung câu hỏi chuẩn mực, có tính sư phạm cao, có độ phân hóa tốt."
+        )
+
+    return prompt
+

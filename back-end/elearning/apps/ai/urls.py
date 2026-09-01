@@ -3,7 +3,9 @@ from .views import (
     ChatSessionListCreateAPIView,
     ChatSessionDetailAPIView,
     SendMessageAPIView,
-    GrammarCheckAPIView
+    GrammarCheckAPIView,
+    GenerateProgressQuizAPIView,
+    GenerateTeacherQuizAPIView
 )
 
 app_name = 'ai'
@@ -18,4 +20,9 @@ urlpatterns = [
 
     # 3. Phân tích & Sửa lỗi ngữ pháp chuyên biệt (Grammar Checker API)
     path('grammar-check/', GrammarCheckAPIView.as_view(), name='grammar_check'),
+
+    # 4. AI Sinh đề thi trắc nghiệm (Quiz Generator)
+    path('quizzes/generate/', GenerateTeacherQuizAPIView.as_view(), name='generate_teacher_quiz'),
+    path('quizzes/generate-by-progress/', GenerateProgressQuizAPIView.as_view(), name='generate_progress_quiz'),
 ]
+

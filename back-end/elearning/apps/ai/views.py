@@ -4,6 +4,8 @@ from rest_framework import status
 
 from common.responses import success_response, error_response
 from common.pagination import StandardResultsSetPagination
+from common.permissions import IsTeacherUserRole
+from apps.assessments.serializers import QuizDetailStudentSerializer
 from .models import ChatSession
 from .serializers import (
     ChatSessionListSerializer,
@@ -12,16 +14,21 @@ from .serializers import (
     SendMessageRequestSerializer,
     ChatMessageSerializer,
     GrammarCheckRequestSerializer,
-    GrammarCheckResponseSerializer
+    GrammarCheckResponseSerializer,
+    GenerateProgressQuizRequestSerializer,
+    GenerateTeacherQuizRequestSerializer,
+    GeneratedQuestionPreviewSerializer
 )
-from .services import AIService
+from .services import AIService, AIQuizService
 from .schemas import (
     list_sessions_schema,
     create_session_schema,
     get_session_detail_schema,
     delete_session_schema,
     send_message_schema,
-    grammar_check_schema
+    grammar_check_schema,
+    generate_progress_quiz_schema,
+    generate_teacher_quiz_schema
 )
 
 
@@ -177,3 +184,86 @@ class GrammarCheckAPIView(APIView):
             message="Phân tích ngữ pháp hoàn tất!",
             status_code=status.HTTP_200_OK
         )
+
+
+# ==================== AI QUIZ GENERATOR VIEWS ====================
+
+class GenerateProgressQuizAPIView(APIView):
+    """
+    API Endpoint cho phép học viên sinh đề ôn tập AI tức thời theo tiến độ các bài đã học trong Chapter (UC_S7).
+    """
+    permission_classes = [IsAuthenticated]
+
+    @generate_progress_quiz_schema
+    def post(self, request):
+        serializer = GenerateProgressQuizRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu yêu cầu sinh đề ôn tập không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        chapter_id = serializer.validated_data.get('chapter_id')
+        num_questions = serializer.validated_data.get('num_questions', 5)
+
+        success, message, quiz = AIQuizService.generate_practice_quiz_by_progress(
+            student=request.user,
+            chapter_id=str(chapter_id),
+            num_questions=num_questions
+        )
+
+        if not success:
+            return error_response(
+                message=message,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        return success_response(
+            data=QuizDetailStudentSerializer(quiz).data,
+            message=message,
+            status_code=status.HTTP_201_CREATED
+        )
+
+
+class GenerateTeacherQuizAPIView(APIView):
+    """
+    API Endpoint cho phép Giáo viên / Admin sinh câu hỏi trắc nghiệm AI theo Chủ đề & Trình độ (UC_T4).
+    """
+    permission_classes = [IsAuthenticated, IsTeacherUserRole]
+
+    @generate_teacher_quiz_schema
+    def post(self, request):
+        serializer = GenerateTeacherQuizRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu sinh câu hỏi không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        topic = serializer.validated_data.get('topic')
+        level = serializer.validated_data.get('level', 'B1')
+        count = serializer.validated_data.get('count', 5)
+        skill = serializer.validated_data.get('skill', 'GRAMMAR')
+
+        success, message, questions = AIQuizService.generate_quiz_for_teacher(
+            teacher=request.user,
+            topic=topic,
+            level=level,
+            count=count,
+            skill=skill
+        )
+
+        if not success:
+            return error_response(
+                message=message,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        return success_response(
+            data=GeneratedQuestionPreviewSerializer(questions, many=True).data,
+            message=message,
+            status_code=status.HTTP_200_OK
+        )
+

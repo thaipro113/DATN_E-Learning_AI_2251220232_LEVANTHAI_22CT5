@@ -3,8 +3,18 @@ from typing import Tuple, Dict, Any, List, Optional
 from django.db import transaction
 from django.db.models import Q
 from apps.accounts.models import CustomUser
+from apps.courses.models import Course, Chapter, Lesson
+from apps.learning.models import Enrollment, LessonProgress
+from apps.assessments.models import (
+    Quiz,
+    Question,
+    AnswerOption,
+    QuizType,
+    QuestionType,
+    SkillType
+)
 from .models import ChatSession, ChatMessage, SessionType, MessageSenderType
-from .prompts import build_system_prompt
+from .prompts import build_system_prompt, build_quiz_generation_prompt
 from .llm_client import get_llm_provider
 
 
@@ -62,13 +72,14 @@ class AIService:
     @staticmethod
     def delete_session(user: CustomUser, session_id: str) -> bool:
         """
-        Xóa phiên trò chuyện.
+        Xóa (Soft delete) phiên trò chuyện.
         """
         session = AIService.get_session_detail(user=user, session_id=session_id)
         if not session:
             return False
 
-        session.delete()
+        session.is_active = False
+        session.save(update_fields=['is_active', 'updated_at'])
         return True
 
     @staticmethod
@@ -79,21 +90,17 @@ class AIService:
         audio_url: str = None
     ) -> Tuple[bool, str, Optional[ChatMessage], Optional[ChatMessage]]:
         """
-        Xử lý lượt trò chuyện giữa Học viên và AI Tutor:
-        1. Lưu tin nhắn của Học viên vào CSDL.
-        2. Tạo System Prompt theo ngữ cảnh phiên chat (Trình độ, Bài học, Loại phiên).
-        3. Gửi đến LLM Provider (Gemini / Groq / Fallback Mock) để sinh câu trả lời & phân tích lỗi ngữ pháp.
-        4. Lưu tin nhắn phản hồi của AI vào CSDL.
+        Gửi tin nhắn từ học viên, lưu vào DB, gọi LLM xử lý và lưu tin nhắn phản hồi của AI.
         """
         session = AIService.get_session_detail(user=student, session_id=session_id)
         if not session:
             return False, "Không tìm thấy phiên trò chuyện yêu cầu.", None, None
 
-        if not content.strip():
+        if not content or not content.strip():
             return False, "Nội dung tin nhắn không được để trống.", None, None
 
         with transaction.atomic():
-            # 1. Lưu tin nhắn học viên
+            # 1. Lưu tin nhắn của học viên
             user_message = ChatMessage.objects.create(
                 session=session,
                 sender_type=MessageSenderType.USER,
@@ -101,21 +108,20 @@ class AIService:
                 audio_url=audio_url
             )
 
-            # 2. Xây dựng System Prompt & Lịch sử tin nhắn
+            # 2. Xây dựng System Prompt kèm ngữ cảnh khóa học/bài học
             course_title = session.course.title if session.course else None
             lesson_title = session.lesson.title if session.lesson else None
+            student_level = getattr(session, 'target_level', None) or session.student.level or 'B1'
 
             system_prompt = build_system_prompt(
                 session_type=session.session_type,
-                target_level=session.target_level,
+                target_level=student_level,
                 course_title=course_title,
                 lesson_title=lesson_title
             )
 
-            # Lấy 10 tin nhắn gần nhất để duy trì ngữ cảnh
-            recent_messages = list(session.messages.order_by('-created_at')[:10])
-            recent_messages.reverse()
-
+            # Lấy 10 tin nhắn gần nhất để làm ngữ cảnh hội thoại liên tục
+            recent_messages = list(session.messages.order_by('created_at')[:10])
             history = []
             for msg in recent_messages:
                 role = 'user' if msg.sender_type == MessageSenderType.USER else 'model'
@@ -161,3 +167,146 @@ class AIService:
 
         provider = get_llm_provider()
         return provider.analyze_grammar(text=text.strip(), target_level=target_level)
+
+
+class AIQuizService:
+    """
+    Tầng xử lý nghiệp vụ cho việc Sinh bài tập trắc nghiệm tự động bằng AI (AI Quiz Generation Engine).
+    Hỗ trợ 2 Use Case:
+    1. Học viên: Tự động tạo Quiz ôn tập nhanh dựa trên các bài học đã hoàn thành trong Chapter (UC_S7).
+    2. Giáo viên: Sinh bộ câu hỏi trắc nghiệm theo Topic, Trình độ CEFR và Kỹ năng (UC_T4).
+    """
+
+    @staticmethod
+    def generate_practice_quiz_by_progress(
+        student: CustomUser,
+        chapter_id: str,
+        num_questions: int = 5
+    ) -> Tuple[bool, str, Optional[Quiz]]:
+        """
+        Sinh đề ôn tập AI tức thời dựa trên các bài học đã học trong Chapter của học viên.
+        """
+        try:
+            chapter_uuid = uuid.UUID(str(chapter_id))
+            chapter = Chapter.objects.select_related('course').filter(id=chapter_uuid).first()
+        except (ValueError, TypeError):
+            return False, "Mã chương học không hợp lệ.", None
+
+        if not chapter:
+            return False, "Không tìm thấy chương học yêu cầu.", None
+
+        course = chapter.course
+
+        # 1. Kiểm tra lần ghi danh của học viên
+        enrollment = Enrollment.objects.filter(student=student, course=course).first()
+        if not enrollment:
+            return False, "Bạn chưa ghi danh vào khóa học chứa chương này.", None
+
+        # 2. Lấy danh sách các bài học mà học viên ĐÃ HOÀN THÀNH trong chương này
+        completed_progresses = LessonProgress.objects.filter(
+            enrollment=enrollment,
+            lesson__chapter=chapter,
+            is_completed=True
+        ).select_related('lesson')
+
+        if not completed_progresses.exists():
+            return False, f"Bạn chưa hoàn thành bài học nào trong chương '{chapter.title}' để tạo đề ôn tập. Hãy học xong ít nhất 1 bài nhé!", None
+
+        completed_lessons_info = [
+            f"{p.lesson.title} ({p.lesson.content[:100] if p.lesson.content else 'Nội dung bài học trọng tâm'})"
+            for p in completed_progresses
+        ]
+
+        # 3. Tạo Prompt bám sát ngữ cảnh các bài đã học
+        prompt = build_quiz_generation_prompt(
+            context_type='PROGRESS_BASED',
+            target_level=student.level or 'B1',
+            num_questions=min(max(num_questions, 3), 10),
+            chapter_title=chapter.title,
+            completed_lessons=completed_lessons_info
+        )
+
+        # 4. Gọi LLM Provider sinh câu hỏi
+        provider = get_llm_provider()
+        questions_raw = provider.generate_quiz_questions(prompt)
+
+        if not questions_raw:
+            return False, "Không thể sinh câu hỏi từ mô hình AI vào lúc này. Vui lòng thử lại sau.", None
+
+        # 5. Lưu Quiz loại PRACTICE và các Questions/Options vào CSDL
+        with transaction.atomic():
+            quiz_title = f"⚡ Ôn tập AI: {chapter.title}"
+            quiz = Quiz.objects.create(
+                course=course,
+                created_by=student,
+                title=quiz_title,
+                description=f"Đề ôn tập thích ứng được AI tạo tự động dựa trên {len(completed_lessons_info)} bài học bạn đã hoàn thành trong chương '{chapter.title}'.",
+                quiz_type=QuizType.PRACTICE,
+                level=student.level or 'B1',
+                time_limit_minutes=max(len(questions_raw) * 2, 5),
+                passing_score=70.0,
+                is_published=True
+            )
+
+            for q_idx, q_data in enumerate(questions_raw, start=1):
+                skill_val = q_data.get('skill', 'GRAMMAR')
+                if skill_val not in [c[0] for c in SkillType.choices]:
+                    skill_val = SkillType.GRAMMAR
+
+                level_val = q_data.get('level', student.level or 'B1')
+
+                question = Question.objects.create(
+                    quiz=quiz,
+                    content=q_data.get('content', f"Question {q_idx}"),
+                    question_type=QuestionType.SINGLE_CHOICE,
+                    skill=skill_val,
+                    level=level_val,
+                    explanation=q_data.get('explanation_vi', ''),
+                    points=float(q_data.get('points', 1.0)),
+                    order_index=q_idx
+                )
+
+                options_data = q_data.get('options', [])
+                # Đảm bảo có ít nhất 1 đáp án đúng
+                has_correct = any(opt.get('is_correct') for opt in options_data)
+                for opt_idx, opt in enumerate(options_data, start=1):
+                    is_corr = opt.get('is_correct', False)
+                    if not has_correct and opt_idx == 1:
+                        is_corr = True  # Fallback nếu AI quên cờ đúng
+
+                    AnswerOption.objects.create(
+                        question=question,
+                        content=opt.get('content', f"Option {opt_idx}"),
+                        is_correct=is_corr,
+                        order_index=opt_idx
+                    )
+
+        return True, f"Tạo đề ôn tập AI thành công gồm {quiz.total_questions} câu hỏi!", quiz
+
+    @staticmethod
+    def generate_quiz_for_teacher(
+        teacher: CustomUser,
+        topic: str,
+        level: str = 'B1',
+        count: int = 5,
+        skill: str = 'GRAMMAR'
+    ) -> Tuple[bool, str, List[Dict[str, Any]]]:
+        """
+        Sinh danh sách câu hỏi trắc nghiệm theo chủ đề để Giáo viên xem trước và chỉnh sửa trên Form.
+        """
+        count = min(max(count, 1), 20)
+        prompt = build_quiz_generation_prompt(
+            context_type='TOPIC_BASED',
+            target_level=level,
+            num_questions=count,
+            topic=topic,
+            skill=skill
+        )
+
+        provider = get_llm_provider()
+        questions = provider.generate_quiz_questions(prompt)
+
+        if not questions:
+            return False, "Không thể sinh câu hỏi vào lúc này. Vui lòng thử lại.", []
+
+        return True, f"Sinh thành công {len(questions)} câu hỏi trắc nghiệm từ AI!", questions

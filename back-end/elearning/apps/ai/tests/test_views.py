@@ -124,3 +124,83 @@ class AIViewsTest(APITestCase):
         self.assertTrue(response.data['data']['has_errors'])
         self.assertIn('went', response.data['data']['corrected_text'])
         self.assertTrue(len(response.data['data']['errors']) > 0)
+
+    def test_generate_teacher_quiz_api(self):
+        """
+        Kiểm tra POST /api/v1/ai/quizzes/generate/:
+        - Giáo viên sinh câu hỏi theo chủ đề (200).
+        - Học viên không có quyền (403).
+        """
+        url = reverse('ai:generate_teacher_quiz')
+
+        # 1. Tạo Giáo viên
+        teacher = CustomUser.objects.create_user(
+            email='teacher.ai.view@example.com',
+            password='Password123!',
+            full_name='Teacher AI View',
+            role=UserRole.TEACHER
+        )
+        teacher_token = str(RefreshToken.for_user(teacher).access_token)
+
+        payload = {
+            'topic': 'Present Perfect vs Past Simple',
+            'level': 'B1',
+            'count': 5,
+            'skill': 'GRAMMAR'
+        }
+
+        # 2. Học viên gọi -> 403 Forbidden
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.token}')
+        res_student = self.client.post(url, payload, format='json')
+        self.assertEqual(res_student.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 3. Giáo viên gọi -> 200 OK
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {teacher_token}')
+        res_teacher = self.client.post(url, payload, format='json')
+        self.assertEqual(res_teacher.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(res_teacher.data['data']) >= 3)
+        self.assertIn('content', res_teacher.data['data'][0])
+
+    def test_generate_progress_quiz_api(self):
+        """
+        Kiểm tra POST /api/v1/ai/quizzes/generate-by-progress/:
+        - Học viên sinh đề ôn tập AI sau khi hoàn thành bài học trong Chapter (201).
+        """
+        from apps.courses.models import Category, Course, Chapter, Lesson
+        from apps.learning.models import Enrollment, LessonProgress
+
+        # 1. Tạo khóa học, chương và bài học
+        cat = Category.objects.create(name='View Test Cat')
+        teacher = CustomUser.objects.create_user(
+            email='teacher.prog.view@example.com',
+            password='Password123!',
+            full_name='Teacher Prog',
+            role=UserRole.TEACHER
+        )
+        course = Course.objects.create(
+            category=cat,
+            teacher=teacher,
+            title='IELTS Prep B1',
+            level=EnglishLevel.B1,
+            status='PUBLISHED'
+        )
+        chapter = Chapter.objects.create(course=course, title='Chapter 1: Reading Skills')
+        lesson = Lesson.objects.create(chapter=chapter, title='Lesson 1: Skimming and Scanning')
+
+        url = reverse('ai:generate_progress_quiz')
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.token}')
+
+        # 2. Chưa ghi danh -> 400 Bad Request
+        res_fail = self.client.post(url, {'chapter_id': str(chapter.id)}, format='json')
+        self.assertEqual(res_fail.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 3. Đã ghi danh & hoàn thành bài học -> 201 Created
+        enrollment = Enrollment.objects.create(student=self.student, course=course)
+        LessonProgress.objects.create(enrollment=enrollment, lesson=lesson, is_completed=True)
+
+        res_success = self.client.post(url, {'chapter_id': str(chapter.id), 'num_questions': 5}, format='json')
+        self.assertEqual(res_success.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(res_success.data['success'])
+        self.assertEqual(res_success.data['data']['quiz_type'], 'PRACTICE')
+        self.assertTrue(res_success.data['data']['total_questions'] >= 3)
+
