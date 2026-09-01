@@ -9,7 +9,7 @@ export const apiClient = axios.create({
   },
 });
 
-// Interceptor tự động gắn JWT Token
+// Interceptor tự động gắn JWT Token từ localStorage
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
@@ -18,35 +18,52 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// ==================== API SERVICES ====================
+// ==================== 100% LIVE BACKEND API SERVICES ====================
 
 export const authAPI = {
-  login: (credentials) => apiClient.post('accounts/login/', credentials),
-  register: (data) => apiClient.post('accounts/register/', data),
-  getProfile: () => apiClient.get('accounts/me/'),
+  login: (credentials) => apiClient.post('auth/login/', credentials),
+  register: (data) => apiClient.post('auth/register/', data),
+  getProfile: () => apiClient.get('auth/me/'),
+  getUsers: (params) => apiClient.get('auth/users/', { params }),
+  updateUser: (userId, data) => apiClient.patch(`auth/users/${userId}/`, data),
 };
 
 export const courseAPI = {
+  getCategories: () => apiClient.get('courses/categories/'),
   getCourses: (params) => apiClient.get('courses/', { params }),
-  getCourseDetail: (slug) => apiClient.get(`courses/${slug}/`),
+  getCourseDetail: (identifier) => apiClient.get(`courses/${identifier}/`),
+  getTeachingCourses: () => apiClient.get('courses/teaching/'),
+  createCourse: (data) => apiClient.post('courses/', data),
+  createChapter: (courseId, data) => apiClient.post(`courses/${courseId}/chapters/`, data),
+  createLesson: (chapterId, data) => apiClient.post(`courses/chapters/${chapterId}/lessons/`, data),
+  publishCourse: (identifier) => apiClient.post(`courses/${identifier}/publish/`),
 };
 
 export const learningAPI = {
-  getMyLearning: () => apiClient.get('learning/my-learning/'),
-  trackProgress: (data) => apiClient.post('learning/progress/track-video/', data),
+  getMyCourses: () => apiClient.get('learning/my-courses/'),
+  getMyCourseDetail: (courseIdentifier) => apiClient.get(`learning/my-courses/${courseIdentifier}/`),
+  enrollCourse: (courseId) => apiClient.post(`learning/enroll/${courseId}/`),
+  trackLessonProgress: (lessonId, data) => apiClient.post(`learning/lessons/${lessonId}/track-progress/`, data),
+  completeLesson: (lessonId) => apiClient.post(`learning/lessons/${lessonId}/complete/`),
+  getMyCertificates: () => apiClient.get('learning/certificates/'),
 };
 
 export const assessmentAPI = {
   getQuizzes: (params) => apiClient.get('assessments/quizzes/', { params }),
   getQuizDetail: (id) => apiClient.get(`assessments/quizzes/${id}/`),
+  createQuiz: (data) => apiClient.post('assessments/quizzes/', data),
+  createQuestion: (quizId, data) => apiClient.post(`assessments/quizzes/${quizId}/questions/`, data),
   startAttempt: (quizId) => apiClient.post(`assessments/quizzes/${quizId}/start/`),
   submitAttempt: (attemptId, answers) => apiClient.post(`assessments/attempts/${attemptId}/submit/`, { answers }),
+  getAttemptResult: (attemptId) => apiClient.get(`assessments/attempts/${attemptId}/results/`),
+  getMyAttempts: () => apiClient.get('assessments/my-attempts/'),
 };
 
 export const aiAPI = {
   getSessions: () => apiClient.get('ai/sessions/'),
-  sendMessage: (sessionId, message, targetLevel = 'B1') =>
-    apiClient.post(`ai/sessions/${sessionId}/send/`, { content: message, target_level: targetLevel }),
+  createSession: (data) => apiClient.post('ai/sessions/', data),
+  sendMessage: (sessionId, content, targetLevel = 'B1') =>
+    apiClient.post(`ai/sessions/${sessionId}/send/`, { content, target_level: targetLevel }),
   checkGrammar: (text, targetLevel = 'B1') =>
     apiClient.post('ai/grammar-check/', { text, target_level: targetLevel }),
   // UC_S7: Sinh đề ôn tập AI theo tiến độ bài học đã hoàn thành trong Chapter
@@ -61,9 +78,11 @@ export const recommendationAPI = {
   getMyLearningPath: () => apiClient.get('recommendations/my-learning-path/'),
   generateLearningPath: (targetLevel, goalDescription) =>
     apiClient.post('recommendations/generate-path/', { target_level: targetLevel, goal_description: goalDescription }),
+  completeStep: (stepId) => apiClient.patch(`recommendations/steps/${stepId}/complete/`),
   getSkillGaps: () => apiClient.get('recommendations/skill-gaps/'),
   getRecommendedCourses: () => apiClient.get('recommendations/courses/'),
-  completeStep: (stepId) => apiClient.patch(`recommendations/steps/${stepId}/complete/`),
+  dismissRecommendation: (recommendationId) =>
+    apiClient.post(`recommendations/courses/${recommendationId}/dismiss/`),
 };
 
 export const quizImportAPI = {

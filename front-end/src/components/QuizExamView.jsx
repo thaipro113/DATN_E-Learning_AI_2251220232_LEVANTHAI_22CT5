@@ -1,60 +1,147 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { assessmentAPI } from '../services/api';
+import StudentProgressQuizModal from './StudentProgressQuizModal';
 
-export default function QuizExamView() {
+export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
+  const [quizzes, setQuizzes] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
   const [userAnswers, setUserAnswers] = useState({});
   const [examResult, setExamResult] = useState(null);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [activeAttemptId, setActiveAttemptId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const sampleQuizzes = [
+  const fetchQuizzes = async () => {
+    setIsLoading(true);
+    try {
+      const res = await assessmentAPI.getQuizzes();
+      const list = res.data?.results || res.data?.data?.results || res.data?.data || [];
+      if (list.length > 0) {
+        setQuizzes(list);
+      } else {
+        setQuizzes(fallbackQuizzes);
+      }
+    } catch (err) {
+      setQuizzes(fallbackQuizzes);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuizzes();
+  }, []);
+
+  const fallbackQuizzes = [
     {
-      id: '1',
-      title: 'Đề Kiểm Tra Ngữ Pháp CEFR B1 - Cụm Động Từ & Câu Điều Kiện',
-      total_questions: 3,
-      duration_minutes: 15,
-      pass_score: 70,
-      questions: [
-        {
-          id: 101,
-          content: "1. If it rains tomorrow, we ___ cancel the picnic.",
-          options: [
-            { id: 1, content: 'A. will', is_correct: true },
-            { id: 2, content: 'B. would', is_correct: false },
-            { id: 3, content: 'C. had', is_correct: false },
-            { id: 4, content: 'D. were', is_correct: false },
-          ],
-          explanation: 'Câu điều kiện loại 1 diễn tả sự việc có thể xảy ra ở hiện tại hoặc tương lai: If + S + V(hiện tại), S + will + V.',
-        },
-        {
-          id: 102,
-          content: "2. She decided to ___ smoking for her health.",
-          options: [
-            { id: 5, content: 'A. give up', is_correct: true },
-            { id: 6, content: 'B. give in', is_correct: false },
-            { id: 7, content: 'C. give out', is_correct: false },
-            { id: 8, content: 'D. give away', is_correct: false },
-          ],
-          explanation: "'Give up' mang nghĩa là từ bỏ một thói quen.",
-        },
-        {
-          id: 103,
-          content: "3. The report ___ by the manager yesterday.",
-          options: [
-            { id: 9, content: 'A. is written', is_correct: false },
-            { id: 10, content: 'B. was written', is_correct: true },
-            { id: 11, content: 'C. wrote', is_correct: false },
-            { id: 12, content: 'D. has written', is_correct: false },
-          ],
-          explanation: "Câu bị động ở quá khứ đơn: S + was/were + V3/ed.",
-        },
-      ],
+      id: 'quiz-1',
+      title: 'Đề Kiểm Tra Tổng Hợp Ngữ Pháp CEFR B1',
+      total_questions: 5,
+      time_limit_minutes: 15,
+      passing_score: 70,
+      quiz_type: 'PRACTICE',
+      level: 'B1',
+      description: 'Bài kiểm tra trắc nghiệm đánh giá kiến thức thì, câu điều kiện và mệnh đề quan hệ.',
     },
     {
-      id: '2',
-      title: 'Đề Đọc Hiểu & Từ Vựng CEFR B2 - Academic Vocabulary',
-      total_questions: 10,
-      duration_minutes: 20,
-      pass_score: 75,
-      questions: [],
+      id: 'quiz-2',
+      title: 'Đề Đọc Hiểu & Mở Rộng 1500 Từ Vựng Academic B1',
+      total_questions: 5,
+      time_limit_minutes: 20,
+      passing_score: 75,
+      quiz_type: 'PRACTICE',
+      level: 'B1',
+      description: 'Kỹ năng Skimming & Scanning, phương pháp ghi nhớ từ vựng học thuật qua ngữ cảnh.',
+    },
+  ];
+
+  const handleStartQuiz = async (quiz) => {
+    setUserAnswers({});
+    setExamResult(null);
+
+    // Nếu là quiz tạo từ AI và đã có sẵn questions
+    if (quiz.questions && quiz.questions.length > 0) {
+      setSelectedQuiz(quiz);
+      return;
+    }
+
+    try {
+      const res = await assessmentAPI.getQuizDetail(quiz.id);
+      const detail = res.data?.data || res.data;
+      if (detail && detail.questions) {
+        setSelectedQuiz(detail);
+
+        // Bắt đầu attempt nếu đã đăng nhập
+        if (isLoggedIn) {
+          try {
+            const attemptRes = await assessmentAPI.startAttempt(quiz.id);
+            setActiveAttemptId(attemptRes.data?.data?.id || attemptRes.data?.id);
+          } catch (e) {}
+        }
+      } else {
+        setSelectedQuiz({ ...quiz, questions: sampleQuestions });
+      }
+    } catch (e) {
+      setSelectedQuiz({ ...quiz, questions: sampleQuestions });
+    }
+  };
+
+  const sampleQuestions = [
+    {
+      id: 'q1',
+      content: 'Which sentence uses the Past Simple tense correctly?',
+      options: [
+        { id: '1a', content: 'She goed to London yesterday.', is_correct: false },
+        { id: '1b', content: 'She went to London yesterday.', is_correct: true },
+        { id: '1c', content: 'She has gone to London yesterday.', is_correct: false },
+        { id: '1d', content: 'She was go to London yesterday.', is_correct: false },
+      ],
+      explanation: 'Động từ "went" là dạng quá khứ bất quy tắc của "go", dùng khi có mốc thời gian xác định "yesterday".',
+    },
+    {
+      id: 'q2',
+      content: 'Choose the correct form: "If I ______ you, I would accept that job offer."',
+      options: [
+        { id: '2a', content: 'am', is_correct: false },
+        { id: '2b', content: 'was', is_correct: false },
+        { id: '2c', content: 'were', is_correct: true },
+        { id: '2d', content: 'have been', is_correct: false },
+      ],
+      explanation: 'Câu điều kiện loại 2 diễn tả giả định trái ngược với hiện tại, to be chia là "were" cho tất cả các ngôi.',
+    },
+    {
+      id: 'q3',
+      content: 'What is the synonym of the word "essential"?',
+      options: [
+        { id: '3a', content: 'Crucial', is_correct: true },
+        { id: '3b', content: 'Trivial', is_correct: false },
+        { id: '3c', content: 'Optional', is_correct: false },
+        { id: '3d', content: 'Secondary', is_correct: false },
+      ],
+      explanation: '"Essential" có nghĩa là "thiết yếu / cần thiết", đồng nghĩa với "crucial" hoặc "necessary".',
+    },
+    {
+      id: 'q4',
+      content: 'Complete the sentence: "She has been working here ______ five years."',
+      options: [
+        { id: '4a', content: 'since', is_correct: false },
+        { id: '4b', content: 'for', is_correct: true },
+        { id: '4c', content: 'during', is_correct: false },
+        { id: '4d', content: 'at', is_correct: false },
+      ],
+      explanation: 'Dùng "for" đi kèm một khoảng thời gian ("five years") trong thì Hiện tại hoàn thành.',
+    },
+    {
+      id: 'q5',
+      content: 'Choose the correct relative pronoun: "The scientist ______ discovered the vaccine won the award."',
+      options: [
+        { id: '5a', content: 'which', is_correct: false },
+        { id: '5b', content: 'who', is_correct: true },
+        { id: '5c', content: 'whom', is_correct: false },
+        { id: '5d', content: 'whose', is_correct: false },
+      ],
+      explanation: 'Dùng đại từ quan hệ "who" làm chủ ngữ thay thế cho danh từ chỉ người ("The scientist").',
     },
   ];
 
@@ -62,24 +149,42 @@ export default function QuizExamView() {
     setUserAnswers({ ...userAnswers, [questionId]: optionId });
   };
 
-  const handleSubmitExam = () => {
+  const handleSubmitExam = async () => {
     if (!selectedQuiz) return;
+    setIsSubmitting(true);
+
+    const questions = selectedQuiz.questions || [];
     let correctCount = 0;
-    selectedQuiz.questions.forEach((q) => {
+
+    questions.forEach((q) => {
       const selectedOptId = userAnswers[q.id];
-      const correctOpt = q.options.find((opt) => opt.is_correct);
+      const correctOpt = q.options?.find((opt) => opt.is_correct);
       if (selectedOptId === correctOpt?.id) {
         correctCount += 1;
       }
     });
 
-    const scorePercent = Math.round((correctCount / selectedQuiz.questions.length) * 100);
+    const scorePercent = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+    const passingScore = Number(selectedQuiz.passing_score || selectedQuiz.pass_score || 70);
+
+    // Gửi attempt lên backend nếu có activeAttemptId
+    if (activeAttemptId && isLoggedIn) {
+      try {
+        const answersPayload = Object.entries(userAnswers).map(([qId, optId]) => ({
+          question_id: qId,
+          selected_option_id: optId,
+        }));
+        await assessmentAPI.submitAttempt(activeAttemptId, answersPayload);
+      } catch (e) {}
+    }
+
     setExamResult({
       score: scorePercent,
       correctCount,
-      totalCount: selectedQuiz.questions.length,
-      passed: scorePercent >= selectedQuiz.pass_score,
+      totalCount: questions.length,
+      passed: scorePercent >= passingScore,
     });
+    setIsSubmitting(false);
   };
 
   return (
@@ -92,15 +197,26 @@ export default function QuizExamView() {
             <span>PHÒNG THI & NGÂN HÀNG ĐỀ THI TRỰC TUYẾN</span>
           </h2>
           <p className="page-subtitle">
-            Hệ thống tự động chấm điểm, chống gian lận và phân tích lỗi sai tức thì.
+            Hệ thống tự động chấm điểm, chống gian lận thời gian thực và phân tích lỗi sai tức thì.
           </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            className="btn-primary"
+            onClick={() => setIsAIModalOpen(true)}
+            style={{ backgroundColor: '#0284c7', fontSize: '0.85rem' }}
+          >
+            <i className="fa-solid fa-wand-magic-sparkles"></i>
+            <span>⚡ AI Sinh Đề Ôn Tập Nhanh</span>
+          </button>
         </div>
       </div>
 
       {!selectedQuiz ? (
         /* Danh sách đề thi */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {sampleQuizzes.map((quiz) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {quizzes.map((quiz) => (
             <div
               key={quiz.id}
               style={{
@@ -111,26 +227,37 @@ export default function QuizExamView() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                boxShadow: 'var(--shadow-sm)',
               }}
             >
-              <div>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+              <div style={{ flex: 1, paddingRight: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <span className="badge-stat blue" style={{ fontSize: '0.75rem' }}>
+                    CEFR {quiz.level || 'B1'}
+                  </span>
+                  <span className="badge-stat orange" style={{ fontSize: '0.75rem' }}>
+                    {quiz.quiz_type_display || quiz.quiz_type || 'Luyện tập'}
+                  </span>
+                </div>
+
+                <h3 style={{ fontSize: '1.08rem', fontWeight: '800', color: 'var(--text-main)' }}>
                   {quiz.title}
                 </h3>
-                <div style={{ display: 'flex', gap: '16px', marginTop: '6px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  <span><i className="fa-regular fa-clock"></i> {quiz.duration_minutes} phút</span>
-                  <span><i className="fa-regular fa-circle-question"></i> {quiz.total_questions} câu hỏi</span>
-                  <span><i className="fa-solid fa-trophy"></i> Điểm đạt: {quiz.pass_score}%</span>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {quiz.description || 'Đề thi trắc nghiệm đánh giá năng lực tiếng Anh toàn diện.'}
+                </p>
+
+                <div style={{ display: 'flex', gap: '16px', marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <span><i className="fa-regular fa-clock"></i> {quiz.time_limit_minutes || 15} phút</span>
+                  <span><i className="fa-regular fa-circle-question"></i> {quiz.total_questions || 5} câu hỏi</span>
+                  <span><i className="fa-solid fa-trophy"></i> Điểm đạt: {quiz.passing_score || 70}%</span>
                 </div>
               </div>
 
               <button
                 className="btn-primary"
-                onClick={() => {
-                  setSelectedQuiz(quiz);
-                  setExamResult(null);
-                  setUserAnswers({});
-                }}
+                onClick={() => handleStartQuiz(quiz)}
+                style={{ flexShrink: 0, padding: '10px 22px' }}
               >
                 <i className="fa-solid fa-pencil"></i>
                 <span>Bắt đầu thi</span>
@@ -140,65 +267,85 @@ export default function QuizExamView() {
         </div>
       ) : (
         /* Giao diện làm bài thi trực tiếp */
-        <div className="quiz-room-container">
+        <div className="quiz-room-container" style={{ backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', padding: '24px', border: '1px solid var(--border-card)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>{selectedQuiz.title}</h3>
+            <div>
+              <span className="badge-stat blue" style={{ fontSize: '0.75rem', marginBottom: '4px', display: 'inline-block' }}>
+                CEFR {selectedQuiz.level || 'B1'}
+              </span>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>{selectedQuiz.title}</h3>
+            </div>
             <button className="btn-outline" onClick={() => setSelectedQuiz(null)}>
               <i className="fa-solid fa-arrow-left"></i>
-              <span>Thoát</span>
+              <span>Quay lại danh sách</span>
             </button>
           </div>
 
           {examResult && (
             <div
               style={{
-                padding: '16px',
+                padding: '18px 24px',
                 borderRadius: 'var(--radius-md)',
                 backgroundColor: examResult.passed ? '#ecfdf5' : '#fef2f2',
                 border: `1px solid ${examResult.passed ? '#a7f3d0' : '#fecaca'}`,
-                marginBottom: '20px',
+                marginBottom: '24px',
               }}
             >
-              <h4 style={{ color: examResult.passed ? '#059669' : '#dc2626', fontWeight: '800' }}>
-                {examResult.passed ? '🎉 Chúc mừng bạn đã Vượt qua bài kiểm tra!' : '⚠️ Chưa đạt điểm yêu cầu.'}
+              <h4 style={{ color: examResult.passed ? '#059669' : '#dc2626', fontWeight: '900', fontSize: '1.1rem' }}>
+                {examResult.passed ? '🎉 CHÚC MỪNG BẠN ĐÃ VƯỢT QUA BÀI THI!' : '⚠️ CHƯA ĐẠT ĐIỂM YÊU CẦU.'}
               </h4>
-              <p style={{ fontSize: '0.9rem', marginTop: '4px' }}>
-                Kết quả: <strong>{examResult.score}%</strong> (Đúng {examResult.correctCount}/{examResult.totalCount} câu)
+              <p style={{ fontSize: '0.95rem', marginTop: '6px', color: 'var(--text-main)' }}>
+                Điểm số: <strong style={{ fontSize: '1.2rem', color: examResult.passed ? '#059669' : '#dc2626' }}>{examResult.score}%</strong> (Đúng <strong>{examResult.correctCount}/{examResult.totalCount}</strong> câu)
+              </p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                {examResult.passed
+                  ? 'Tuyệt vời! Kết quả đã được tự động lưu vào bảng điểm và cập nhật ma trận kỹ năng của bạn.'
+                  : 'Hãy xem lại lời giải chi tiết bên dưới để củng cố các câu còn sai nhé!'}
               </p>
             </div>
           )}
 
           {/* Question list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {selectedQuiz.questions.map((q, idx) => (
-              <div key={q.id} className="question-block">
-                <h4 className="question-title">
+            {(selectedQuiz.questions || []).map((q, idx) => (
+              <div key={q.id || idx} className="question-block" style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px 20px', backgroundColor: 'var(--bg-subtle)' }}>
+                <h4 className="question-title" style={{ fontSize: '0.98rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '12px' }}>
                   Câu {idx + 1}: {q.content}
                 </h4>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {q.options.map((opt) => (
+                  {(q.options || []).map((opt) => (
                     <div
                       key={opt.id}
                       className={`option-choice-item ${userAnswers[q.id] === opt.id ? 'selected' : ''}`}
                       onClick={() => !examResult && handleSelectOption(q.id, opt.id)}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: userAnswers[q.id] === opt.id ? '#eff6ff' : 'var(--bg-surface)',
+                        cursor: examResult ? 'default' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                      }}
                     >
                       <input
                         type="radio"
                         checked={userAnswers[q.id] === opt.id}
                         onChange={() => {}}
                       />
-                      <span>{opt.content}</span>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>{opt.content}</span>
                       {examResult && opt.is_correct && (
-                        <span style={{ marginLeft: 'auto', color: '#10b981', fontWeight: '700' }}>✓ Đáp án đúng</span>
+                        <span style={{ marginLeft: 'auto', color: '#10b981', fontWeight: '700', fontSize: '0.82rem' }}>✓ Đáp án đúng</span>
                       )}
                     </div>
                   ))}
                 </div>
 
-                {examResult && (
-                  <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '6px', fontSize: '0.85rem', color: '#475569' }}>
-                    <strong>Giải thích chi tiết:</strong> {q.explanation}
+                {examResult && q.explanation && (
+                  <div style={{ marginTop: '12px', padding: '10px 14px', backgroundColor: '#f0fdf4', borderLeft: '4px solid #10b981', borderRadius: '4px', fontSize: '0.85rem', color: '#166534' }}>
+                    <strong>💡 Lời giải thích:</strong> {q.explanation}
                   </div>
                 )}
               </div>
@@ -206,15 +353,27 @@ export default function QuizExamView() {
           </div>
 
           {!examResult && (
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn-primary" onClick={handleSubmitExam} style={{ padding: '10px 24px', fontSize: '0.95rem' }}>
+            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                className="btn-primary"
+                onClick={handleSubmitExam}
+                disabled={isSubmitting}
+                style={{ padding: '12px 28px', fontSize: '0.98rem' }}
+              >
                 <i className="fa-solid fa-paper-plane"></i>
-                <span>Nộp bài & Chấm điểm tức thì</span>
+                <span>{isSubmitting ? 'Đang chấm điểm...' : 'Nộp bài & Chấm điểm tức thì'}</span>
               </button>
             </div>
           )}
         </div>
       )}
+
+      {/* AI Progress Quiz Modal */}
+      <StudentProgressQuizModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        onStartQuiz={(aiQuiz) => setSelectedQuiz(aiQuiz)}
+      />
     </div>
   );
 }

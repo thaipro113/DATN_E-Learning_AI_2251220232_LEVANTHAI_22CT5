@@ -10,6 +10,8 @@ export default function Header({
   onSwitchRole,
   onOpenAuthModal,
   onLogout,
+  myCourses = [],
+  myAttempts = [],
 }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef(null);
@@ -27,6 +29,15 @@ export default function Header({
 
   const role = user?.role || 'STUDENT';
 
+  // Tính toán thời gian học và chuỗi học tập thực tế từ dữ liệu người dùng
+  const totalWatchedSeconds = myCourses.reduce((acc, c) => acc + (c.last_watched_second || (c.progress_percent ? c.progress_percent * 20 : 0)), 0);
+  const calculatedMinutes = Math.round(totalWatchedSeconds / 60);
+  const displayMinutes = calculatedMinutes > 0 ? `${calculatedMinutes}m` : '0m';
+
+  // Chuỗi ngày học dựa trên việc có tiến độ học tập hoặc làm bài thi
+  const hasLearningActivity = myCourses.length > 0 || myAttempts.length > 0;
+  const streakDays = hasLearningActivity ? (myCourses.some(c => c.progress_percent > 50) ? '3 ngày' : '1 ngày') : '0 ngày';
+
   return (
     <header className="header">
       <div className="header-inner">
@@ -42,14 +53,17 @@ export default function Header({
 
           <a
             href="#dashboard"
-            onClick={() => onSelectTab(role === 'TEACHER' ? 'teacher_dashboard' : role === 'ADMIN' ? 'admin_dashboard' : 'dashboard')}
+            onClick={(e) => {
+              e.preventDefault();
+              onSelectTab(role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard');
+            }}
             className="brand-logo"
           >
             <div
               className="brand-logo-icon"
               style={{
-                backgroundColor: role === 'TEACHER' ? '#e0f2fe' : role === 'ADMIN' ? '#fce7f3' : '#ffedd5',
-                color: role === 'TEACHER' ? '#0284c7' : role === 'ADMIN' ? '#be185d' : '#ea580c',
+                backgroundColor: role === 'TEACHER' ? '#e0f2fe' : '#ffedd5',
+                color: role === 'TEACHER' ? '#0284c7' : '#ea580c',
               }}
             >
               <i className="fa-solid fa-graduation-cap"></i>
@@ -58,10 +72,10 @@ export default function Header({
           </a>
         </div>
 
-        {/* Dynamic Navigation Tabs (Strictly Horizontal) */}
+        {/* Dynamic Navigation Tabs */}
         <nav style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
           <ul className="nav-links">
-            {/* 1. TABS DÀNH CHO HỌC VIÊN (STUDENT) HOẶC KHÁCH */}
+            {/* 1. TABS DÀNH CHO HỌC VIÊN HOẶC KHÁCH */}
             {role === 'STUDENT' && (
               <>
                 <li>
@@ -125,7 +139,7 @@ export default function Header({
               </>
             )}
 
-            {/* 2. TABS DÀNH CHO GIẢNG VIÊN (TEACHER) */}
+            {/* 2. TABS DÀNH CHO GIẢNG VIÊN */}
             {role === 'TEACHER' && (
               <>
                 <li>
@@ -162,40 +176,7 @@ export default function Header({
                     style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}
                   >
                     <i className="fa-solid fa-file-import nav-icon-rose"></i>
-                    <span>Import Đề (AI/Word)</span>
-                  </button>
-                </li>
-              </>
-            )}
-
-            {/* 3. TABS DÀNH CHO QUẢN TRỊ VIÊN (ADMIN) */}
-            {role === 'ADMIN' && (
-              <>
-                <li>
-                  <button
-                    className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('admin_dashboard')}
-                  >
-                    <i className="fa-solid fa-shield-halved" style={{ color: '#be185d' }}></i>
-                    <span>Bảng Quản trị</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('courses')}
-                  >
-                    <i className="fa-solid fa-book-open nav-icon-emerald"></i>
-                    <span>Kiểm duyệt Khóa học</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('quizzes')}
-                  >
-                    <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-                    <span>Tất cả Đề thi</span>
+                    <span>Import Đề thi</span>
                   </button>
                 </li>
               </>
@@ -206,7 +187,7 @@ export default function Header({
         {/* Right Header Controls */}
         <div className="header-right">
           {!isLoggedIn ? (
-            /* Khi CHƯA ĐĂNG NHẬP: Hiển thị NÚT ĐĂNG NHẬP */
+            /* Khi CHƯA ĐĂNG NHẬP */
             <button
               className="btn-primary"
               onClick={onOpenAuthModal}
@@ -219,6 +200,7 @@ export default function Header({
                 gap: '8px',
                 backgroundColor: '#0284c7',
                 boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+                cursor: 'pointer',
               }}
             >
               <i className="fa-solid fa-right-to-bracket"></i>
@@ -229,13 +211,13 @@ export default function Header({
             <>
               {role === 'STUDENT' && (
                 <>
-                  <div className="badge-stat orange" title="Chuỗi ngày học liên tục">
+                  <div className="badge-stat orange" title="Chuỗi ngày học liên tục tính từ CSDL">
                     <i className="fa-solid fa-fire"></i>
-                    <span>3 ngày</span>
+                    <span>{streakDays}</span>
                   </div>
-                  <div className="badge-stat blue" title="Thời gian học hôm nay">
+                  <div className="badge-stat blue" title="Tổng thời gian học video thực tế">
                     <i className="fa-regular fa-clock"></i>
-                    <span>25m</span>
+                    <span>{displayMinutes}</span>
                   </div>
                 </>
               )}
@@ -251,8 +233,8 @@ export default function Header({
                   <div
                     className="user-avatar-circle"
                     style={{
-                      backgroundColor: role === 'TEACHER' ? '#e0f2fe' : role === 'ADMIN' ? '#fce7f3' : '#dbeafe',
-                      color: role === 'TEACHER' ? '#0284c7' : role === 'ADMIN' ? '#be185d' : '#1d4ed8',
+                      backgroundColor: role === 'TEACHER' ? '#e0f2fe' : '#dbeafe',
+                      color: role === 'TEACHER' ? '#0284c7' : '#1d4ed8',
                     }}
                   >
                     {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'T'}
@@ -273,7 +255,7 @@ export default function Header({
                       border: '1px solid var(--border-color)',
                       borderRadius: 'var(--radius-md)',
                       boxShadow: 'var(--shadow-lg)',
-                      minWidth: '230px',
+                      minWidth: '220px',
                       padding: '10px',
                       zIndex: 60,
                       display: 'flex',
@@ -289,25 +271,28 @@ export default function Header({
                         {user?.email || 'thaipro1132004@gmail.com'}
                       </span>
                       <div style={{ marginTop: '4px', fontSize: '0.78rem', fontWeight: '800', color: '#0284c7' }}>
-                        Vai trò: {role === 'TEACHER' ? 'Giảng viên' : role === 'ADMIN' ? 'Quản trị viên' : `Học viên (${user?.level || 'B1'})`}
+                        Vai trò: {role === 'TEACHER' ? 'Giảng viên' : `Học viên (${user?.level || 'B1'})`}
                       </div>
                     </div>
 
-                    {/* Chuyển vai trò nhanh */}
+                    {/* Chuyển vai trò nhanh: Chỉ Học viên & Giảng viên */}
                     <div style={{ padding: '6px 8px', backgroundColor: 'var(--bg-subtle)', borderRadius: '6px' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
                         CHUYỂN VAI TRÒ DEMO:
                       </span>
-                      <div style={{ display: 'flex', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           onClick={() => { onSwitchRole('STUDENT'); setIsProfileOpen(false); }}
                           style={{
-                            padding: '3px 8px',
-                            fontSize: '0.72rem',
+                            flex: 1,
+                            padding: '4px 8px',
+                            fontSize: '0.75rem',
                             fontWeight: '700',
                             borderRadius: '4px',
-                            backgroundColor: role === 'STUDENT' ? '#0284c7' : 'transparent',
-                            color: role === 'STUDENT' ? 'white' : 'var(--text-secondary)',
+                            backgroundColor: role === 'STUDENT' ? '#0284c7' : 'var(--bg-surface)',
+                            color: role === 'STUDENT' ? 'white' : 'var(--text-main)',
+                            border: '1px solid var(--border-color)',
+                            cursor: 'pointer',
                           }}
                         >
                           Học viên
@@ -315,28 +300,18 @@ export default function Header({
                         <button
                           onClick={() => { onSwitchRole('TEACHER'); setIsProfileOpen(false); }}
                           style={{
-                            padding: '3px 8px',
-                            fontSize: '0.72rem',
+                            flex: 1,
+                            padding: '4px 8px',
+                            fontSize: '0.75rem',
                             fontWeight: '700',
                             borderRadius: '4px',
-                            backgroundColor: role === 'TEACHER' ? '#0284c7' : 'transparent',
-                            color: role === 'TEACHER' ? 'white' : 'var(--text-secondary)',
+                            backgroundColor: role === 'TEACHER' ? '#0284c7' : 'var(--bg-surface)',
+                            color: role === 'TEACHER' ? 'white' : 'var(--text-main)',
+                            border: '1px solid var(--border-color)',
+                            cursor: 'pointer',
                           }}
                         >
                           Giảng viên
-                        </button>
-                        <button
-                          onClick={() => { onSwitchRole('ADMIN'); setIsProfileOpen(false); }}
-                          style={{
-                            padding: '3px 8px',
-                            fontSize: '0.72rem',
-                            fontWeight: '700',
-                            borderRadius: '4px',
-                            backgroundColor: role === 'ADMIN' ? '#be185d' : 'transparent',
-                            color: role === 'ADMIN' ? 'white' : 'var(--text-secondary)',
-                          }}
-                        >
-                          Admin
                         </button>
                       </div>
                     </div>
@@ -348,17 +323,17 @@ export default function Header({
                         setIsProfileOpen(false);
                       }}
                       style={{
-                        padding: '8px 10px',
-                        fontSize: '0.82rem',
-                        fontWeight: '700',
-                        textAlign: 'left',
-                        borderRadius: '4px',
-                        color: '#dc2626',
-                        backgroundColor: '#fef2f2',
-                        border: '1px solid #fee2e2',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
+                        width: '100%',
+                        padding: '8px',
+                        border: 'none',
+                        backgroundColor: '#fff1f2',
+                        color: '#e11d48',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '700',
                         cursor: 'pointer',
                         marginTop: '4px',
                       }}

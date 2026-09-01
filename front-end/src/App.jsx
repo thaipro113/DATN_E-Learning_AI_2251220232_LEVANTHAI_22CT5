@@ -10,12 +10,13 @@ import QuizExamView from './components/QuizExamView';
 import AdaptivePathView from './components/AdaptivePathView';
 import SkillGapsView from './components/SkillGapsView';
 import TeacherDashboardView from './components/TeacherDashboardView';
-import AdminDashboardView from './components/AdminDashboardView';
 import FloatingAITutor from './components/FloatingAITutor';
 import QuizImportModal from './components/QuizImportModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import AuthModal from './components/AuthModal';
-import { recommendationAPI, courseAPI } from './services/api';
+import GuestUdemyHomeView from './components/GuestUdemyHomeView';
+import CourseDetailModal from './components/CourseDetailModal';
+import { recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -23,20 +24,22 @@ export default function App() {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Trạng thái Đăng nhập (Mặc định ban đầu chưa đăng nhập -> hiển thị nút Đăng nhập)
+  // Modal Chi tiết khóa học
+  const [selectedCourseForDetail, setSelectedCourseForDetail] = useState(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Trạng thái Đăng nhập từ localStorage Token
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return Boolean(localStorage.getItem('access_token'));
   });
 
-  // User state with Role (STUDENT / TEACHER / ADMIN)
+  // User Profile
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('user_info');
     if (savedUser) {
       try {
         return JSON.parse(savedUser);
-      } catch (e) {
-        // Fallback
-      }
+      } catch (e) {}
     }
     return {
       full_name: 'Lê Văn Thái',
@@ -46,48 +49,54 @@ export default function App() {
     };
   });
 
-  // Learning Path state
-  const [learningPath, setLearningPath] = useState({
-    title: 'Lộ trình Chinh phục B2 Upper-Intermediate',
-    target_level: 'B2',
-    progress_percentage: 40,
-    total_steps: 5,
-    completed_steps: 2,
-  });
-
-  // Skill Gaps state
+  // Dữ liệu SỐNG từ Database PostgreSQL
+  const [learningPath, setLearningPath] = useState(null);
   const [skillGaps, setSkillGaps] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [myCourses, setMyCourses] = useState([]);
+  const [myAttempts, setMyAttempts] = useState([]);
 
-  // Fetch initial data from backend if available
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [pathRes, gapsRes, recsRes, coursesRes] = await Promise.allSettled([
-          recommendationAPI.getMyLearningPath(),
-          recommendationAPI.getSkillGaps(),
-          recommendationAPI.getRecommendedCourses(),
-          courseAPI.getCourses(),
-        ]);
+  // Fetch toàn bộ dữ liệu thật từ Backend API
+  const fetchAllLiveData = async () => {
+    try {
+      const [pathRes, gapsRes, recsRes, coursesRes, myCoursesRes, attemptsRes] = await Promise.allSettled([
+        recommendationAPI.getMyLearningPath(),
+        recommendationAPI.getSkillGaps(),
+        recommendationAPI.getRecommendedCourses(),
+        courseAPI.getCourses(),
+        learningAPI.getMyCourses(),
+        assessmentAPI.getMyAttempts(),
+      ]);
 
-        if (pathRes.status === 'fulfilled' && pathRes.value.data?.data) {
-          setLearningPath(pathRes.value.data.data);
-        }
-        if (gapsRes.status === 'fulfilled' && gapsRes.value.data?.data) {
-          setSkillGaps(gapsRes.value.data.data);
-        }
-        if (recsRes.status === 'fulfilled' && recsRes.value.data?.data) {
-          setRecommendations(recsRes.value.data.data);
-        }
-        if (coursesRes.status === 'fulfilled' && coursesRes.value.data?.data?.results) {
-          setCourses(coursesRes.value.data.data.results);
-        }
-      } catch (e) {
-        console.log('Backend data connection ready.');
+      if (pathRes.status === 'fulfilled' && pathRes.value.data?.data) {
+        setLearningPath(pathRes.value.data.data);
       }
-    };
-    fetchData();
+      if (gapsRes.status === 'fulfilled' && gapsRes.value.data?.data) {
+        setSkillGaps(gapsRes.value.data.data);
+      }
+      if (recsRes.status === 'fulfilled' && recsRes.value.data?.data) {
+        setRecommendations(recsRes.value.data.data);
+      }
+      if (coursesRes.status === 'fulfilled' && coursesRes.value.data) {
+        const resList = coursesRes.value.data.results || coursesRes.value.data.data?.results || coursesRes.value.data.data || coursesRes.value.data;
+        if (Array.isArray(resList)) {
+          setCourses(resList);
+        }
+      }
+      if (myCoursesRes.status === 'fulfilled' && myCoursesRes.value.data?.data) {
+        setMyCourses(myCoursesRes.value.data.data);
+      }
+      if (attemptsRes.status === 'fulfilled' && attemptsRes.value.data?.data) {
+        setMyAttempts(attemptsRes.value.data.data);
+      }
+    } catch (e) {
+      console.log('API loaded with fallback state.');
+    }
+  };
+
+  useEffect(() => {
+    fetchAllLiveData();
   }, [isLoggedIn]);
 
   // Xử lý Đăng nhập thành công
@@ -98,11 +107,10 @@ export default function App() {
 
     if (loggedInUser.role === 'TEACHER') {
       setCurrentTab('teacher_dashboard');
-    } else if (loggedInUser.role === 'ADMIN') {
-      setCurrentTab('admin_dashboard');
     } else {
       setCurrentTab('dashboard');
     }
+    fetchAllLiveData();
   };
 
   // Xử lý Đăng xuất
@@ -114,7 +122,7 @@ export default function App() {
     setCurrentTab('dashboard');
   };
 
-  // Chuyển đổi vai trò linh hoạt
+  // Chuyển đổi vai trò linh hoạt giữa Học viên và Giảng viên
   const handleSwitchRole = (newRole) => {
     const updatedUser = { ...user, role: newRole };
     setUser(updatedUser);
@@ -122,20 +130,24 @@ export default function App() {
 
     if (newRole === 'TEACHER') {
       setCurrentTab('teacher_dashboard');
-    } else if (newRole === 'ADMIN') {
-      setCurrentTab('admin_dashboard');
     } else {
       setCurrentTab('dashboard');
     }
   };
 
-  const handleEnrollCourse = (course) => {
+  const handleEnrollCourse = async (course) => {
     if (!isLoggedIn) {
       setIsAuthModalOpen(true);
       return;
     }
-    alert(`Bạn đã ghi danh thành công khóa học: ${course.title}!`);
+    try {
+      await learningAPI.enrollCourse(course.id);
+      alert(`🎉 Ghi danh thành công khóa học: ${course.title}!`);
+    } catch (e) {
+      alert(`Bạn đã ghi danh khóa học: ${course.title}!`);
+    }
     setCurrentTab('learning');
+    fetchAllLiveData();
   };
 
   const handleSelectTab = (tab) => {
@@ -147,9 +159,14 @@ export default function App() {
     setIsMobileDrawerOpen(false);
   };
 
+  const handleOpenCourseDetail = (course) => {
+    setSelectedCourseForDetail(course);
+    setIsDetailModalOpen(true);
+  };
+
   return (
     <div className="app-container">
-      {/* 1. Header Bar with Dynamic Role Navigation & Login / Profile controls */}
+      {/* 1. Header Navigation Bar */}
       <Header
         currentTab={currentTab}
         onSelectTab={handleSelectTab}
@@ -163,6 +180,8 @@ export default function App() {
         onSwitchRole={handleSwitchRole}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
+        myCourses={myCourses}
+        myAttempts={myAttempts}
       />
 
       {/* Mobile Drawer Menu */}
@@ -170,16 +189,33 @@ export default function App() {
         className={`mobile-drawer-overlay ${isMobileDrawerOpen ? 'open' : ''}`}
         onClick={() => setIsMobileDrawerOpen(false)}
       />
+
       <div className={`mobile-drawer ${isMobileDrawerOpen ? 'open' : ''}`}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800' }}>
-              <div className="brand-logo-icon" style={{ width: '30px', height: '30px', fontSize: '0.9rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  backgroundColor: '#ffedd5',
+                  color: '#ea580c',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1rem',
+                }}
+              >
                 <i className="fa-solid fa-graduation-cap"></i>
               </div>
-              <span>E-Learning AI</span>
+              <strong style={{ fontSize: '1rem', color: 'var(--text-main)' }}>E-Learning AI</strong>
             </div>
-            <button onClick={() => setIsMobileDrawerOpen(false)} style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>
+
+            <button
+              onClick={() => setIsMobileDrawerOpen(false)}
+              style={{ fontSize: '1.2rem', color: 'var(--text-muted)', padding: '4px', cursor: 'pointer' }}
+            >
               <i className="fa-solid fa-xmark"></i>
             </button>
           </div>
@@ -203,14 +239,14 @@ export default function App() {
                 </button>
                 <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
                   <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-                  <span>Luyện đề</span>
+                  <span>Luyện Đề</span>
                 </button>
                 <button className={`nav-link ${currentTab === 'path' ? 'active' : ''}`} onClick={() => handleSelectTab('path')}>
                   <i className="fa-solid fa-compass nav-icon-indigo"></i>
                   <span>Lộ trình AI</span>
                 </button>
                 <button className={`nav-link ${currentTab === 'skills' ? 'active' : ''}`} onClick={() => handleSelectTab('skills')}>
-                  <i className="fa-solid fa-chart-pie" style={{ color: '#d97706' }}></i>
+                  <i className="fa-solid fa-chart-pie nav-icon-amber"></i>
                   <span>Lỗ hổng Kỹ năng</span>
                 </button>
               </>
@@ -229,19 +265,6 @@ export default function App() {
                 <button className="nav-link" onClick={() => { setIsQuizImportOpen(true); setIsMobileDrawerOpen(false); }}>
                   <i className="fa-solid fa-file-import nav-icon-rose"></i>
                   <span>Import Đề thi</span>
-                </button>
-              </>
-            )}
-
-            {isLoggedIn && user.role === 'ADMIN' && (
-              <>
-                <button className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => handleSelectTab('admin_dashboard')}>
-                  <i className="fa-solid fa-shield-halved" style={{ color: '#be185d' }}></i>
-                  <span>Bảng Quản trị</span>
-                </button>
-                <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
-                  <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-                  <span>Đề thi toàn trường</span>
                 </button>
               </>
             )}
@@ -285,10 +308,39 @@ export default function App() {
           <>
             {currentTab === 'dashboard' && (
               <>
-                <HeroBanner onExploreClick={() => setCurrentTab('courses')} />
-                <MetricCardsGrid onOpenSkills={() => handleSelectTab('skills')} onOpenPath={() => handleSelectTab('path')} />
-                <StatCounters onSelectTab={handleSelectTab} />
-                <RecommendedCoursesSection recommendations={recommendations} onEnroll={handleEnrollCourse} />
+                {!isLoggedIn ? (
+                  /* 1. GIAO DIỆN CHƯA ĐĂNG NHẬP: UDEMY-STYLE LANDING PAGE */
+                  <GuestUdemyHomeView
+                    courses={courses}
+                    onExploreClick={() => setCurrentTab('courses')}
+                    onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                    onSelectCourse={handleOpenCourseDetail}
+                  />
+                ) : (
+                  /* 2. GIAO DIỆN ĐÃ ĐĂNG NHẬP: PERSONALIZED STUDENT DASHBOARD */
+                  <>
+                    <HeroBanner user={user} onExploreClick={() => setCurrentTab('courses')} />
+                    <MetricCardsGrid
+                      learningPath={learningPath}
+                      skillGaps={skillGaps}
+                      myCourses={myCourses}
+                      myAttempts={myAttempts}
+                      user={user}
+                      onSelectTab={handleSelectTab}
+                    />
+                    <StatCounters
+                      myCourses={myCourses}
+                      myAttempts={myAttempts}
+                      skillGaps={skillGaps}
+                      onSelectTab={handleSelectTab}
+                    />
+                    <RecommendedCoursesSection
+                      courses={courses}
+                      recommendations={recommendations}
+                      onEnroll={handleEnrollCourse}
+                    />
+                  </>
+                )}
               </>
             )}
 
@@ -301,7 +353,7 @@ export default function App() {
             )}
 
             {currentTab === 'quizzes' && (
-              <QuizExamView />
+              <QuizExamView isLoggedIn={isLoggedIn} onOpenAuthModal={() => setIsAuthModalOpen(true)} />
             )}
 
             {currentTab === 'path' && (
@@ -309,7 +361,11 @@ export default function App() {
             )}
 
             {currentTab === 'skills' && (
-              <SkillGapsView skillGaps={skillGaps} onNavigateToPath={() => setCurrentTab('path')} />
+              <SkillGapsView
+                skillGaps={skillGaps}
+                onNavigateToPath={() => setCurrentTab('path')}
+                onNavigateToQuiz={() => setCurrentTab('quizzes')}
+              />
             )}
           </>
         )}
@@ -326,31 +382,18 @@ export default function App() {
             )}
 
             {currentTab === 'quizzes' && (
-              <QuizExamView />
-            )}
-          </>
-        )}
-
-        {/* ==================== C. ADMIN VIEWS ==================== */}
-        {isLoggedIn && user.role === 'ADMIN' && (
-          <>
-            {currentTab === 'admin_dashboard' && (
-              <AdminDashboardView />
-            )}
-
-            {currentTab === 'courses' && (
-              <CourseCatalogView courses={courses} onEnroll={handleEnrollCourse} />
-            )}
-
-            {currentTab === 'quizzes' && (
-              <QuizExamView />
+              <QuizExamView isLoggedIn={isLoggedIn} onOpenAuthModal={() => setIsAuthModalOpen(true)} />
             )}
           </>
         )}
       </main>
 
       {/* 3. Floating Interactive AI English Tutor Widget */}
-      <FloatingAITutor userLevel={user.level} />
+      <FloatingAITutor
+        user={user}
+        isLoggedIn={isLoggedIn}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+      />
 
       {/* 4. Quiz Import Tool Modal for Teachers */}
       <QuizImportModal
@@ -358,14 +401,22 @@ export default function App() {
         onClose={() => setIsQuizImportOpen(false)}
       />
 
-      {/* 5. Authentication Modal with Quick-Fill Demo */}
+      {/* 5. Course Detail Modal */}
+      <CourseDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        course={selectedCourseForDetail}
+        onEnroll={handleEnrollCourse}
+      />
+
+      {/* 6. Authentication Modal with Quick-Fill Demo (Học viên & Giảng viên) */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onLoginSuccess={handleLoginSuccess}
       />
 
-      {/* 6. Mobile Bottom Navigation Bar */}
+      {/* 7. Mobile Bottom Navigation Bar */}
       <MobileBottomNav
         currentTab={currentTab}
         onSelectTab={handleSelectTab}

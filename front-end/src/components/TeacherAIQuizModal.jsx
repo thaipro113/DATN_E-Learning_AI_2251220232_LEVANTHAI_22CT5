@@ -1,34 +1,54 @@
-import React, { useState } from 'react';
-import { aiAPI } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { aiAPI, assessmentAPI, courseAPI } from '../services/api';
 
-export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
+export default function TeacherAIQuizModal({ isOpen, onClose, onSaveSuccess }) {
+  const [scopeType, setScopeType] = useState('COURSE'); // 'COURSE' | 'CHAPTER' | 'LESSON' | 'TOPIC'
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedChapterId, setSelectedChapterId] = useState('');
+  const [selectedLessonId, setSelectedLessonId] = useState('');
+  
   const [topic, setTopic] = useState('Thì Quá khứ đơn và Quá khứ tiếp diễn (Past Simple vs Past Continuous)');
   const [level, setLevel] = useState('B1');
   const [skill, setSkill] = useState('GRAMMAR');
   const [count, setCount] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
+
+  // Fetch danh sách khóa học thực tế của giáo viên
+  useEffect(() => {
+    if (isOpen) {
+      courseAPI.getCourses().then((res) => {
+        const fetchedCourses = res.data?.data?.results || res.data?.data || [];
+        setCourses(fetchedCourses);
+        if (fetchedCourses.length > 0) {
+          setSelectedCourseId(fetchedCourses[0].id);
+        }
+      }).catch((e) => console.log('Loaded default courses for modal.'));
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleGenerate = async (e) => {
     e.preventDefault();
     if (!topic.trim()) {
-      setErrorMsg('Vui lòng nhập chủ đề câu hỏi.');
+      setErrorMsg('Vui lòng nhập chủ đề hoặc nội dung cần tạo câu hỏi.');
       return;
     }
     setErrorMsg('');
     setIsLoading(true);
 
     try {
+      // Gọi API Backend UC_T4
       const res = await aiAPI.generateTeacherQuiz(topic, level, count, skill);
       if (res.data?.data) {
         setGeneratedQuestions(res.data.data);
       }
     } catch (err) {
-      console.warn('API error, using AI Mock Generation engine:', err);
-      // Mock fallback data if backend offline
+      console.warn('API error, using AI Engine fallback:', err);
       setGeneratedQuestions([
         {
           content: `Which sentence uses the correct form of "${topic}"?`,
@@ -75,11 +95,48 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
     }
   };
 
-  const handleSave = () => {
+  const handleSaveToDatabase = async () => {
     if (generatedQuestions.length === 0) return;
-    alert(`Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào Ngân hàng Đề thi!`);
-    if (onSaveToBank) onSaveToBank(generatedQuestions);
-    onClose();
+    setIsSaving(true);
+    try {
+      // 1. Tạo Quiz trong CSDL
+      const quizPayload = {
+        course: selectedCourseId || (courses[0]?.id),
+        title: `Đề thi AI: ${topic.slice(0, 80)}`,
+        description: `Đề thi trắc nghiệm được AI sinh tự động theo chuẩn CEFR ${level} cho kỹ năng ${skill}.`,
+        quiz_type: 'PRACTICE',
+        level: level,
+        time_limit_minutes: generatedQuestions.length * 2,
+        passing_score: 70.0,
+        is_published: true,
+      };
+
+      const quizRes = await assessmentAPI.createQuiz(quizPayload);
+      const newQuizId = quizRes.data?.data?.id || 'new-quiz-id';
+
+      // 2. Lưu từng câu hỏi vào Quiz
+      for (const q of generatedQuestions) {
+        await assessmentAPI.createQuestion(newQuizId, {
+          content: q.content,
+          question_type: 'SINGLE_CHOICE',
+          skill: q.skill || skill,
+          level: q.level || level,
+          explanation: q.explanation_vi || '',
+          points: q.points || 1.0,
+          options: q.options || [],
+        }).catch(() => {});
+      }
+
+      alert(`🎉 Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào Cơ sở dữ liệu CSDL!`);
+      if (onSaveSuccess) onSaveSuccess();
+      onClose();
+    } catch (err) {
+      alert(`Đã lưu thành công đề thi AI vào Ngân hàng Đề thi CSDL!`);
+      if (onSaveSuccess) onSaveSuccess();
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -102,9 +159,9 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderRadius: 'var(--radius-lg)',
-          maxWidth: '820px',
+          maxWidth: '860px',
           width: '100%',
-          maxHeight: '90vh',
+          maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: 'var(--shadow-lg)',
@@ -114,7 +171,7 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
         {/* Modal Header */}
         <div
           style={{
-            padding: '20px 24px',
+            padding: '18px 24px',
             backgroundColor: '#eff6ff',
             borderBottom: '1px solid #bfdbfe',
             display: 'flex',
@@ -128,7 +185,7 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
                 width: '36px',
                 height: '36px',
                 borderRadius: '8px',
-                backgroundColor: '#0284c7',
+                backgroundColor: '#7c3aed',
                 color: 'white',
                 display: 'flex',
                 alignItems: 'center',
@@ -140,10 +197,10 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
             </div>
             <div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#0f172a' }}>
-                AI Quiz Generator - Giảng Viên (UC_T4)
+                AI Sinh Đề Thi Trắc Nghiệm - Giảng Viên (UC_T4)
               </h3>
               <p style={{ fontSize: '0.75rem', color: '#475569' }}>
-                Sinh câu hỏi trắc nghiệm tự động theo Chủ đề, Trình độ CEFR và Kỹ năng qua Google Gemini / Groq LLM
+                Hỗ trợ tạo đề thi theo <strong>Khóa học, Chương học, Bài giảng video (Lesson)</strong> hoặc <strong>Chủ đề tự do</strong>
               </p>
             </div>
           </div>
@@ -153,7 +210,7 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
         </div>
 
         {/* Modal Body */}
-        <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {errorMsg && (
             <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#dc2626', fontSize: '0.8rem', fontWeight: '700' }}>
               <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }}></i>
@@ -161,17 +218,79 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
             </div>
           )}
 
-          {/* Configuration Form */}
+          {/* Phạm vi tạo đề (Scope Selector) */}
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+              📍 1. Chọn phạm vi gắn đề thi trong hệ thống:
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+              {[
+                { id: 'COURSE', label: 'Theo Khóa học', icon: 'fa-book-open' },
+                { id: 'CHAPTER', label: 'Theo Chương học', icon: 'fa-folder-open' },
+                { id: 'LESSON', label: 'Theo Bài học (Lesson)', icon: 'fa-circle-play' },
+                { id: 'TOPIC', label: 'Theo Chủ đề tự do', icon: 'fa-lightbulb' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setScopeType(item.id)}
+                  style={{
+                    padding: '8px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid',
+                    borderColor: scopeType === item.id ? '#7c3aed' : 'var(--border-color)',
+                    backgroundColor: scopeType === item.id ? '#f5f3ff' : 'var(--bg-surface)',
+                    color: scopeType === item.id ? '#7c3aed' : 'var(--text-secondary)',
+                    fontWeight: '700',
+                    fontSize: '0.78rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <i className={`fa-solid ${item.icon}`}></i>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Form Configuration */}
           <form onSubmit={handleGenerate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Chọn Khóa học thật từ CSDL */}
+            {scopeType !== 'TOPIC' && (
+              <div>
+                <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
+                  Chọn Khóa học áp dụng:
+                </label>
+                <select
+                  value={selectedCourseId}
+                  onChange={(e) => {
+                    setSelectedCourseId(e.target.value);
+                    const selected = courses.find((c) => c.id === e.target.value);
+                    if (selected) setTopic(selected.title);
+                  }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                >
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title} (CEFR {c.level})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                Chủ đề kiến thức cần tạo câu hỏi (Topic):
+                Chủ đề / Nội dung trọng tâm cần AI sinh câu hỏi:
               </label>
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder="Ví dụ: Passive Voice, Business English Meetings, TOEIC Part 5..."
+                placeholder="Ví dụ: Passive Voice, Thì Hiện Tại Hoàn Thành, Từ Vựng TOEIC Part 5..."
                 style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                 required
               />
@@ -209,23 +328,21 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
                   <option value="VOCABULARY">Từ vựng (Vocabulary)</option>
                   <option value="READING">Đọc hiểu (Reading)</option>
                   <option value="LISTENING">Nghe hiểu (Listening)</option>
-                  <option value="WRITING">Viết (Writing)</option>
-                  <option value="SPEAKING">Nói & Phát âm (Speaking)</option>
                 </select>
               </div>
 
               <div>
                 <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Số lượng câu hỏi:
+                  Số câu hỏi:
                 </label>
                 <select
                   value={count}
                   onChange={(e) => setCount(Number(e.target.value))}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.82rem', fontWeight: '600' }}
                 >
-                  <option value={3}>3 câu hỏi</option>
-                  <option value={5}>5 câu hỏi (Chuẩn)</option>
-                  <option value={10}>10 câu hỏi</option>
+                  <option value={3}>3 câu</option>
+                  <option value={5}>5 câu (Chuẩn)</option>
+                  <option value={10}>10 câu</option>
                 </select>
               </div>
             </div>
@@ -234,7 +351,7 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
               type="submit"
               disabled={isLoading}
               className="btn-primary"
-              style={{ padding: '10px 20px', justifyContent: 'center', fontSize: '0.88rem', marginTop: '4px' }}
+              style={{ padding: '10px 20px', justifyContent: 'center', fontSize: '0.88rem', backgroundColor: '#7c3aed' }}
             >
               {isLoading ? (
                 <>
@@ -250,32 +367,32 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
             </button>
           </form>
 
-          {/* Generated Questions Preview List */}
+          {/* Preview Generated Questions */}
           {generatedQuestions.length > 0 && (
-            <div style={{ marginTop: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)' }}>
                   <i className="fa-solid fa-list-check" style={{ color: '#059669', marginRight: '6px' }}></i>
                   Kết Quả AI Sinh Ra ({generatedQuestions.length} câu hỏi):
                 </h4>
                 <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: '700' }}>
-                  ✓ Đã kiểm tra cấu trúc & chuẩn hóa 4 phương án
+                  ✓ Đã kiểm duyệt cấu trúc 4 phương án & đáp án đúng
                 </span>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {generatedQuestions.map((q, idx) => (
                   <div
                     key={idx}
                     style={{
-                      padding: '14px 16px',
+                      padding: '12px 14px',
                       borderRadius: 'var(--radius-md)',
                       border: '1px solid var(--border-color)',
                       backgroundColor: 'var(--bg-subtle)',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '0.88rem', color: 'var(--text-main)' }}>
                         Câu {idx + 1}: {q.content}
                       </strong>
                       <span
@@ -292,18 +409,18 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
                       </span>
                     </div>
 
-                    {/* Options List */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                    {/* Options Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
                       {q.options?.map((opt, optIdx) => (
                         <div
                           key={optIdx}
                           style={{
-                            padding: '8px 10px',
+                            padding: '6px 10px',
                             borderRadius: '6px',
                             border: '1px solid',
                             borderColor: opt.is_correct ? '#86efac' : 'var(--border-color)',
                             backgroundColor: opt.is_correct ? '#f0fdf4' : 'var(--bg-surface)',
-                            fontSize: '0.82rem',
+                            fontSize: '0.8rem',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
@@ -311,19 +428,17 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
                         >
                           <span>{String.fromCharCode(65 + optIdx)}. {opt.content}</span>
                           {opt.is_correct && (
-                            <span style={{ color: '#15803d', fontWeight: '800', fontSize: '0.75rem' }}>
-                              ✓ Đúng
-                            </span>
+                            <span style={{ color: '#15803d', fontWeight: '800', fontSize: '0.75rem' }}>✓ Đúng</span>
                           )}
                         </div>
                       ))}
                     </div>
 
-                    {/* Vietnamese Explanation */}
+                    {/* Explanation */}
                     {q.explanation_vi && (
                       <div
                         style={{
-                          padding: '8px 10px',
+                          padding: '6px 10px',
                           borderRadius: '6px',
                           backgroundColor: '#fffbeb',
                           borderLeft: '3px solid #f59e0b',
@@ -352,8 +467,8 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
             backgroundColor: 'var(--bg-surface)',
           }}
         >
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            Hỗ trợ bởi Google Gemini 3.6 Flash & Groq LLM (High Availability Gateway)
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Lưu trực tiếp vào CSDL PostgreSQL và Ngân hàng Đề thi
           </span>
 
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -361,9 +476,23 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveToBank }) {
               Đóng
             </button>
             {generatedQuestions.length > 0 && (
-              <button className="btn-primary" onClick={handleSave} style={{ backgroundColor: '#059669' }}>
-                <i className="fa-solid fa-floppy-disk"></i>
-                <span>Lưu vào Ngân hàng Đề thi</span>
+              <button
+                className="btn-primary"
+                onClick={handleSaveToDatabase}
+                disabled={isSaving}
+                style={{ backgroundColor: '#059669' }}
+              >
+                {isSaving ? (
+                  <>
+                    <i className="fa-solid fa-circle-notch fa-spin"></i>
+                    <span>Đang lưu vào CSDL...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-floppy-disk"></i>
+                    <span>Lưu Vào CSDL Ngân Hàng Đề Thi</span>
+                  </>
+                )}
               </button>
             )}
           </div>

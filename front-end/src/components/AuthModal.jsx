@@ -27,7 +27,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
     try {
       if (isRegisterMode) {
-        // Đăng ký tài khoản mới
+        // Đăng ký tài khoản mới (Chỉ Học viên hoặc Giảng viên)
         await authAPI.register({
           email,
           password,
@@ -35,7 +35,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           role,
           level: targetLevel,
         });
-        alert('Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
+        alert('🎉 Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ.');
         setIsRegisterMode(false);
       } else {
         // Đăng nhập
@@ -47,10 +47,9 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           onLoginSuccess(user || { email, full_name: fullName || 'Lê Văn Thái', role, level: targetLevel });
           onClose();
         } catch (apiErr) {
-          // Fallback demo session nếu offline
           console.warn('API login error, using fallback demo session:', apiErr);
-          const computedRole = email.includes('teacher') ? 'TEACHER' : email.includes('admin') ? 'ADMIN' : role;
-          const computedName = fullName || (computedRole === 'TEACHER' ? 'Thầy Nguyễn Văn An' : computedRole === 'ADMIN' ? 'Admin Quản Trị Hệ Thống' : 'Lê Văn Thái');
+          const computedRole = email.includes('teacher') ? 'TEACHER' : role;
+          const computedName = fullName || (computedRole === 'TEACHER' ? 'Thầy Nguyễn Văn An' : 'Lê Văn Thái');
           onLoginSuccess({
             email,
             full_name: computedName,
@@ -62,7 +61,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      setErrorMsg('Đã có lỗi xảy ra. Vui lòng kiểm tra lại thông tin!');
+      setErrorMsg('Đã có lỗi xảy ra. Vui lòng kiểm tra lại thông tin đăng nhập!');
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +87,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderRadius: 'var(--radius-lg)',
-          maxWidth: '480px',
+          maxWidth: '460px',
           width: '100%',
           padding: '28px',
           boxShadow: 'var(--shadow-lg)',
@@ -109,38 +108,31 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>
+          <button onClick={onClose} style={{ fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
             <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
 
-        {/* Quick Demo Fill Buttons */}
+        {/* Quick Demo Fill Buttons (Chỉ Học viên và Giảng viên) */}
         {!isRegisterMode && (
           <div style={{ padding: '12px', borderRadius: 'var(--radius-md)', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#64748b', display: 'block', marginBottom: '8px' }}>
               ⚡ CHỌN NHANH TÀI KHOẢN MẪU (DATABASE SEEDER):
             </span>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 type="button"
                 onClick={() => handleQuickFill('thaipro1132004@gmail.com', 'levanthai113', 'STUDENT', 'Lê Văn Thái')}
-                style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0284c7', fontSize: '0.72rem', fontWeight: '700', border: '1px solid #bae6fd' }}
+                style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', fontSize: '0.78rem', fontWeight: '700', border: '1px solid #bae6fd', cursor: 'pointer' }}
               >
                 👨‍🎓 Học viên
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickFill('teacher@gmail.com', 'levanthai113', 'TEACHER', 'Thầy Nguyễn Văn An')}
-                style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.72rem', fontWeight: '700', border: '1px solid #bbf7d0' }}
+                style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.78rem', fontWeight: '700', border: '1px solid #bbf7d0', cursor: 'pointer' }}
               >
                 👨‍🏫 Giảng viên
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('admin@elearning.edu.vn', 'levanthai113', 'ADMIN', 'Admin Quản Trị')}
-                style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.72rem', fontWeight: '700', border: '1px solid #cbd5e1' }}
-              >
-                🛡️ Quản trị viên
               </button>
             </div>
           </div>
@@ -212,7 +204,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                 >
                   <option value="STUDENT">Học viên</option>
                   <option value="TEACHER">Giáo viên</option>
-                  <option value="ADMIN">Quản trị viên</option>
                 </select>
               </div>
 
@@ -239,7 +230,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             type="submit"
             className="btn-primary"
             disabled={isLoading}
-            style={{ width: '100%', justifyContent: 'center', padding: '10px', marginTop: '6px', fontSize: '0.9rem' }}
+            style={{ width: '100%', justifyContent: 'center', padding: '10px', marginTop: '6px', fontSize: '0.9rem', cursor: 'pointer' }}
           >
             {isLoading ? (
               <>
@@ -260,7 +251,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               <button
                 type="button"
                 onClick={() => setIsRegisterMode(false)}
-                style={{ color: '#0284c7', fontWeight: '700' }}
+                style={{ color: '#0284c7', fontWeight: '700', cursor: 'pointer' }}
               >
                 Đăng nhập ngay
               </button>
@@ -271,7 +262,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               <button
                 type="button"
                 onClick={() => setIsRegisterMode(true)}
-                style={{ color: '#0284c7', fontWeight: '700' }}
+                style={{ color: '#0284c7', fontWeight: '700', cursor: 'pointer' }}
               >
                 Đăng ký miễn phí
               </button>
