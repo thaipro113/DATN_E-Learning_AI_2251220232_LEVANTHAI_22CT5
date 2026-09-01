@@ -9,6 +9,8 @@ import MyLearningView from './components/MyLearningView';
 import QuizExamView from './components/QuizExamView';
 import AdaptivePathView from './components/AdaptivePathView';
 import SkillGapsView from './components/SkillGapsView';
+import TeacherDashboardView from './components/TeacherDashboardView';
+import AdminDashboardView from './components/AdminDashboardView';
 import FloatingAITutor from './components/FloatingAITutor';
 import QuizImportModal from './components/QuizImportModal';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -19,10 +21,10 @@ export default function App() {
   const [isQuizImportOpen, setIsQuizImportOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
-  // User state
+  // User state with Role (STUDENT / TEACHER / ADMIN)
   const [user, setUser] = useState({
     full_name: 'Lê Văn Thái',
-    email: 'thaipro113@example.com',
+    email: 'thaipro113@gmail.com',
     role: 'STUDENT',
     level: 'B1',
   });
@@ -71,6 +73,18 @@ export default function App() {
     fetchData();
   }, []);
 
+  // Chuyển đổi vai trò linh hoạt
+  const handleSwitchRole = (newRole) => {
+    setUser({ ...user, role: newRole });
+    if (newRole === 'TEACHER') {
+      setCurrentTab('teacher_dashboard');
+    } else if (newRole === 'ADMIN') {
+      setCurrentTab('admin_dashboard');
+    } else {
+      setCurrentTab('dashboard');
+    }
+  };
+
   const handleEnrollCourse = (course) => {
     alert(`Bạn đã ghi danh thành công khóa học: ${course.title}!`);
     setCurrentTab('learning');
@@ -83,7 +97,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* 1. Header Bar with Navigation tailored to 7 backend modules */}
+      {/* 1. Header Bar with Dynamic Role Navigation */}
       <Header
         currentTab={currentTab}
         onSelectTab={handleSelectTab}
@@ -93,6 +107,7 @@ export default function App() {
         }}
         onToggleMobileDrawer={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
         user={user}
+        onSwitchRole={handleSwitchRole}
       />
 
       {/* Mobile Drawer Menu */}
@@ -102,7 +117,7 @@ export default function App() {
       />
       <div className={`mobile-drawer ${isMobileDrawerOpen ? 'open' : ''}`}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800' }}>
               <div className="brand-logo-icon" style={{ width: '30px', height: '30px', fontSize: '0.9rem' }}>
                 <i className="fa-solid fa-graduation-cap"></i>
@@ -114,55 +129,91 @@ export default function App() {
             </button>
           </div>
 
+          {/* Mobile Links theo Role */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button className={`nav-link ${currentTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleSelectTab('dashboard')}>
-              <i className="fa-solid fa-house nav-icon-sky"></i>
-              <span>Tổng quan</span>
-            </button>
-            <button className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`} onClick={() => handleSelectTab('courses')}>
-              <i className="fa-solid fa-book-open nav-icon-emerald"></i>
-              <span>Khóa học</span>
-            </button>
-            <button className={`nav-link ${currentTab === 'learning' ? 'active' : ''}`} onClick={() => handleSelectTab('learning')}>
-              <i className="fa-solid fa-circle-play nav-icon-purple"></i>
-              <span>Đang học</span>
-            </button>
-            <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
-              <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-              <span>Luyện đề</span>
-            </button>
-            <button className={`nav-link ${currentTab === 'path' ? 'active' : ''}`} onClick={() => handleSelectTab('path')}>
-              <i className="fa-solid fa-compass nav-icon-indigo"></i>
-              <span>Lộ trình AI</span>
-            </button>
-            <button className={`nav-link ${currentTab === 'skills' ? 'active' : ''}`} onClick={() => handleSelectTab('skills')}>
-              <i className="fa-solid fa-chart-pie nav-icon-amber"></i>
-              <span>Lỗ hổng Kỹ năng</span>
-            </button>
-            <button className="nav-link" onClick={() => { setIsQuizImportOpen(true); setIsMobileDrawerOpen(false); }}>
-              <i className="fa-solid fa-file-import nav-icon-rose"></i>
-              <span>Import Đề thi</span>
-            </button>
+            {user.role === 'STUDENT' && (
+              <>
+                <button className={`nav-link ${currentTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleSelectTab('dashboard')}>
+                  <i className="fa-solid fa-house nav-icon-sky"></i>
+                  <span>Tổng quan</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`} onClick={() => handleSelectTab('courses')}>
+                  <i className="fa-solid fa-book-open nav-icon-emerald"></i>
+                  <span>Khóa học</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'learning' ? 'active' : ''}`} onClick={() => handleSelectTab('learning')}>
+                  <i className="fa-solid fa-circle-play nav-icon-purple"></i>
+                  <span>Đang học</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
+                  <i className="fa-solid fa-file-signature nav-icon-orange"></i>
+                  <span>Luyện đề</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'path' ? 'active' : ''}`} onClick={() => handleSelectTab('path')}>
+                  <i className="fa-solid fa-compass nav-icon-indigo"></i>
+                  <span>Lộ trình AI</span>
+                </button>
+              </>
+            )}
+
+            {user.role === 'TEACHER' && (
+              <>
+                <button className={`nav-link ${currentTab === 'teacher_dashboard' ? 'active' : ''}`} onClick={() => handleSelectTab('teacher_dashboard')}>
+                  <i className="fa-solid fa-chalkboard-user nav-icon-sky"></i>
+                  <span>Studio Giảng dạy</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`} onClick={() => handleSelectTab('courses')}>
+                  <i className="fa-solid fa-book-open nav-icon-emerald"></i>
+                  <span>Quản lý Khóa học</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
+                  <i className="fa-solid fa-file-signature nav-icon-orange"></i>
+                  <span>Ngân hàng Đề thi</span>
+                </button>
+                <button className="nav-link" onClick={() => { setIsQuizImportOpen(true); setIsMobileDrawerOpen(false); }}>
+                  <i className="fa-solid fa-file-import nav-icon-rose"></i>
+                  <span>Import Đề thi</span>
+                </button>
+              </>
+            )}
+
+            {user.role === 'ADMIN' && (
+              <>
+                <button className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`} onClick={() => handleSelectTab('admin_dashboard')}>
+                  <i className="fa-solid fa-shield-halved" style={{ color: '#be185d' }}></i>
+                  <span>Bảng Quản trị</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`} onClick={() => handleSelectTab('courses')}>
+                  <i className="fa-solid fa-book-open nav-icon-emerald"></i>
+                  <span>Khóa học toàn trường</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
+                  <i className="fa-solid fa-file-signature nav-icon-orange"></i>
+                  <span>Đề thi toàn trường</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
         <div style={{ paddingTop: '16px', borderTop: '1px solid var(--border-color)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          Học viên: <strong>{user.full_name}</strong> ({user.level})
+          Đang xem với vai trò: <strong style={{ color: '#0284c7' }}>{user.role}</strong>
         </div>
       </div>
 
       {/* 2. Main Content Area */}
       <main className="main-content">
-        {/* Tab 1: Dashboard */}
-        {currentTab === 'dashboard' && (
+        {/* VIEW DÀNH CHO SINH VIÊN (STUDENT) */}
+        {user.role === 'STUDENT' && currentTab === 'dashboard' && (
           <>
             <HeroBanner user={user} />
             <MetricCardsGrid
               learningPath={learningPath}
               skillGaps={skillGaps}
               user={user}
+              onSelectTab={handleSelectTab}
             />
-            <StatCounters />
+            <StatCounters onSelectTab={handleSelectTab} />
             <RecommendedCoursesSection
               courses={courses}
               recommendations={recommendations}
@@ -171,43 +222,51 @@ export default function App() {
           </>
         )}
 
-        {/* Tab 2: Course Catalog (Module apps/courses) */}
+        {/* VIEW DÀNH CHO GIÁO VIÊN (TEACHER) */}
+        {user.role === 'TEACHER' && currentTab === 'teacher_dashboard' && (
+          <TeacherDashboardView
+            onOpenQuizImport={() => setIsQuizImportOpen(true)}
+          />
+        )}
+
+        {/* VIEW DÀNH CHO QUẢN TRỊ VIÊN (ADMIN) */}
+        {user.role === 'ADMIN' && currentTab === 'admin_dashboard' && (
+          <AdminDashboardView />
+        )}
+
+        {/* CÁC VIEW DÙNG CHUNG / CHI TIẾT */}
         {currentTab === 'courses' && (
           <CourseCatalogView courses={courses} onEnroll={handleEnrollCourse} />
         )}
 
-        {/* Tab 3: My Learning & Video Player (Module apps/learning) */}
         {currentTab === 'learning' && (
           <MyLearningView />
         )}
 
-        {/* Tab 4: Quizzes & Online Exam (Module apps/assessments) */}
         {currentTab === 'quizzes' && (
           <QuizExamView />
         )}
 
-        {/* Tab 5: Adaptive Learning Path (Module apps/recommendations) */}
         {currentTab === 'path' && (
           <AdaptivePathView learningPath={learningPath} />
         )}
 
-        {/* Tab 6: Skill Gap Analytics (Module apps/recommendations) */}
         {currentTab === 'skills' && (
           <SkillGapsView skillGaps={skillGaps} />
         )}
       </main>
 
-      {/* 3. Floating Interactive AI English Tutor Widget (Module apps/ai - Gemini & Groq Live) */}
+      {/* 3. Floating Interactive AI English Tutor Widget (Google Gemini & Groq Live) */}
       <FloatingAITutor user={user} />
 
-      {/* 4. Quiz Import Tool Modal for Teachers (Module apps/quiz_import) */}
+      {/* 4. Quiz Import Tool Modal for Teachers */}
       <QuizImportModal
         isOpen={isQuizImportOpen}
         onClose={() => setIsQuizImportOpen(false)}
         onImportSuccess={() => alert('Đã import đề thi thành công!')}
       />
 
-      {/* 5. Mobile Bottom Navigation Bar (For smartphone users) */}
+      {/* 5. Mobile Bottom Navigation Bar */}
       <MobileBottomNav currentTab={currentTab} onSelectTab={handleSelectTab} />
     </div>
   );

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import CourseDetailModal from './CourseDetailModal';
 
 export default function CourseCatalogView({ courses, onEnroll }) {
   const [selectedLevel, setSelectedLevel] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewingCourse, setViewingCourse] = useState(null);
 
   const levels = ['ALL', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
@@ -16,6 +18,8 @@ export default function CourseCatalogView({ courses, onEnroll }) {
       price: 0,
       is_free: true,
       total_lessons: 12,
+      bgColor: '#e0f2fe',
+      color: '#0284c7',
     },
     {
       id: '2',
@@ -26,6 +30,8 @@ export default function CourseCatalogView({ courses, onEnroll }) {
       price: 0,
       is_free: true,
       total_lessons: 18,
+      bgColor: '#d1fae5',
+      color: '#059669',
     },
     {
       id: '3',
@@ -36,6 +42,8 @@ export default function CourseCatalogView({ courses, onEnroll }) {
       price: 0,
       is_free: true,
       total_lessons: 24,
+      bgColor: '#ede9fe',
+      color: '#7c3aed',
     },
   ]).filter((c) => {
     const matchLevel = selectedLevel === 'ALL' || c.level === selectedLevel;
@@ -114,7 +122,15 @@ export default function CourseCatalogView({ courses, onEnroll }) {
       <div className="course-grid">
         {filteredCourses.map((course, idx) => (
           <div key={course.id || idx} className="course-card">
-            <div className="course-card-top">
+            <div
+              className="course-card-top"
+              style={{
+                backgroundColor: course.bgColor || '#f1f5f9',
+                color: course.color || '#0284c7',
+                cursor: 'pointer',
+              }}
+              onClick={() => setViewingCourse(course)}
+            >
               <i className="fa-solid fa-graduation-cap"></i>
               <span className="course-level-tag">{course.level || 'B1'}</span>
             </div>
@@ -124,7 +140,13 @@ export default function CourseCatalogView({ courses, onEnroll }) {
                 <span className="course-cat-tag">
                   {course.category_name || 'Tiếng Anh'}
                 </span>
-                <h3 className="course-card-title">{course.title}</h3>
+                <h3
+                  className="course-card-title"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setViewingCourse(course)}
+                >
+                  {course.title}
+                </h3>
                 <p className="course-card-desc">{course.description}</p>
               </div>
 
@@ -132,18 +154,36 @@ export default function CourseCatalogView({ courses, onEnroll }) {
                 <span className="course-price-text">
                   {course.is_free ? 'Miễn phí' : `${course.price?.toLocaleString()} đ`}
                 </span>
-                <button
-                  className="btn-primary"
-                  onClick={() => onEnroll && onEnroll(course)}
-                >
-                  <i className="fa-solid fa-plus"></i>
-                  <span>Ghi danh</span>
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    className="btn-outline"
+                    onClick={() => setViewingCourse(course)}
+                    style={{ padding: '6px 10px' }}
+                    title="Xem giáo trình"
+                  >
+                    <i className="fa-solid fa-eye"></i>
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => onEnroll && onEnroll(course)}
+                  >
+                    <i className="fa-solid fa-plus"></i>
+                    <span>Ghi danh</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Course Detail Modal */}
+      <CourseDetailModal
+        isOpen={!!viewingCourse}
+        onClose={() => setViewingCourse(null)}
+        course={viewingCourse}
+        onEnroll={onEnroll}
+      />
     </div>
   );
 }
