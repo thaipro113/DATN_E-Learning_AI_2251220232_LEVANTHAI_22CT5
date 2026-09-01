@@ -19,7 +19,14 @@ import CourseDetailModal from './components/CourseDetailModal';
 import { recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState('dashboard');
+  // Lấy tab ban đầu từ URL hash nếu có
+  const getTabFromHash = () => {
+    const hash = window.location.hash.replace('#/', '').replace('#', '');
+    const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'teacher_dashboard'];
+    return validTabs.includes(hash) ? hash : 'dashboard';
+  };
+
+  const [currentTab, setCurrentTab] = useState(getTabFromHash);
   const [isQuizImportOpen, setIsQuizImportOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -56,6 +63,20 @@ export default function App() {
   const [courses, setCourses] = useState([]);
   const [myCourses, setMyCourses] = useState([]);
   const [myAttempts, setMyAttempts] = useState([]);
+
+  // Đồng bộ Hash URL khi tab thay đổi và khi bấm Back/Forward trình duyệt
+  useEffect(() => {
+    window.location.hash = `#/${currentTab}`;
+  }, [currentTab]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const tab = getTabFromHash();
+      setCurrentTab(tab);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Fetch toàn bộ dữ liệu thật từ Backend API
   const fetchAllLiveData = async () => {
@@ -162,6 +183,17 @@ export default function App() {
   const handleOpenCourseDetail = (course) => {
     setSelectedCourseForDetail(course);
     setIsDetailModalOpen(true);
+  };
+
+  // Tên hiển thị của Tab cho Breadcrumbs
+  const tabNames = {
+    dashboard: 'Tổng quan',
+    courses: 'Danh mục Khóa học',
+    learning: 'Đang học',
+    quizzes: 'Luyện Đề Thi',
+    path: 'Lộ trình AI',
+    skills: 'Lỗ hổng Kỹ năng',
+    teacher_dashboard: 'Studio Giảng dạy',
   };
 
   return (
@@ -303,6 +335,36 @@ export default function App() {
 
       {/* 2. Main Content Area */}
       <main className="main-content">
+        {/* Breadcrumb Bar with Back Button when in Subviews */}
+        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <button
+              onClick={() => handleSelectTab(user.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--bg-surface)',
+                border: '1px solid var(--border-color)',
+                color: '#0284c7',
+                fontSize: '0.82rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
+            >
+              <i className="fa-solid fa-arrow-left"></i>
+              <span>Quay lại Tổng quan</span>
+            </button>
+
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              <span>Trang chủ / </span>
+              <strong style={{ color: 'var(--text-main)' }}>{tabNames[currentTab] || currentTab}</strong>
+            </div>
+          </div>
+        )}
+
         {/* ==================== A. STUDENT / GUEST VIEWS ==================== */}
         {(!isLoggedIn || user.role === 'STUDENT') && (
           <>
@@ -338,6 +400,7 @@ export default function App() {
                       courses={courses}
                       recommendations={recommendations}
                       onEnroll={handleEnrollCourse}
+                      onSelectCourse={handleOpenCourseDetail}
                     />
                   </>
                 )}
@@ -374,7 +437,11 @@ export default function App() {
         {isLoggedIn && user.role === 'TEACHER' && (
           <>
             {currentTab === 'teacher_dashboard' && (
-              <TeacherDashboardView onOpenQuizImport={() => setIsQuizImportOpen(true)} />
+              <TeacherDashboardView
+                user={user}
+                onOpenQuizImport={() => setIsQuizImportOpen(true)}
+                onBackToDashboard={() => handleSelectTab('teacher_dashboard')}
+              />
             )}
 
             {currentTab === 'courses' && (
@@ -409,7 +476,7 @@ export default function App() {
         onEnroll={handleEnrollCourse}
       />
 
-      {/* 6. Authentication Modal with Quick-Fill Demo (Học viên & Giảng viên) */}
+      {/* 6. Authentication Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}

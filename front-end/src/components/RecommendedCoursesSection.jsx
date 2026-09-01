@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function RecommendedCoursesSection({ courses = [], recommendations = [], onEnroll }) {
+export default function RecommendedCoursesSection({ courses = [], recommendations = [], onEnroll, onSelectCourse }) {
   const displayCourses = recommendations.length > 0
     ? recommendations.map((r) => ({
         ...r.course,
@@ -11,10 +11,10 @@ export default function RecommendedCoursesSection({ courses = [], recommendation
 
   return (
     <div style={{ marginTop: '28px' }}>
-      <div className="section-header">
+      <div className="section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <div>
           <h2 className="section-title">
-            <i className="fa-solid fa-sparkles section-title-icon"></i>
+            <i className="fa-solid fa-sparkles section-title-icon" style={{ color: '#6366f1' }}></i>
             <span>KHÓA HỌC DÀNH RIÊNG CHO BẠN</span>
           </h2>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -25,7 +25,12 @@ export default function RecommendedCoursesSection({ courses = [], recommendation
 
       <div className="course-grid">
         {displayCourses.map((course, idx) => (
-          <div key={course.id || idx} className="course-card">
+          <div
+            key={course.id || idx}
+            className="course-card"
+            style={{ cursor: 'pointer' }}
+            onClick={() => onSelectCourse && onSelectCourse(course)}
+          >
             {/* Top Thumbnail Banner with Image */}
             <div
               className="course-card-top"
@@ -92,17 +97,35 @@ export default function RecommendedCoursesSection({ courses = [], recommendation
               </div>
 
               {/* Card Footer with Price and Action */}
-              <div className="course-card-footer">
+              <div className="course-card-footer" onClick={(e) => e.stopPropagation()}>
                 <span className="course-price-text">
                   {course.is_free ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
                 </span>
-                <button
-                  className="btn-primary"
-                  onClick={() => onEnroll && onEnroll(course)}
-                >
-                  <i className="fa-solid fa-plus"></i>
-                  <span>Ghi danh</span>
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    className="btn-outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectCourse) onSelectCourse(course);
+                    }}
+                    style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                    title="Xem chi tiết giáo trình"
+                  >
+                    <i className="fa-solid fa-eye"></i>
+                    <span>Chi tiết</span>
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onEnroll) onEnroll(course);
+                    }}
+                    style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                  >
+                    <i className="fa-solid fa-plus"></i>
+                    <span>Ghi danh</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
