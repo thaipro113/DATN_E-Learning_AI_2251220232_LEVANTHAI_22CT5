@@ -90,7 +90,7 @@ export default function Header({
                 </li>
                 <li>
                   <button
-                    className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`}
+                    className={`nav-link ${currentTab === 'courses' || currentTab === 'course_detail' ? 'active' : ''}`}
                     onClick={() => onSelectTab('courses')}
                   >
                     <i className="fa-solid fa-book-open nav-icon-emerald"></i>
@@ -175,7 +175,7 @@ export default function Header({
                 </li>
                 <li>
                   <button
-                    className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`}
+                    className={`nav-link ${currentTab === 'courses' || currentTab === 'course_detail' ? 'active' : ''}`}
                     onClick={() => onSelectTab('courses')}
                   >
                     <i className="fa-solid fa-book-open nav-icon-emerald"></i>

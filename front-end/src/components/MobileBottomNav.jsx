@@ -14,7 +14,7 @@ export default function MobileBottomNav({ currentTab, onSelectTab }) {
 
       <button
         type="button"
-        className={`mobile-nav-item ${currentTab === 'courses' ? 'active' : ''}`}
+        className={`mobile-nav-item ${currentTab === 'courses' || currentTab === 'course_detail' ? 'active' : ''}`}
         onClick={() => onSelectTab('courses')}
       >
         <i className="fa-solid fa-book-open"></i>
