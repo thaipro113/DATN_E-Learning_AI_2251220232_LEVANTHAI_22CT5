@@ -248,8 +248,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                     onChange={(e) => setRole(e.target.value)}
                     style={{ width: '100%', padding: '9px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', fontWeight: '600' }}
                   >
-                    <option value="STUDENT">👨‍🎓 Học viên</option>
-                    <option value="TEACHER">👨‍🏫 Giảng viên</option>
+                    <option value="STUDENT">Học viên</option>
+                    <option value="TEACHER">Giảng viên</option>
                   </select>
                 </div>
 

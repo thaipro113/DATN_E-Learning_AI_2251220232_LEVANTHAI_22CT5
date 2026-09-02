@@ -237,7 +237,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             <span>TEACHER STUDIO & QUẢN LÝ GIẢNG DẠY CSDL</span>
           </div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a' }}>
-            Không gian Giảng viên - {teacherDisplayName} 👨‍🏫
+            Không gian Giảng viên - {teacherDisplayName}
           </h1>
           <p style={{ fontSize: '0.85rem', color: '#475569', marginTop: '4px' }}>
             Quản lý chương trình giảng dạy, ngân hàng đề thi AI và theo dõi kết quả học tập thực tế từ PostgreSQL.

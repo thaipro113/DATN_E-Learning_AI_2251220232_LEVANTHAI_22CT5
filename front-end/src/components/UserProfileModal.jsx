@@ -247,7 +247,7 @@ export default function UserProfileModal({ isOpen, onClose, user, onUpdateUserSu
                 </label>
                 <input
                   type="text"
-                  value={user?.role === 'TEACHER' ? '👨‍🏫 Giảng viên' : user?.role === 'ADMIN' ? '🛡️ Quản trị viên' : '👨‍🎓 Học viên'}
+                  value={user?.role === 'TEACHER' ? 'Giảng viên' : user?.role === 'ADMIN' ? 'Quản trị viên' : 'Học viên'}
                   disabled
                   style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '700' }}
                 />
