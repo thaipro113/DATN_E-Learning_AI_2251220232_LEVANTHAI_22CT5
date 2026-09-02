@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { courseAPI } from '../services/api';
-import { getYouTubeEmbedUrl, isYouTubeUrl } from '../utils/media';
+import { getYouTubeEmbedUrl, isYouTubeUrl, isCourseEnrolled } from '../utils/media';
 
 export default function CourseDetailFullView({
   slug,
@@ -46,28 +46,21 @@ export default function CourseDetailFullView({
 
   if (isLoading) {
     return (
-      <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
-        <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '2rem', color: '#0284c7' }}></i>
-        <p style={{ marginTop: '14px', fontSize: '0.95rem', fontWeight: '600' }}>
-          Đang nạp chi tiết khóa học từ máy chủ...
-        </p>
+      <div style={{ padding: '80px 20px', textAlign: 'center' }}>
+        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', color: '#0284c7' }}></i>
+        <p style={{ marginTop: '12px', color: 'var(--text-muted)' }}>Đang tải nội dung khóa học...</p>
       </div>
     );
   }
 
   if (errorMsg || !course) {
     return (
-      <div style={{ padding: '40px 20px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', fontSize: '1.8rem' }}>
-          <i className="fa-solid fa-triangle-exclamation"></i>
-        </div>
-        <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)' }}>
+      <div style={{ padding: '60px 20px', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', margin: '20px auto', maxWidth: '600px', border: '1px solid var(--border-color)' }}>
+        <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: '2.5rem', color: '#ef4444', marginBottom: '12px' }}></i>
+        <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
           {errorMsg || 'Không tìm thấy khóa học'}
         </h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '8px 0 20px 0' }}>
-          Đường dẫn <code>/courses/{slug}</code> có thể đã thay đổi hoặc khóa học chưa được công khai.
-        </p>
-        <button className="btn-primary" onClick={onBack}>
+        <button className="btn-primary" onClick={onBack} style={{ marginTop: '16px' }}>
           <i className="fa-solid fa-arrow-left"></i>
           <span>Quay lại danh mục khóa học</span>
         </button>
@@ -75,7 +68,7 @@ export default function CourseDetailFullView({
     );
   }
 
-  const isEnrolled = myCourses.some((m) => (m.course?.id || m.id) === course.id);
+  const isEnrolled = isCourseEnrolled(course, myCourses);
   const isFree = course.is_free || Number(course.price) === 0;
   const fullUrl = `${window.location.origin}/#/courses/${course.slug || course.id}`;
 
@@ -331,7 +324,7 @@ export default function CourseDetailFullView({
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {(ch.lessons || []).map((les, lIdx) => {
                       const isSelected = activePreviewLesson?.id === les.id;
-                      const canPreview = les.is_preview;
+                      const canPreview = isEnrolled || Boolean(les.is_preview);
 
                       return (
                         <div
@@ -354,7 +347,7 @@ export default function CourseDetailFullView({
                             opacity: canPreview ? 1 : 0.65,
                             transition: 'all 0.15s ease',
                           }}
-                          title={canPreview ? 'Bấm để xem thử video bài giảng này' : 'Bài giảng bị khóa. Hãy ghi danh để mở khóa toàn bộ.'}
+                          title={canPreview ? (isEnrolled ? 'Bấm để phát video bài giảng này' : 'Bấm để xem thử video bài giảng này') : 'Bài giảng bị khóa. Hãy đăng ký để mở khóa toàn bộ.'}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <i
@@ -364,13 +357,17 @@ export default function CourseDetailFullView({
                             <span style={{ color: 'var(--text-main)', fontWeight: isSelected ? '700' : '500' }}>
                               {les.title}
                             </span>
-                            {canPreview ? (
+                            {isEnrolled ? (
+                              <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: isSelected ? '#bbf7d0' : '#e0f2fe', color: isSelected ? '#15803d' : '#0284c7', fontWeight: '700' }}>
+                                {isSelected ? '🎬 Đang phát' : 'Đã mở khóa'}
+                              </span>
+                            ) : canPreview ? (
                               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: isSelected ? '#bbf7d0' : '#dcfce7', color: '#15803d', fontWeight: '800' }}>
                                 {isSelected ? '🎬 Đang phát' : 'Học thử miễn phí'}
                               </span>
                             ) : (
                               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '600' }}>
-                                🔒 Khóa (Cần ghi danh)
+                                🔒 Khóa (Cần đăng ký)
                               </span>
                             )}
                           </div>
@@ -429,8 +426,8 @@ export default function CourseDetailFullView({
                   marginBottom: '16px',
                 }}
               >
-                <i className={`fa-solid ${isFree ? 'fa-play' : 'fa-cart-shopping'}`}></i>
-                <span>{isFree ? 'Ghi Danh Miễn Phí' : 'Mua Khóa Học'}</span>
+                <i className={`fa-solid ${isFree ? 'fa-pen-to-square' : 'fa-cart-shopping'}`}></i>
+                <span>{isFree ? 'Đăng Ký Miễn Phí' : 'Mua Khóa Học'}</span>
               </button>
             )}
 

@@ -310,10 +310,10 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
           <i className="fa-solid fa-graduation-cap"></i>
         </div>
         <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
-          Bạn chưa ghi danh khóa học nào
+          Bạn chưa đăng ký khóa học nào
         </h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '480px', margin: '0 auto 20px' }}>
-          Hãy khám phá danh mục khóa học tiếng Anh chuẩn CEFR (A1 – C2) và ghi danh khóa học để bắt đầu học tập cùng Trợ lý AI!
+          Hãy khám phá danh mục khóa học tiếng Anh chuẩn CEFR (A1 – C2) và đăng ký khóa học để bắt đầu học tập cùng Trợ lý AI!
         </p>
         <button
           className="btn-primary"

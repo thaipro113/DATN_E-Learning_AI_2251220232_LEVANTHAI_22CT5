@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CourseDetailModal from './CourseDetailModal';
 import Pagination from './Pagination';
-import { cleanCourseTitle } from '../utils/media';
+import { cleanCourseTitle, isCourseEnrolled } from '../utils/media';
 
 export default function CourseCatalogView({ courses = [], myCourses = [], onEnroll, onNavigateToLearning }) {
   const [selectedLevel, setSelectedLevel] = useState('ALL');
@@ -105,7 +105,7 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
               .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
               .map((course) => {
                 const isFree = course.is_free || Number(course.price) === 0;
-                const isEnrolled = myCourses.some((m) => (m.course?.id || m.id) === course.id);
+                const isEnrolled = isCourseEnrolled(course, myCourses);
 
                 return (
                   <div key={course.id} className="course-card">
@@ -204,8 +204,8 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
                                 backgroundColor: isFree ? '#0284c7' : '#ea580c',
                               }}
                             >
-                              <i className={`fa-solid ${isFree ? 'fa-plus' : 'fa-cart-shopping'}`}></i>
-                              <span>{isFree ? 'Ghi danh' : 'Mua ngay'}</span>
+                              <i className={`fa-solid ${isFree ? 'fa-pen-to-square' : 'fa-cart-shopping'}`}></i>
+                              <span>{isFree ? 'Đăng ký' : 'Mua ngay'}</span>
                             </button>
                           )}
                         </div>

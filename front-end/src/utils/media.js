@@ -50,3 +50,25 @@ export function generateSlug(text) {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');
 }
+
+/**
+ * Check if a course is already enrolled/registered by student
+ */
+export function isCourseEnrolled(course, myCourses = []) {
+  if (!course || !Array.isArray(myCourses) || myCourses.length === 0) return false;
+  const courseId = course.id ? String(course.id).toLowerCase() : null;
+  const courseSlug = course.slug ? String(course.slug).toLowerCase().trim() : null;
+  const courseTitle = course.title ? cleanCourseTitle(course.title).toLowerCase().trim() : null;
+
+  return myCourses.some((item) => {
+    const cObj = item.course || item;
+    const enrolledId = cObj.id ? String(cObj.id).toLowerCase() : (item.course_id ? String(item.course_id).toLowerCase() : null);
+    const enrolledSlug = cObj.slug ? String(cObj.slug).toLowerCase().trim() : null;
+    const enrolledTitle = cObj.title ? cleanCourseTitle(cObj.title).toLowerCase().trim() : null;
+
+    if (courseId && enrolledId && courseId === enrolledId) return true;
+    if (courseSlug && enrolledSlug && courseSlug === enrolledSlug) return true;
+    if (courseTitle && enrolledTitle && courseTitle === enrolledTitle) return true;
+    return false;
+  });
+}

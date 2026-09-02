@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanCourseTitle } from '../utils/media';
+import { cleanCourseTitle, isCourseEnrolled } from '../utils/media';
 
 export default function RecommendedCoursesSection({
   courses = [],
@@ -50,7 +50,7 @@ export default function RecommendedCoursesSection({
       <div className="course-grid">
         {displayCourses.map((course, idx) => {
           const isFree = course.is_free || Number(course.price) === 0;
-          const isEnrolled = myCourses.some((m) => (m.course?.id || m.id) === course.id);
+          const isEnrolled = isCourseEnrolled(course, myCourses);
 
           return (
             <div
@@ -173,8 +173,8 @@ export default function RecommendedCoursesSection({
                           backgroundColor: isFree ? '#0284c7' : '#ea580c',
                         }}
                       >
-                        <i className={`fa-solid ${isFree ? 'fa-plus' : 'fa-cart-shopping'}`}></i>
-                        <span>{isFree ? 'Ghi danh' : 'Mua ngay'}</span>
+                        <i className={`fa-solid ${isFree ? 'fa-pen-to-square' : 'fa-cart-shopping'}`}></i>
+                        <span>{isFree ? 'Đăng ký' : 'Mua ngay'}</span>
                       </button>
                     )}
                   </div>

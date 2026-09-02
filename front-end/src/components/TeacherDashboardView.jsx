@@ -304,7 +304,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
           <div className="stat-counter-content">
             <span className="stat-counter-title">TỔNG HỌC VIÊN</span>
             <span className="stat-counter-val">{totalStudents}</span>
-            <span className="stat-counter-sub">Đã ghi danh học</span>
+            <span className="stat-counter-sub">Đã đăng ký học</span>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { courseAPI } from '../services/api';
-import { getYouTubeEmbedUrl, isYouTubeUrl } from '../utils/media';
+import { getYouTubeEmbedUrl, isYouTubeUrl, isCourseEnrolled } from '../utils/media';
 
 export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, onNavigateToLearning, myCourses = [] }) {
   const [courseDetail, setCourseDetail] = useState(null);
@@ -39,7 +39,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
   if (!isOpen || !course) return null;
 
   const currentData = courseDetail || course;
-  const isEnrolled = myCourses.some((m) => (m.course?.id || m.id) === currentData.id);
+  const isEnrolled = isCourseEnrolled(currentData, myCourses);
   const isFree = currentData.is_free || Number(currentData.price) === 0;
 
   return (
@@ -388,7 +388,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       {(ch.lessons || []).map((les, lIdx) => {
                         const isSelected = activePreviewLesson?.id === les.id;
-                        const canPreview = les.is_preview;
+                        const canPreview = isEnrolled || Boolean(les.is_preview);
 
                         return (
                           <div
@@ -410,7 +410,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                               opacity: canPreview ? 1 : 0.65,
                               transition: 'all 0.15s ease',
                             }}
-                            title={canPreview ? 'Bấm để xem thử bài giảng này' : 'Bài học đã khóa. Hãy ghi danh hoặc mua khóa học để mở khóa toàn bộ.'}
+                            title={canPreview ? (isEnrolled ? 'Bấm để phát video bài giảng này' : 'Bấm để xem thử bài giảng này') : 'Bài học đã khóa. Hãy đăng ký hoặc mua khóa học để mở khóa toàn bộ.'}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <i
@@ -421,13 +421,17 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                                 {les.title}
                               </span>
 
-                              {canPreview ? (
+                              {isEnrolled ? (
+                                <span style={{ fontSize: '0.7rem', padding: '1px 7px', borderRadius: '4px', backgroundColor: isSelected ? '#bbf7d0' : '#e0f2fe', color: isSelected ? '#15803d' : '#0284c7', fontWeight: '700' }}>
+                                  {isSelected ? '🎬 Đang xem' : 'Đã mở khóa'}
+                                </span>
+                              ) : canPreview ? (
                                 <span style={{ fontSize: '0.7rem', padding: '1px 7px', borderRadius: '4px', backgroundColor: isSelected ? '#bbf7d0' : '#dcfce7', color: '#15803d', fontWeight: '800' }}>
                                   {isSelected ? '🎬 Đang xem' : 'Học thử miễn phí'}
                                 </span>
                               ) : (
                                 <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '600' }}>
-                                  Khóa (Cần ghi danh)
+                                  Khóa (Cần đăng ký)
                                 </span>
                               )}
                             </div>
@@ -496,8 +500,8 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                   backgroundColor: isFree ? '#0284c7' : '#ea580c',
                 }}
               >
-                <i className={`fa-solid ${isFree ? 'fa-play' : 'fa-cart-shopping'}`}></i>
-                <span>{isFree ? 'Ghi danh miễn phí' : `Mua khóa học (${Number(currentData.price || 0).toLocaleString()} đ)`}</span>
+                <i className={`fa-solid ${isFree ? 'fa-pen-to-square' : 'fa-cart-shopping'}`}></i>
+                <span>{isFree ? 'Đăng ký miễn phí' : `Mua khóa học (${Number(currentData.price || 0).toLocaleString()} đ)`}</span>
               </button>
             )}
           </div>

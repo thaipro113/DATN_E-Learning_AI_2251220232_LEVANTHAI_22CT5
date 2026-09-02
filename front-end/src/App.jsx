@@ -169,8 +169,15 @@ export default function App() {
           setCourses(resList);
         }
       }
-      if (myCoursesRes.status === 'fulfilled' && myCoursesRes.value.data?.data) {
-        setMyCourses(myCoursesRes.value.data.data);
+      if (myCoursesRes.status === 'fulfilled' && myCoursesRes.value.data) {
+        const myList =
+          myCoursesRes.value.data.results ||
+          myCoursesRes.value.data.data?.results ||
+          myCoursesRes.value.data.data ||
+          myCoursesRes.value.data;
+        if (Array.isArray(myList)) {
+          setMyCourses(myList);
+        }
       }
       if (attemptsRes.status === 'fulfilled' && attemptsRes.value.data?.data) {
         setMyAttempts(attemptsRes.value.data.data);
