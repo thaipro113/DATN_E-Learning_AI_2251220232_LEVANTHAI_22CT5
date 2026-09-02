@@ -10,6 +10,7 @@ import QuizExamView from './components/QuizExamView';
 import AdaptivePathView from './components/AdaptivePathView';
 import SkillGapsView from './components/SkillGapsView';
 import TeacherDashboardView from './components/TeacherDashboardView';
+import TeacherQuizManagerView from './components/TeacherQuizManagerView';
 import FloatingAITutor from './components/FloatingAITutor';
 import QuizImportModal from './components/QuizImportModal';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -34,7 +35,7 @@ export default function App() {
       const slug = rawHash.replace(/^(courses|course)\//, '');
       return { tab: 'course_detail', slug };
     }
-    const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'ai_coach', 'teacher_dashboard', 'admin_dashboard', 'cert_verify'];
+    const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'ai_coach', 'teacher_dashboard', 'teacher_quizzes', 'admin_dashboard', 'cert_verify'];
     return { tab: validTabs.includes(rawHash) ? rawHash : 'dashboard', slug: null };
   };
 
@@ -320,6 +321,7 @@ export default function App() {
     skills: 'Lỗ hổng Kỹ năng',
     ai_coach: 'Phòng Luyện Giao Tiếp AI',
     teacher_dashboard: 'Studio Giảng dạy',
+    teacher_quizzes: 'Quản lý Đề thi',
     admin_dashboard: 'Quản trị Hệ thống',
     cert_verify: 'Tra cứu Chứng chỉ số',
   };
@@ -420,9 +422,9 @@ export default function App() {
                   <i className="fa-solid fa-chalkboard-user nav-icon-sky"></i>
                   <span>Studio Giảng dạy</span>
                 </button>
-                <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
-                  <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-                  <span>Ngân hàng Đề thi</span>
+                <button className={`nav-link ${currentTab === 'teacher_quizzes' || currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('teacher_quizzes')}>
+                  <i className="fa-solid fa-file-pen nav-icon-orange"></i>
+                  <span>Quản lý Đề thi</span>
                 </button>
                 <button className="nav-link" onClick={() => { setIsQuizImportOpen(true); setIsMobileDrawerOpen(false); }}>
                   <i className="fa-solid fa-file-import nav-icon-rose"></i>
@@ -613,7 +615,7 @@ export default function App() {
         {/* ==================== B. TEACHER VIEWS ==================== */}
         {isLoggedIn && user.role === 'TEACHER' && currentTab !== 'course_detail' && (
           <>
-            {currentTab === 'teacher_dashboard' && (
+            {(currentTab === 'teacher_dashboard' || currentTab === 'dashboard') && (
               <TeacherDashboardView
                 user={user}
                 onOpenQuizImport={() => setIsQuizImportOpen(true)}
@@ -621,21 +623,10 @@ export default function App() {
               />
             )}
 
-            {currentTab === 'courses' && (
-              <CourseCatalogView
-                courses={courses}
-                myCourses={myCourses}
-                onEnroll={handleEnrollCourse}
-                onNavigateToLearning={handleNavigateToLearning}
-              />
-            )}
-
-            {currentTab === 'quizzes' && (
-              <QuizExamView
+            {(currentTab === 'teacher_quizzes' || currentTab === 'quizzes') && (
+              <TeacherQuizManagerView
                 user={user}
-                myCourses={myCourses}
-                isLoggedIn={isLoggedIn}
-                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                onOpenQuizImport={() => setIsQuizImportOpen(true)}
               />
             )}
 

@@ -175,20 +175,11 @@ export default function Header({
                 </li>
                 <li>
                   <button
-                    className={`nav-link ${currentTab === 'courses' || currentTab === 'course_detail' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('courses')}
+                    className={`nav-link ${currentTab === 'teacher_quizzes' || currentTab === 'quizzes' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('teacher_quizzes')}
                   >
-                    <i className="fa-solid fa-book-open nav-icon-emerald"></i>
-                    <span>Tất cả Khóa học</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('quizzes')}
-                  >
-                    <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-                    <span>Ngân hàng Đề thi</span>
+                    <i className="fa-solid fa-file-pen nav-icon-orange"></i>
+                    <span>Quản lý Đề thi</span>
                   </button>
                 </li>
                 <li>

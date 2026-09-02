@@ -125,8 +125,9 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
         try {
           const attemptRes = await assessmentAPI.startAttempt(quiz.id);
           const attempt = attemptRes.data?.data || attemptRes.data;
-          if (attempt?.id) {
-            setActiveAttemptId(attempt.id);
+          const newAttId = attempt?.attempt_id || attempt?.id || attemptRes.data?.attempt_id || attemptRes.data?.id;
+          if (newAttId) {
+            setActiveAttemptId(newAttId);
           }
         } catch (err) {
           console.warn('Could not start attempt on backend:', err);
@@ -162,66 +163,107 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
     setIsSubmitting(true);
 
     try {
-      let correctCount = 0;
-      const formattedAnswers = [];
-      const skillStats = {};
+      const formattedAnswers = (selectedQuiz.questions || []).map((q) => ({
+        question_id: q.id,
+        selected_option_id: userAnswers[q.id] || null,
+        text_answer: '',
+      }));
 
-      selectedQuiz.questions?.forEach((q) => {
-        const sk = q.skill || 'GRAMMAR';
-        if (!skillStats[sk]) skillStats[sk] = { total: 0, correct: 0 };
-        skillStats[sk].total += 1;
+      let gradedData = null;
 
-        const userChoice = userAnswers[q.id];
-        const correctOpt = q.options?.find((opt) => opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true');
-        
-        const isCorrect = userChoice && correctOpt && (
-          String(userChoice).toLowerCase() === String(correctOpt.id).toLowerCase() ||
-          String(userChoice).trim().toLowerCase() === String(correctOpt.content).trim().toLowerCase()
-        );
-
-        if (isCorrect) {
-          correctCount++;
-          skillStats[sk].correct += 1;
-        }
-
-        formattedAnswers.push({
-          question_id: q.id,
-          selected_option_id: userChoice || null,
-          text_answer: '',
-        });
-      });
-
-      const skillBreakdown = {};
-      Object.keys(skillStats).forEach((sk) => {
-        skillBreakdown[sk] = Math.round((skillStats[sk].correct / skillStats[sk].total) * 100);
-      });
-
-      const finalScore = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-      const isPassed = finalScore >= (selectedQuiz.passing_score || 70);
-      const timeSpentSecs = examStartTime ? Math.round((Date.now() - examStartTime) / 1000) : 120;
-
-      // Gửi nộp bài về CSDL nếu có activeAttemptId
+      // 1. Gửi nộp bài về CSDL nếu có activeAttemptId
       if (activeAttemptId) {
         try {
-          await assessmentAPI.submitAttempt(activeAttemptId, formattedAnswers);
+          const submitRes = await assessmentAPI.submitAttempt(activeAttemptId, formattedAnswers);
+          gradedData = submitRes.data?.data || submitRes.data;
         } catch (apiErr) {
           console.warn('Attempt submit error:', apiErr);
         }
       }
 
-      setExamResult({
-        score: finalScore,
-        correctCount,
-        totalQuestions,
-        isPassed,
-        skillBreakdown,
-        timeSpentSecs,
-      });
+      // 2. Nếu Backend trả về kết quả chấm điểm chính xác
+      if (gradedData && gradedData.answers && gradedData.answers.length > 0) {
+        setSelectedQuiz(null);
+        setExamResult(null);
+        setSelectedAttemptDetail(gradedData);
+        setToastMsg('🎉 Đã nộp bài và chấm điểm thành công!');
+      } else {
+        // Fallback: Tự tính kết quả nếu thi offline
+        let correctCount = 0;
+        const skillStats = {};
 
-      // Tải lại lịch sử
+        const simulatedAnswers = (selectedQuiz.questions || []).map((q, idx) => {
+          const sk = q.skill || 'GRAMMAR';
+          if (!skillStats[sk]) skillStats[sk] = { total: 0, correct: 0 };
+          skillStats[sk].total += 1;
+
+          const userChoice = userAnswers[q.id];
+          const correctOpt = q.options?.find((opt) => opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true');
+          const isCorrect = Boolean(
+            userChoice && correctOpt && (
+              String(userChoice).toLowerCase() === String(correctOpt.id).toLowerCase() ||
+              String(userChoice).trim().toLowerCase() === String(correctOpt.content).trim().toLowerCase()
+            )
+          );
+
+          if (isCorrect) {
+            correctCount++;
+            skillStats[sk].correct += 1;
+          }
+
+          return {
+            id: q.id || idx,
+            question_id: q.id,
+            question_content: q.content,
+            question_type: q.question_type || 'SINGLE_CHOICE',
+            skill: q.skill || 'GRAMMAR',
+            skill_display: q.skill || 'GRAMMAR',
+            selected_option: userChoice || null,
+            selected_option_content: q.options?.find((o) => o.id === userChoice || o.content === userChoice)?.content || null,
+            is_correct: isCorrect,
+            score_earned: isCorrect ? (q.points || 1.0) : 0,
+            max_points: q.points || 1.0,
+            explanation: q.explanation || q.explanation_vi || '',
+            all_options: q.options || [],
+          };
+        });
+
+        const finalScore = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+        const isPassed = finalScore >= (selectedQuiz.passing_score || 70);
+        const timeSpentSecs = examStartTime ? Math.round((Date.now() - examStartTime) / 1000) : 120;
+
+        const fallbackDetail = {
+          id: activeAttemptId || 'attempt-local',
+          quiz_id: selectedQuiz.id,
+          quiz_title: selectedQuiz.title,
+          quiz_type_display: selectedQuiz.quiz_type === 'FINAL' ? 'Cuối khóa' : selectedQuiz.quiz_type === 'PLACEMENT' ? 'Đầu vào' : 'Luyện tập',
+          score: correctCount,
+          max_score: totalQuestions,
+          percentage: finalScore,
+          is_passed: isPassed,
+          passing_score: selectedQuiz.passing_score || 70,
+          time_spent_seconds: timeSpentSecs,
+          completed_at: new Date().toISOString(),
+          answers: simulatedAnswers,
+          skill_breakdown: Object.keys(skillStats).map((sk) => ({
+            skill: sk,
+            skill_display: sk,
+            total_questions: skillStats[sk].total,
+            correct_questions: skillStats[sk].correct,
+            percentage: Math.round((skillStats[sk].correct / skillStats[sk].total) * 100),
+          })),
+        };
+
+        setSelectedQuiz(null);
+        setExamResult(null);
+        setSelectedAttemptDetail(fallbackDetail);
+      }
+
+      // Tải lại lịch sử bài làm
       fetchQuizzesAndHistory();
     } catch (err) {
       console.error('Submit exam error:', err);
+      setToastMsg('⚠️ Có lỗi xảy ra trong quá trình nộp bài.');
     } finally {
       setIsSubmitting(false);
     }

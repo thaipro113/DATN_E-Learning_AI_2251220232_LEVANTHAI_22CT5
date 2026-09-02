@@ -310,6 +310,7 @@ class StartQuizAttemptAPIView(APIView):
             )
 
         response_data = {
+            'id': attempt.id,
             'attempt_id': attempt.id,
             'quiz': QuizDetailStudentSerializer(quiz).data,
             'started_at': attempt.started_at,
