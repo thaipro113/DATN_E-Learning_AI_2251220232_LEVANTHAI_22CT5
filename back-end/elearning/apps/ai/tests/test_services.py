@@ -151,14 +151,15 @@ class AIServicesTest(TestCase):
         self.assertFalse(success)
         self.assertIn("chưa ghi danh", msg)
 
-        # 2. Đã ghi danh nhưng chưa học xong bài nào -> Báo lỗi
+        # 2. Chương không có bài học nào -> Báo lỗi
+        empty_chapter = Chapter.objects.create(course=self.course, title="Chương rỗng", order_index=99)
         enrollment = Enrollment.objects.create(student=self.student, course=self.course)
         success, msg, quiz = AIQuizService.generate_practice_quiz_by_progress(
             student=self.student,
-            chapter_id=str(self.chapter.id)
+            chapter_id=str(empty_chapter.id)
         )
         self.assertFalse(success)
-        self.assertIn("chưa hoàn thành bài học nào", msg)
+        self.assertIn("chưa có bài học nào", msg)
 
         # 3. Đã học xong Lesson 1 -> Sinh đề thành công
         LessonProgress.objects.create(

@@ -17,7 +17,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
   const [showCertificate, setShowCertificate] = useState(false);
   const [certificateData, setCertificateData] = useState(null);
   const [showProgressQuizModal, setShowProgressQuizModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState(null);
 
   // Trạng thái làm bài kiểm tra ôn tập AI trực tiếp
@@ -302,8 +302,19 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
     );
   }
 
-  // 2. NẾU CHƯA GHI DANH KHÓA HỌC NÀO
-  if (!isLoading && enrolledCourses.length === 0) {
+  // 1.5. NẾU ĐANG TẢI DỮ LIỆU KHÓA HỌC -> HIỂN THỊ SPINNER TẢI TRANG
+  if (isLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '100px 20px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', margin: '20px 0', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2.5rem', color: '#0284c7', marginBottom: '16px' }}></i>
+        <h4 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 6px 0' }}>Đang nạp không gian học tập...</h4>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Đang đồng bộ khóa học và tiến độ bài giảng của bạn</p>
+      </div>
+    );
+  }
+
+  // 2. NẾU CHƯA ĐĂNG KÝ KHÓA HỌC NÀO
+  if (enrolledCourses.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)', margin: '20px 0', boxShadow: 'var(--shadow-sm)' }}>
         <div style={{ width: '70px', height: '70px', borderRadius: '50%', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto 16px' }}>

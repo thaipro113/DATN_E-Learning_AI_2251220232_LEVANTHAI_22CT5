@@ -10,7 +10,7 @@ from .models import (
     SkillType,
     AttemptStatus
 )
-from apps.courses.models import Course, Lesson
+from apps.courses.models import Course, Chapter, Lesson
 from apps.accounts.models import EnglishLevel
 
 
@@ -166,6 +166,7 @@ class QuizListSerializer(serializers.ModelSerializer):
     quiz_type_display = serializers.CharField(source='get_quiz_type_display', read_only=True)
     level_display = serializers.CharField(source='get_level_display', read_only=True)
     course_title = serializers.CharField(source='course.title', read_only=True, default=None)
+    chapter_title = serializers.CharField(source='chapter.title', read_only=True, default=None)
     lesson_title = serializers.CharField(source='lesson.title', read_only=True, default=None)
     creator_name = serializers.CharField(source='created_by.full_name', read_only=True, default=None)
     total_questions = serializers.IntegerField(read_only=True)
@@ -188,6 +189,8 @@ class QuizListSerializer(serializers.ModelSerializer):
             'is_published',
             'course',
             'course_title',
+            'chapter',
+            'chapter_title',
             'lesson',
             'lesson_title',
             'creator_name',
@@ -204,6 +207,8 @@ class QuizDetailTeacherSerializer(serializers.ModelSerializer):
     quiz_type_display = serializers.CharField(source='get_quiz_type_display', read_only=True)
     level_display = serializers.CharField(source='get_level_display', read_only=True)
     course_title = serializers.CharField(source='course.title', read_only=True, default=None)
+    chapter_title = serializers.CharField(source='chapter.title', read_only=True, default=None)
+    lesson_title = serializers.CharField(source='lesson.title', read_only=True, default=None)
     total_questions = serializers.IntegerField(read_only=True)
     total_points = serializers.FloatField(read_only=True)
 
@@ -224,7 +229,10 @@ class QuizDetailTeacherSerializer(serializers.ModelSerializer):
             'is_published',
             'course',
             'course_title',
+            'chapter',
+            'chapter_title',
             'lesson',
+            'lesson_title',
             'questions',
             'created_at',
             'updated_at'
@@ -256,6 +264,7 @@ class QuizDetailStudentSerializer(serializers.ModelSerializer):
             'total_questions',
             'total_points',
             'course',
+            'chapter',
             'lesson',
             'questions'
         ]
@@ -268,6 +277,12 @@ class QuizCreateUpdateSerializer(serializers.ModelSerializer):
     course_id = serializers.PrimaryKeyRelatedField(
         queryset=Course.objects.all(),
         source='course',
+        required=False,
+        allow_null=True
+    )
+    chapter_id = serializers.PrimaryKeyRelatedField(
+        queryset=Chapter.objects.all(),
+        source='chapter',
         required=False,
         allow_null=True
     )
@@ -289,6 +304,7 @@ class QuizCreateUpdateSerializer(serializers.ModelSerializer):
             'passing_score',
             'is_published',
             'course_id',
+            'chapter_id',
             'lesson_id'
         ]
         extra_kwargs = {

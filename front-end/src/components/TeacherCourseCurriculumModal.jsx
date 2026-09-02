@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { courseAPI, aiAPI } from '../services/api';
 import { getYouTubeEmbedUrl, isYouTubeUrl, generateSlug, cleanCourseTitle } from '../utils/media';
 import ConfirmModal from './ConfirmModal';
+import TeacherAIQuizModal from './TeacherAIQuizModal';
 
 export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, onCourseUpdated, user }) {
   const [courseDetail, setCourseDetail] = useState(null);
@@ -9,6 +10,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [isGeneratingChapterDesc, setIsGeneratingChapterDesc] = useState(false);
   const [isGeneratingLessonContent, setIsGeneratingLessonContent] = useState(false);
+  const [aiQuizConfig, setAiQuizConfig] = useState(null);
 
   // Confirm Modal State
   const [confirmModal, setConfirmModal] = useState({
@@ -568,6 +570,16 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                   <>
                     <button
                       className="btn-outline"
+                      onClick={() => setAiQuizConfig({ course: courseDetail, scope: 'COURSE' })}
+                      style={{ fontSize: '0.8rem', padding: '6px 12px', backgroundColor: '#f5f3ff', color: '#7c3aed', borderColor: '#d8b4fe', fontWeight: '700' }}
+                      title="AI Sinh đề thi trắc nghiệm tổng hợp toàn bộ khóa học"
+                    >
+                      <i className="fa-solid fa-wand-magic-sparkles"></i>
+                      <span>AI Sinh đề (Toàn khóa)</span>
+                    </button>
+
+                    <button
+                      className="btn-outline"
                       onClick={() => setIsEditingCourse(!isEditingCourse)}
                       style={{ fontSize: '0.8rem', padding: '6px 12px' }}
                     >
@@ -941,6 +953,16 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <button
                           className="btn-outline"
+                          onClick={() => setAiQuizConfig({ course: courseDetail, chapter: ch, scope: 'CHAPTER' })}
+                          style={{ fontSize: '0.75rem', padding: '4px 10px', backgroundColor: '#f5f3ff', color: '#7c3aed', borderColor: '#d8b4fe', fontWeight: '700' }}
+                          title="AI Sinh đề thi trắc nghiệm kiểm tra cho chương này"
+                        >
+                          <i className="fa-solid fa-wand-magic-sparkles"></i>
+                          <span>AI Sinh đề</span>
+                        </button>
+
+                        <button
+                          className="btn-outline"
                           onClick={() => {
                             const nextLesOrder = (ch.lessons && ch.lessons.length > 0)
                               ? Math.max(...ch.lessons.map((l) => Number(l.order_index || 0))) + 1
@@ -1193,6 +1215,15 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
 
                             {/* Lesson Actions */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                className="btn-outline"
+                                onClick={() => setAiQuizConfig({ course: courseDetail, chapter: ch, lesson: les, scope: 'LESSON' })}
+                                style={{ fontSize: '0.75rem', padding: '4px 8px', backgroundColor: '#f5f3ff', color: '#7c3aed', borderColor: '#d8b4fe' }}
+                                title="AI Sinh bài tập trắc nghiệm cho bài học này"
+                              >
+                                <i className="fa-solid fa-wand-magic-sparkles"></i>
+                              </button>
+
                               {les.video_url && (
                                 <button
                                   className="btn-outline"
@@ -1492,6 +1523,23 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
           <i className="fa-solid fa-circle-check"></i>
           <span>{toastMsg}</span>
         </div>
+      )}
+
+      {/* Embedded TeacherAIQuizModal for instant Quiz generation from Course/Chapter/Lesson */}
+      {aiQuizConfig && (
+        <TeacherAIQuizModal
+          isOpen={Boolean(aiQuizConfig)}
+          onClose={() => setAiQuizConfig(null)}
+          onSaveSuccess={() => {
+            setToastMsg('🎉 Đã tạo và lưu đề thi trắc nghiệm AI vào CSDL thành công!');
+            setAiQuizConfig(null);
+          }}
+          courses={courseDetail ? [courseDetail] : []}
+          initialCourse={aiQuizConfig.course}
+          initialChapter={aiQuizConfig.chapter}
+          initialLesson={aiQuizConfig.lesson}
+          initialScope={aiQuizConfig.scope}
+        />
       )}
     </div>
   );

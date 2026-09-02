@@ -45,6 +45,14 @@ class Quiz(BaseModel):
         related_name='quizzes',
         verbose_name=_('Khóa học liên kết')
     )
+    chapter = models.ForeignKey(
+        'courses.Chapter',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quizzes',
+        verbose_name=_('Chương học liên kết')
+    )
     lesson = models.ForeignKey(
         'courses.Lesson',
         on_delete=models.SET_NULL,
