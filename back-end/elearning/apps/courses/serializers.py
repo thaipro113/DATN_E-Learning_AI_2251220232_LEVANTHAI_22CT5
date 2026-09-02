@@ -156,6 +156,13 @@ class LessonCreateUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer tiếp nhận dữ liệu khi Giáo viên/Admin tạo hoặc cập nhật Bài học.
     """
+    video_url = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        help_text="YouTube URL hoặc dữ liệu video"
+    )
+
     class Meta:
         model = Lesson
         fields = [

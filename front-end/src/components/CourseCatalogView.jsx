@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import CourseDetailModal from './CourseDetailModal';
+import { cleanCourseTitle } from '../utils/media';
 
 export default function CourseCatalogView({ courses = [], myCourses = [], onEnroll, onNavigateToLearning }) {
   const [selectedLevel, setSelectedLevel] = useState('ALL');
@@ -154,7 +155,7 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
                       style={{ cursor: 'pointer' }}
                       onClick={() => setViewingCourse(course)}
                     >
-                      {course.title}
+                      {cleanCourseTitle(course.title)}
                     </h3>
                     <p className="course-card-desc">{course.description}</p>
                   </div>

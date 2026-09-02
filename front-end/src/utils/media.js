@@ -1,7 +1,13 @@
 /**
- * Utility function to parse any YouTube URL format (watch, embed, short link, shorts)
- * and return the proper embed URL for iframe rendering.
+ * Utility functions for media parsing and course title formatting.
  */
+
+export function isYouTubeUrl(url) {
+  if (!url) return false;
+  const str = String(url).trim().toLowerCase();
+  return str.includes('youtube.com') || str.includes('youtu.be');
+}
+
 export function getYouTubeEmbedUrl(url) {
   if (!url) return '';
   const str = String(url).trim();
@@ -14,10 +20,17 @@ export function getYouTubeEmbedUrl(url) {
     return `https://www.youtube.com/embed/${match[2]}?autoplay=0&rel=0`;
   }
 
-  // Already an embed URL with params
   if (str.includes('youtube.com/embed/')) {
     return str;
   }
 
   return str;
+}
+
+/**
+ * Clean duplicate CEFR tag in title, e.g. "Ngữ Pháp (CEFR A1-A2)" -> "Ngữ Pháp"
+ */
+export function cleanCourseTitle(title) {
+  if (!title) return '';
+  return String(title).replace(/\s*\(\s*CEFR\s+[A-Z0-9-+\s]+\s*\)/gi, '').trim();
 }

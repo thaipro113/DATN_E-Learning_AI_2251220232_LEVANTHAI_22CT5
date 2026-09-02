@@ -161,7 +161,12 @@ class Lesson(BaseModel):
     )
     title = models.CharField(_('Tiêu đề bài học'), max_length=255)
     content = models.TextField(_('Nội dung bài giảng (Markdown/Văn bản)'), blank=True, null=True)
-    video_url = models.URLField(_('Đường dẫn video bài giảng'), max_length=500, blank=True, null=True)
+    video_url = models.TextField(
+        _('Đường dẫn video bài giảng hoặc Base64/File'),
+        blank=True,
+        null=True,
+        help_text=_('YouTube URL hoặc dữ liệu video tải từ máy')
+    )
     duration_minutes = models.PositiveIntegerField(_('Thời lượng ước tính (phút)'), default=10)
     order_index = models.PositiveIntegerField(_('Thứ tự sắp xếp'), default=1)
     is_preview = models.BooleanField(_('Cho phép học thử'), default=False)

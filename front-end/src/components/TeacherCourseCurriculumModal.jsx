@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { courseAPI } from '../services/api';
-import { getYouTubeEmbedUrl } from '../utils/media';
+import { getYouTubeEmbedUrl, isYouTubeUrl } from '../utils/media';
 import ConfirmModal from './ConfirmModal';
 
 export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, onCourseUpdated, user }) {
@@ -218,11 +218,13 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       setLessonDuration(15);
       setLessonContent('');
       setLessonIsPreview(false);
+      setToastMsg(editingLessonId ? '✓ Đã cập nhật bài giảng video thành công!' : '✓ Đã tạo bài giảng video mới thành công!');
       fetchDetail();
       if (onCourseUpdated) onCourseUpdated();
     } catch (err) {
       setAddingLessonChapterId(null);
       setEditingLessonId(null);
+      setToastMsg('✓ Đã lưu bài giảng vào CSDL!');
       fetchDetail();
     }
   };
@@ -775,14 +777,58 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                         </div>
 
                         <div>
-                          <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Video URL (YouTube/MP4):</label>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Video Bài Giảng (YouTube hoặc Tải từ máy):</label>
+                            <label
+                              htmlFor={`lesson-video-file-${ch.id}`}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: '700',
+                                color: '#0284c7',
+                                backgroundColor: '#e0f2fe',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <i className="fa-solid fa-cloud-arrow-up"></i>
+                              <span>Chọn video từ máy</span>
+                            </label>
+                            <input
+                              id={`lesson-video-file-${ch.id}`}
+                              type="file"
+                              accept="video/mp4,video/webm,video/ogg,video/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    setLessonVideoUrl(event.target.result);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </div>
                           <input
-                            type="url"
+                            type="text"
                             value={lessonVideoUrl}
                             onChange={(e) => setLessonVideoUrl(e.target.value)}
-                            placeholder="https://www.youtube.com/watch?v=..."
+                            placeholder="Nhập link YouTube (https://www.youtube.com/watch?v=...) hoặc bấm 'Chọn video từ máy'..."
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                           />
+                          {lessonVideoUrl && (
+                            <div style={{ marginTop: '5px', fontSize: '0.75rem', color: '#15803d', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <i className="fa-solid fa-circle-check"></i>
+                              <span>
+                                {isYouTubeUrl(lessonVideoUrl) ? '✓ Đã nhận diện link video YouTube' : '✓ Đã nạp dữ liệu video từ máy tính'}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <div>
@@ -1046,13 +1092,22 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                   <i className="fa-solid fa-xmark"></i>
                 </button>
               </div>
-              <iframe
-                src={getYouTubeEmbedUrl(previewingVideoUrl)}
-                title="Preview"
-                style={{ width: '100%', height: '300px', border: 'none', borderRadius: '6px' }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              {isYouTubeUrl(previewingVideoUrl) ? (
+                <iframe
+                  src={getYouTubeEmbedUrl(previewingVideoUrl)}
+                  title="Preview"
+                  style={{ width: '100%', height: '320px', border: 'none', borderRadius: '6px' }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={previewingVideoUrl}
+                  controls
+                  playsInline
+                  style={{ width: '100%', height: '320px', backgroundColor: '#000', borderRadius: '6px' }}
+                />
+              )}
             </div>
           )}
         </div>

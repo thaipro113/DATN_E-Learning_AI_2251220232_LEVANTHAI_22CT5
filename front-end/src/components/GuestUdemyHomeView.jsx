@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { cleanCourseTitle } from '../utils/media';
 
 export default function GuestUdemyHomeView({
   courses,
@@ -183,7 +184,7 @@ export default function GuestUdemyHomeView({
                 <span className="udemy-card-category">
                   {course.category?.name || 'Ngữ pháp Tiếng Anh'}
                 </span>
-                <h3 className="udemy-card-title">{course.title}</h3>
+                <h3 className="udemy-card-title">{cleanCourseTitle(course.title)}</h3>
                 <p className="udemy-card-instructor">
                   <i className="fa-solid fa-chalkboard-user"></i>
                   <span>{course.teacher?.full_name || 'Thầy Nguyễn Văn An'}</span>

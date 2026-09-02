@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CertificateModal from './CertificateModal';
 import StudentProgressQuizModal from './StudentProgressQuizModal';
 import { learningAPI, courseAPI } from '../services/api';
-import { getYouTubeEmbedUrl } from '../utils/media';
+import { isYouTubeUrl, getYouTubeEmbedUrl, cleanCourseTitle } from '../utils/media';
 
 export default function MyLearningView({ user, currentCourse, onSelectCourseToLearn }) {
   const [enrolledCourses, setEnrolledCourses] = useState([]);
@@ -125,13 +125,15 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
     setActiveLesson(lesson);
     if (chapter) setActiveChapter(chapter);
 
-    // Tải chi tiết bài học từ backend để lấy lý thuyết và tài liệu mới nhất
+    // Tải chi tiết bài học từ backend để lấy lý thuyết, video và tài liệu mới nhất
     try {
       const res = await courseAPI.getLessonDetail(lesson.id);
       const detail = res.data?.data || res.data;
       if (detail) {
         setActiveLesson({
           ...lesson,
+          ...detail,
+          video_url: detail.video_url !== undefined && detail.video_url !== null ? detail.video_url : lesson.video_url,
           content: detail.content || lesson.content,
           materials: detail.materials || lesson.materials || [],
         });
@@ -350,14 +352,14 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                   const c = item.course || item;
                   return (
                     <option key={c.id} value={c.id}>
-                      {c.title} (CEFR {c.level || 'B1'})
+                      {cleanCourseTitle(c.title)} (CEFR {c.level || 'B1'})
                     </option>
                   );
                 })}
               </select>
             ) : (
               <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                {selectedCourse?.title || 'Đang tải khóa học...'}
+                {cleanCourseTitle(selectedCourse?.title) || 'Đang tải khóa học...'}
               </strong>
             )}
           </div>
@@ -400,16 +402,28 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
       <div className="learning-layout">
         {/* Left Column: Video Player & Tabs */}
         <div>
-          {/* Video Player Box */}
-          <div className="video-player-box" style={{ overflow: 'hidden', position: 'relative' }}>
-            {embedVideoUrl ? (
-              <iframe
-                src={embedVideoUrl}
-                title={activeLesson?.title || 'Lesson Video'}
-                style={{ width: '100%', height: '420px', border: 'none', display: 'block' }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+          {/* Video Player Box with dynamic key for instant video update on lesson switch */}
+          <div className="video-player-box" style={{ overflow: 'hidden', position: 'relative', borderRadius: 'var(--radius-md)', backgroundColor: '#000' }}>
+            {activeLesson?.video_url ? (
+              isYouTubeUrl(activeLesson.video_url) ? (
+                <iframe
+                  key={`yt-player-${activeLesson.id}-${activeLesson.video_url}`}
+                  src={getYouTubeEmbedUrl(activeLesson.video_url)}
+                  title={activeLesson.title || 'Lesson Video'}
+                  style={{ width: '100%', height: '440px', border: 'none', display: 'block' }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  key={`html5-player-${activeLesson.id}-${activeLesson.video_url}`}
+                  src={activeLesson.video_url}
+                  controls
+                  controlsList="nodownload"
+                  playsInline
+                  style={{ width: '100%', height: '440px', objectFit: 'contain', display: 'block', backgroundColor: '#000' }}
+                />
+              )
             ) : (
               <div style={{ height: '380px', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ffffff', padding: '24px', textAlign: 'center' }}>
                 <div style={{ width: '68px', height: '68px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', marginBottom: '14px', color: '#38bdf8' }}>
