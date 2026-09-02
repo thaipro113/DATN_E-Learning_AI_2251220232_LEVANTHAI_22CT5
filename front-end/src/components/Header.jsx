@@ -204,56 +204,17 @@ export default function Header({
               </>
             )}
 
-            {/* 3. TABS DÀNH CHO ADMIN */}
+            {/* 3. TABS DÀNH CHO ADMIN (Chỉ trang quản trị trung tâm) */}
             {role === 'ADMIN' && (
-              <>
-                <li>
-                  <button
-                    className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('admin_dashboard')}
-                  >
-                    <i className="fa-solid fa-shield-halved nav-icon-rose"></i>
-                    <span>Admin Control</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`nav-link ${currentTab === 'teacher_dashboard' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('teacher_dashboard')}
-                  >
-                    <i className="fa-solid fa-chalkboard-user nav-icon-sky"></i>
-                    <span>Studio Khóa Học</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('courses')}
-                  >
-                    <i className="fa-solid fa-book-open nav-icon-emerald"></i>
-                    <span>Tất cả Khóa học</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`}
-                    onClick={() => onSelectTab('quizzes')}
-                  >
-                    <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-                    <span>Ngân hàng Đề thi</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="nav-link"
-                    onClick={onOpenQuizImport}
-                    style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}
-                  >
-                    <i className="fa-solid fa-file-import nav-icon-rose"></i>
-                    <span>Import Đề thi</span>
-                  </button>
-                </li>
-              </>
+              <li>
+                <button
+                  className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`}
+                  onClick={() => onSelectTab('admin_dashboard')}
+                >
+                  <i className="fa-solid fa-shield-halved nav-icon-rose"></i>
+                  <span>Bảng Quản Trị Hệ Thống</span>
+                </button>
+              </li>
             )}
           </ul>
         </nav>
