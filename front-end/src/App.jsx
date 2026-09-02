@@ -18,6 +18,7 @@ import UserProfileModal from './components/UserProfileModal';
 import CertificateVerifyView from './components/CertificateVerifyView';
 import GuestUdemyHomeView from './components/GuestUdemyHomeView';
 import CourseDetailModal from './components/CourseDetailModal';
+import CourseDetailFullView from './components/CourseDetailFullView';
 import PaymentCheckoutModal from './components/PaymentCheckoutModal';
 import AdminDashboardView from './components/AdminDashboardView';
 import AICommunicationView from './components/AICommunicationView';
@@ -26,14 +27,20 @@ import FloatingContactWidget from './components/FloatingContactWidget';
 import { authAPI, recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
 
 export default function App() {
-  // Lấy tab ban đầu từ URL hash nếu có
-  const getTabFromHash = () => {
-    const hash = window.location.hash.replace('#/', '').replace('#', '');
+  // Phân tích URL hash (hỗ trợ cả các tab chính và đường dẫn trực tiếp #/courses/:slug)
+  const parseHash = () => {
+    const rawHash = window.location.hash.replace('#/', '').replace('#', '');
+    if (rawHash.startsWith('courses/') || rawHash.startsWith('course/')) {
+      const slug = rawHash.replace(/^(courses|course)\//, '');
+      return { tab: 'course_detail', slug };
+    }
     const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'ai_coach', 'teacher_dashboard', 'admin_dashboard', 'cert_verify'];
-    return validTabs.includes(hash) ? hash : 'dashboard';
+    return { tab: validTabs.includes(rawHash) ? rawHash : 'dashboard', slug: null };
   };
 
-  const [currentTab, setCurrentTab] = useState(getTabFromHash);
+  const initialRoute = parseHash();
+  const [currentTab, setCurrentTab] = useState(initialRoute.tab);
+  const [courseSlug, setCourseSlug] = useState(initialRoute.slug);
   const [isQuizImportOpen, setIsQuizImportOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -115,16 +122,21 @@ export default function App() {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
-    window.location.hash = `#/${currentTab}`;
-  }, [currentTab]);
+    if (currentTab === 'course_detail' && courseSlug) {
+      window.location.hash = `#/courses/${courseSlug}`;
+    } else {
+      window.location.hash = `#/${currentTab}`;
+    }
+  }, [currentTab, courseSlug]);
 
   useEffect(() => {
     const handleHashChange = () => {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
-      const tab = getTabFromHash();
+      const { tab, slug } = parseHash();
       setCurrentTab(tab);
+      setCourseSlug(slug);
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -481,12 +493,26 @@ export default function App() {
           </div>
         )}
 
+        {/* ==================== DIRECT COURSE DETAIL ROUTE (/#/courses/:slug) ==================== */}
+        {currentTab === 'course_detail' && (
+          <CourseDetailFullView
+            slug={courseSlug}
+            myCourses={myCourses}
+            onEnroll={handleEnrollCourse}
+            onNavigateToLearning={handleNavigateToLearning}
+            onBack={() => {
+              setCurrentTab('courses');
+              window.location.hash = '#/courses';
+            }}
+          />
+        )}
+
         {/* ==================== A. PUBLIC / STUDENT / GUEST VIEWS ==================== */}
         {currentTab === 'cert_verify' && (
           <CertificateVerifyView onBackToDashboard={() => handleSelectTab(user.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')} />
         )}
 
-        {(!isLoggedIn || user.role === 'STUDENT') && (
+        {(!isLoggedIn || user.role === 'STUDENT') && currentTab !== 'course_detail' && (
           <>
             {currentTab === 'dashboard' && (
               <>
@@ -573,7 +599,7 @@ export default function App() {
         )}
 
         {/* ==================== B. TEACHER VIEWS ==================== */}
-        {isLoggedIn && user.role === 'TEACHER' && (
+        {isLoggedIn && user.role === 'TEACHER' && currentTab !== 'course_detail' && (
           <>
             {currentTab === 'teacher_dashboard' && (
               <TeacherDashboardView
@@ -607,7 +633,7 @@ export default function App() {
         )}
 
         {/* ==================== C. ADMIN VIEWS ==================== */}
-        {isLoggedIn && user.role === 'ADMIN' && (
+        {isLoggedIn && user.role === 'ADMIN' && currentTab !== 'course_detail' && (
           <>
             {currentTab === 'admin_dashboard' && (
               <AdminDashboardView onBackToDashboard={() => handleSelectTab('admin_dashboard')} />

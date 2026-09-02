@@ -70,19 +70,16 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         }
       }
 
-      // Fallback lọc theo email/tên giảng viên từ danh sách toàn bộ khóa học
+      // Lọc chính xác theo email/ID/tên của giáo viên đang đăng nhập
       if (teacherCoursesList.length === 0 && allCoursesRes.status === 'fulfilled' && allCoursesRes.value.data) {
         const allList = allCoursesRes.value.data.results || allCoursesRes.value.data.data?.results || allCoursesRes.value.data.data || allCoursesRes.value.data;
-        if (Array.isArray(allList)) {
-          if (user?.email) {
-            teacherCoursesList = allList.filter(
-              (c) => c.teacher?.email === user.email || c.teacher?.id === user.id ||
-              (user.full_name && c.teacher?.full_name?.toLowerCase().includes(user.full_name.toLowerCase()))
-            );
-          }
-          if (teacherCoursesList.length === 0) {
-            teacherCoursesList = allList;
-          }
+        if (Array.isArray(allList) && user) {
+          teacherCoursesList = allList.filter((c) => {
+            const isEmailMatch = user.email && c.teacher?.email && c.teacher.email.toLowerCase() === user.email.toLowerCase();
+            const isIdMatch = user.id && c.teacher?.id && String(c.teacher.id) === String(user.id);
+            const isNameMatch = user.full_name && c.teacher?.full_name && c.teacher.full_name.trim().toLowerCase() === user.full_name.trim().toLowerCase();
+            return isEmailMatch || isIdMatch || isNameMatch;
+          });
         }
       }
 
@@ -182,7 +179,11 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
     }
   };
 
-  const totalLessons = courses.reduce((acc, c) => acc + (c.total_lessons || 4), 0);
+  const totalLessons = courses.reduce((acc, c) => acc + (c.total_lessons || 0), 0);
+  const totalStudents = courses.reduce((acc, c) => acc + (c.total_students || 0), 0);
+  const avgCompletionRate = courses.length > 0
+    ? Math.round(courses.reduce((acc, c) => acc + (c.completion_rate || 0), 0) / courses.length)
+    : 0;
   const teacherDisplayName = user?.full_name || 'Giảng viên';
 
   return (
@@ -302,7 +303,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
           </div>
           <div className="stat-counter-content">
             <span className="stat-counter-title">TỔNG HỌC VIÊN</span>
-            <span className="stat-counter-val">45</span>
+            <span className="stat-counter-val">{totalStudents}</span>
             <span className="stat-counter-sub">Đã ghi danh học</span>
           </div>
         </div>
@@ -324,7 +325,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
           </div>
           <div className="stat-counter-content">
             <span className="stat-counter-title">TỶ LỆ HOÀN THÀNH</span>
-            <span className="stat-counter-val">78%</span>
+            <span className="stat-counter-val">{avgCompletionRate}%</span>
             <span className="stat-counter-sub">Học viên đạt chuẩn</span>
           </div>
         </div>

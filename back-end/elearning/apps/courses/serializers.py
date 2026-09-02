@@ -224,6 +224,8 @@ class CourseListSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     total_chapters = serializers.IntegerField(read_only=True)
     total_lessons = serializers.IntegerField(read_only=True)
+    total_students = serializers.SerializerMethodField()
+    completion_rate = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -243,9 +245,21 @@ class CourseListSerializer(serializers.ModelSerializer):
             'teacher',
             'total_chapters',
             'total_lessons',
+            'total_students',
+            'completion_rate',
             'created_at',
             'updated_at'
         ]
+
+    def get_total_students(self, obj):
+        return obj.enrollments.count()
+
+    def get_completion_rate(self, obj):
+        total = obj.enrollments.count()
+        if total == 0:
+            return 0
+        completed = obj.enrollments.filter(status='COMPLETED').count()
+        return round((completed / total) * 100, 1)
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
@@ -259,6 +273,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     total_chapters = serializers.IntegerField(read_only=True)
     total_lessons = serializers.IntegerField(read_only=True)
+    total_students = serializers.SerializerMethodField()
+    completion_rate = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -278,10 +294,22 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'teacher',
             'total_chapters',
             'total_lessons',
+            'total_students',
+            'completion_rate',
             'chapters',
             'created_at',
             'updated_at'
         ]
+
+    def get_total_students(self, obj):
+        return obj.enrollments.count()
+
+    def get_completion_rate(self, obj):
+        total = obj.enrollments.count()
+        if total == 0:
+            return 0
+        completed = obj.enrollments.filter(status='COMPLETED').count()
+        return round((completed / total) * 100, 1)
 
 
 class CourseCreateUpdateSerializer(serializers.ModelSerializer):

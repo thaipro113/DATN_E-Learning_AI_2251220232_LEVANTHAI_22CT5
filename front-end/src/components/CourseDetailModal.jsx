@@ -62,46 +62,70 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderRadius: 'var(--radius-lg)',
-          maxWidth: '850px',
+          maxWidth: '1060px',
           width: '100%',
-          maxHeight: '92vh',
+          maxHeight: '94vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: 'var(--shadow-lg)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
           overflow: 'hidden',
         }}
       >
         {/* Banner Header OR Active Preview Player */}
         {activePreviewLesson && activePreviewLesson.video_url ? (
           <div style={{ backgroundColor: '#0f172a', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ padding: '8px 16px', backgroundColor: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#f8fafc' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem' }}>
-                <span style={{ backgroundColor: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: '800', fontSize: '0.72rem' }}>
-                  🎬 Đang xem thử miễn phí
+            <div style={{ padding: '10px 18px', backgroundColor: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
+                <span style={{ backgroundColor: '#10b981', color: 'white', padding: '3px 10px', borderRadius: '4px', fontWeight: '800', fontSize: '0.75rem' }}>
+                  🎬 Đang xem thử bài giảng
                 </span>
-                <strong style={{ color: '#e2e8f0' }}>{activePreviewLesson.title}</strong>
+                <strong style={{ color: '#f1f5f9', fontSize: '0.95rem' }}>{activePreviewLesson.title}</strong>
               </div>
-              <button
-                onClick={onClose}
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  border: 'none',
-                  fontSize: '0.9rem',
-                }}
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {currentData.slug && (
+                  <button
+                    onClick={() => {
+                      window.location.hash = `#/courses/${currentData.slug}`;
+                      onClose();
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                    }}
+                    title="Mở toàn trang theo đường dẫn URL"
+                  >
+                    <i className="fa-solid fa-up-right-from-square" style={{ marginRight: '4px' }}></i>
+                    Mở toàn trang (URL)
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    border: 'none',
+                    fontSize: '1rem',
+                  }}
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
             </div>
 
-            <div style={{ height: '320px', width: '100%', backgroundColor: '#000' }}>
+            <div style={{ height: '460px', width: '100%', backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {isYouTubeUrl(activePreviewLesson.video_url) ? (
                 <iframe
                   src={getYouTubeEmbedUrl(activePreviewLesson.video_url)}
@@ -123,7 +147,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
           <div
             style={{
               position: 'relative',
-              height: '180px',
+              height: '200px',
               backgroundColor: '#0284c7',
               overflow: 'hidden',
             }}
