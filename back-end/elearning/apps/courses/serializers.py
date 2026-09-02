@@ -288,6 +288,12 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
         allow_null=True,
         help_text="ID danh mục của khóa học"
     )
+    thumbnail_url = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        help_text="Đường dẫn ảnh hoặc Base64"
+    )
 
     class Meta:
         model = Course

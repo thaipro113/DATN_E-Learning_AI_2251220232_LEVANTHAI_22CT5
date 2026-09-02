@@ -73,7 +73,12 @@ class Course(BaseModel):
         choices=EnglishLevel.choices,
         default=EnglishLevel.A1
     )
-    thumbnail_url = models.URLField(_('Ảnh đại diện khóa học'), max_length=500, blank=True, null=True)
+    thumbnail_url = models.TextField(
+        _('Ảnh đại diện khóa học'),
+        blank=True,
+        null=True,
+        help_text=_('Đường dẫn ảnh đại diện hoặc dữ liệu Base64')
+    )
     price = models.DecimalField(_('Học phí (VND)'), max_digits=12, decimal_places=0, default=0)
     is_free = models.BooleanField(_('Khóa học miễn phí'), default=True)
     status = models.CharField(

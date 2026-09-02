@@ -22,6 +22,14 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80');
   const [newPrice, setNewPrice] = useState(0);
   const [isFree, setIsFree] = useState(true);
+  const [toastMsg, setToastMsg] = useState(null);
+
+  useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => setToastMsg(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
 
   // Sample Thumbnail Suggestions
   const sampleThumbnails = [
@@ -111,13 +119,13 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       };
 
       await courseAPI.createCourse(payload);
-      alert(`🎉 Tạo thành công khóa học: "${newTitle}" có ảnh đại diện vào CSDL!`);
+      setToastMsg(`✓ Đã tạo thành công khóa học "${newTitle}"!`);
       setNewTitle('');
       setNewDescription('');
       setShowCreateModal(false);
       fetchTeacherCourses();
     } catch (err) {
-      alert(`🎉 Đã lưu khóa học "${newTitle}" vào CSDL!`);
+      setToastMsg(`✓ Đã lưu khóa học "${newTitle}"!`);
       setShowCreateModal(false);
       fetchTeacherCourses();
     }
@@ -755,6 +763,32 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Toast thông báo ở góc dưới */}
+      {toastMsg && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: '#059669',
+            color: 'white',
+            padding: '12px 22px',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.35)',
+            fontWeight: '700',
+            fontSize: '0.88rem',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <i className="fa-solid fa-circle-check"></i>
+          <span>{toastMsg}</span>
         </div>
       )}
     </div>

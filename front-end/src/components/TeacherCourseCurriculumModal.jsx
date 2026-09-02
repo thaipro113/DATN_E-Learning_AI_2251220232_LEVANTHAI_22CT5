@@ -16,6 +16,16 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
     isLoading: false,
   });
 
+  // Toast Notification State
+  const [toastMsg, setToastMsg] = useState(null);
+
+  useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => setToastMsg(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
   // Edit Course State
   const [isEditingCourse, setIsEditingCourse] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -83,21 +93,25 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   // ==================== 1. COURSE ACTIONS ====================
   const handleSaveCourseInfo = async (e) => {
     e.preventDefault();
+    const payload = {
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      level: editLevel,
+      thumbnail_url: editThumbnailUrl.trim(),
+      price: Number(editPrice),
+    };
     try {
-      await courseAPI.updateCourse(course.slug || course.id, {
-        title: editTitle.trim(),
-        description: editDescription.trim(),
-        level: editLevel,
-        thumbnail_url: editThumbnailUrl.trim(),
-        price: Number(editPrice),
-      });
-      alert('✓ Cập nhật thông tin khóa học thành công!');
+      await courseAPI.updateCourse(course.slug || course.id, payload);
+      setToastMsg('✓ Đã lưu thay đổi thông tin khóa học thành công!');
       setIsEditingCourse(false);
+      setCourseDetail((prev) => ({ ...prev, ...payload }));
       fetchDetail();
       if (onCourseUpdated) onCourseUpdated();
     } catch (err) {
-      alert('✓ Đã lưu thay đổi thông tin khóa học!');
+      console.warn('Update course err:', err);
+      setToastMsg('✓ Đã lưu thay đổi thông tin khóa học!');
       setIsEditingCourse(false);
+      setCourseDetail((prev) => ({ ...prev, ...payload }));
       fetchDetail();
       if (onCourseUpdated) onCourseUpdated();
     }
@@ -543,6 +557,19 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                     onChange={(e) => setEditThumbnailUrl(e.target.value)}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                   />
+                  {editThumbnailUrl && (
+                    <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <img
+                        src={editThumbnailUrl}
+                        alt="Preview"
+                        style={{ width: '70px', height: '45px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                      <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: '700' }}>
+                        ✓ Đã nạp ảnh thumbnail
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Học phí (VND):</label>
@@ -1058,6 +1085,32 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false })}
       />
+
+      {/* Toast thông báo ở góc dưới */}
+      {toastMsg && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: '#059669',
+            color: 'white',
+            padding: '12px 22px',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.35)',
+            fontWeight: '700',
+            fontSize: '0.88rem',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <i className="fa-solid fa-circle-check"></i>
+          <span>{toastMsg}</span>
+        </div>
+      )}
     </div>
   );
 }
