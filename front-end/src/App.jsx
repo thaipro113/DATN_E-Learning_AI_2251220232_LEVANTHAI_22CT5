@@ -580,7 +580,12 @@ export default function App() {
             )}
 
             {currentTab === 'quizzes' && (
-              <QuizExamView isLoggedIn={isLoggedIn} onOpenAuthModal={() => setIsAuthModalOpen(true)} />
+              <QuizExamView
+                user={user}
+                myCourses={myCourses}
+                isLoggedIn={isLoggedIn}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              />
             )}
 
             {currentTab === 'path' && (
@@ -626,7 +631,12 @@ export default function App() {
             )}
 
             {currentTab === 'quizzes' && (
-              <QuizExamView isLoggedIn={isLoggedIn} onOpenAuthModal={() => setIsAuthModalOpen(true)} />
+              <QuizExamView
+                user={user}
+                myCourses={myCourses}
+                isLoggedIn={isLoggedIn}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              />
             )}
 
             {currentTab === 'ai_coach' && (
@@ -664,7 +674,12 @@ export default function App() {
             )}
 
             {currentTab === 'quizzes' && (
-              <QuizExamView isLoggedIn={isLoggedIn} onOpenAuthModal={() => setIsAuthModalOpen(true)} />
+              <QuizExamView
+                user={user}
+                myCourses={myCourses}
+                isLoggedIn={isLoggedIn}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              />
             )}
 
             {currentTab === 'ai_coach' && (

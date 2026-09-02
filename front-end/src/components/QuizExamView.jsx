@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { assessmentAPI } from '../services/api';
-import StudentProgressQuizModal from './StudentProgressQuizModal';
 import Pagination from './Pagination';
+import { isCourseEnrolled } from '../utils/media';
 
-export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
+export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null, myCourses = [] }) {
   const [quizzes, setQuizzes] = useState([]);
   const [myAttempts, setMyAttempts] = useState([]);
   const [activeTab, setActiveTab] = useState('quizzes'); // 'quizzes' or 'history'
@@ -11,11 +11,14 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMsg, setToastMsg] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Quiz Room State
   const [selectedQuiz, setSelectedQuiz] = useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState({});
+  const [timeLeft, setTimeLeft] = useState(0);
   const [examResult, setExamResult] = useState(null);
   const [examStartTime, setExamStartTime] = useState(null);
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [activeAttemptId, setActiveAttemptId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,6 +35,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
     setCurrentPage(1);
   }, [activeTab, selectedQuizType, searchQuery]);
 
+  // Nạp danh sách đề thi và lịch sử làm bài
   const fetchQuizzesAndHistory = async () => {
     setIsLoading(true);
     try {
@@ -52,6 +56,8 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
         if (Array.isArray(aList)) {
           setMyAttempts(aList);
         }
+      } else {
+        setMyAttempts([]);
       }
     } catch (err) {
       console.warn('Could not fetch quizzes:', err);
@@ -62,14 +68,40 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
 
   useEffect(() => {
     fetchQuizzesAndHistory();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, user]);
 
+  // Bộ đếm ngược thời gian làm bài thi (Countdown Timer)
+  useEffect(() => {
+    if (!selectedQuiz || examResult) return;
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleSubmitExam(true); // Tự động nộp bài khi hết giờ
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [selectedQuiz, examResult]);
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // Bắt đầu làm bài thi
   const handleStartQuiz = async (quiz) => {
     setUserAnswers({});
     setExamResult(null);
+    setCurrentQuestionIndex(0);
     setExamStartTime(Date.now());
+    const limitMinutes = Number(quiz.time_limit_minutes || 15);
+    setTimeLeft(limitMinutes * 60);
 
-    // Nếu là quiz tạo từ AI và đã có sẵn questions
+    // Nếu là quiz đã có sẵn questions
     if (quiz.questions && quiz.questions.length > 0) {
       setSelectedQuiz(quiz);
       return;
@@ -103,21 +135,22 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
 
   const handleSelectOption = (questionId, optionId) => {
     if (examResult) return;
-    setUserAnswers({
-      ...userAnswers,
+    setUserAnswers((prev) => ({
+      ...prev,
       [questionId]: optionId,
-    });
+    }));
   };
 
-  const handleSubmitExam = async () => {
-    if (!selectedQuiz) return;
+  // Nộp bài thi
+  const handleSubmitExam = async (isAutoSubmit = false) => {
+    if (!selectedQuiz || isSubmitting) return;
 
     const totalQuestions = selectedQuiz.questions?.length || 0;
     const answeredCount = Object.keys(userAnswers).length;
 
-    if (answeredCount < totalQuestions) {
+    if (!isAutoSubmit && answeredCount < totalQuestions) {
       const confirm = window.confirm(
-        `Bạn mới trả lời ${answeredCount}/${totalQuestions} câu. Bạn có chắc chắn muốn nộp bài không?`
+        `Bạn mới trả lời ${answeredCount}/${totalQuestions} câu hỏi. Bạn có chắc chắn muốn nộp bài ngay bây giờ?`
       );
       if (!confirm) return;
     }
@@ -162,7 +195,9 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
       if (activeAttemptId) {
         try {
           await assessmentAPI.submitAttempt(activeAttemptId, formattedAnswers);
-        } catch (apiErr) {}
+        } catch (apiErr) {
+          console.warn('Attempt submit error:', apiErr);
+        }
       }
 
       setExamResult({
@@ -183,31 +218,27 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
     }
   };
 
+  const questionsList = selectedQuiz?.questions || [];
+  const currentQuestion = questionsList[currentQuestionIndex] || null;
+  const answeredCount = Object.keys(userAnswers).length;
+  const progressPercent = questionsList.length > 0 ? Math.round((answeredCount / questionsList.length) * 100) : 0;
+
   return (
     <div>
       {/* Header */}
-      <div className="page-header-box">
-        <div>
-          <h2 className="page-title">
-            <i className="fa-solid fa-file-signature" style={{ color: '#ea580c' }}></i>
-            <span>NGÂN HÀNG ĐỀ THI & PHÒNG LUYỆN ĐỀ TRẮC NGHIỆM</span>
-          </h2>
-          <p className="page-subtitle">
-            Hệ thống chấm điểm tự động, phân tích giải thích chi tiết và tích hợp AI Sinh đề thi.
-          </p>
+      {!selectedQuiz && (
+        <div className="page-header-box">
+          <div>
+            <h2 className="page-title">
+              <i className="fa-solid fa-file-signature" style={{ color: '#ea580c' }}></i>
+              <span>NGÂN HÀNG ĐỀ THI & PHÒNG LUYỆN ĐỀ TRẮC NGHIỆM</span>
+            </h2>
+            <p className="page-subtitle">
+              Hệ thống chấm điểm tự động, phân tích giải thích chi tiết và hỗ trợ ôn luyện đề thi chuẩn CEFR.
+            </p>
+          </div>
         </div>
-
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            className="btn-primary"
-            onClick={() => setIsAIModalOpen(true)}
-            style={{ backgroundColor: '#7c3aed' }}
-          >
-            <i className="fa-solid fa-wand-magic-sparkles"></i>
-            <span>⚡ AI Tạo Đề Ôn Tập (UC_S7)</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Tabs */}
       {!selectedQuiz && (
@@ -250,34 +281,48 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
         </div>
       )}
 
-      {/* VIEW 1: ĐANG LÀM BÀI THI */}
+      {/* VIEW 1: PHÒNG THI TRẮC NGHIỆM (CHUẨN GIAO DIỆN THEO MẪU HÌNH 4) */}
       {selectedQuiz ? (
-        <div className="quiz-room-container">
-          {/* Quiz Room Header */}
-          <div className="quiz-room-header">
-            <div>
-              <span className="quiz-room-badge">
-                CEFR {selectedQuiz.level || 'B1'} · {selectedQuiz.quiz_type || 'PRACTICE'}
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+          {/* Top Header Bar with Quiz Title & Countdown Timer */}
+          <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0284c7', margin: '0 0 6px 0' }}>
+              {selectedQuiz.title}
+            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+              <span style={{ fontSize: '1rem', fontWeight: '800', color: timeLeft <= 60 ? '#dc2626' : '#16a34a' }}>
+                <i className="fa-regular fa-clock" style={{ marginRight: '6px' }}></i>
+                Thời gian: {formatTime(timeLeft)}
               </span>
-              <h3 className="quiz-room-title">{selectedQuiz.title}</h3>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-                {selectedQuiz.description}
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <button
                 className="btn-outline"
-                onClick={() => setSelectedQuiz(null)}
-                style={{ fontSize: '0.82rem' }}
+                onClick={() => {
+                  if (window.confirm('Bạn có chắc chắn muốn thoát khỏi phòng thi? Tiến trình hiện tại sẽ bị hủy.')) {
+                    setSelectedQuiz(null);
+                    setExamResult(null);
+                  }
+                }}
+                style={{ fontSize: '0.75rem', padding: '4px 10px' }}
               >
                 <i className="fa-solid fa-arrow-left"></i>
-                <span>Thoát phòng thi</span>
+                <span>Thoát</span>
               </button>
             </div>
           </div>
 
-          {/* Exam Result Banner */}
+          {/* Top Progress Bar */}
+          <div style={{ width: '100%', height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '24px' }}>
+            <div
+              style={{
+                width: `${progressPercent}%`,
+                height: '100%',
+                backgroundColor: '#16a34a',
+                transition: 'width 0.25s ease',
+              }}
+            />
+          </div>
+
+          {/* Exam Result Banner (Nếu đã nộp bài) */}
           {examResult && (
             <div
               style={{
@@ -310,7 +355,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
                   </div>
                   <div>
                     <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: examResult.isPassed ? '#15803d' : '#991b1b', margin: 0 }}>
-                      {examResult.isPassed ? '🎉 Chúc mừng! Bạn đã ĐẠT chuẩn đề thi!' : '⚠️ Bạn chưa đạt điểm chuẩn!'}
+                      {examResult.isPassed ? '🎉 Chúc mừng! Bạn đã ĐẠT chuẩn bài thi!' : '⚠️ Bạn chưa đạt điểm chuẩn!'}
                     </h4>
                     <p style={{ fontSize: '0.85rem', color: examResult.isPassed ? '#166534' : '#7f1d1d', margin: '2px 0 0' }}>
                       Kết quả: <strong>{examResult.correctCount}/{examResult.totalQuestions} câu đúng</strong> ({examResult.score}%) · Điểm chuẩn: {selectedQuiz.passing_score || 70}% · Thời gian: {Math.floor(examResult.timeSpentSecs / 60)}p {examResult.timeSpentSecs % 60}s
@@ -318,17 +363,28 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
                   </div>
                 </div>
 
-                <button
-                  className="btn-primary"
-                  onClick={() => handleStartQuiz(selectedQuiz)}
-                  style={{ backgroundColor: '#0284c7' }}
-                >
-                  <i className="fa-solid fa-rotate-right"></i>
-                  <span>Làm lại đề này</span>
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleStartQuiz(selectedQuiz)}
+                    style={{ backgroundColor: '#0284c7' }}
+                  >
+                    <i className="fa-solid fa-rotate-right"></i>
+                    <span>Làm lại đề này</span>
+                  </button>
+                  <button
+                    className="btn-outline"
+                    onClick={() => {
+                      setSelectedQuiz(null);
+                      setExamResult(null);
+                    }}
+                  >
+                    <span>Về danh sách đề</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Skill Breakdown Graph */}
+              {/* Skill Breakdown */}
               {examResult.skillBreakdown && Object.keys(examResult.skillBreakdown).length > 0 && (
                 <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
@@ -352,156 +408,289 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
             </div>
           )}
 
-          {/* Questions List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {selectedQuiz.questions?.map((q, idx) => (
-              <div key={q.id || idx} className="quiz-question-box">
-                <div className="quiz-question-header" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                    <span className="quiz-q-num">Câu {idx + 1}</span>
-                    {q.skill && (
-                      <span style={{ fontSize: '0.68rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569' }}>
-                        {q.skill}
-                      </span>
-                    )}
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>({q.points || 1.0}đ)</span>
-                  </div>
-                  <span style={{ fontSize: '0.92rem', fontWeight: '700', color: 'var(--text-main)', flex: 1 }}>
-                    {q.content}
-                  </span>
-                </div>
+          {/* MAIN 2-COLUMN EXAM LAYOUT */}
+          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '24px', alignItems: 'start' }}>
+            {/* LEFT SIDEBAR: SƠ ĐỒ CÂU HỎI */}
+            <div
+              style={{
+                backgroundColor: 'var(--bg-surface, #ffffff)',
+                borderRadius: '12px',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                padding: '18px',
+                boxShadow: '0 2px 8px -2px rgba(0,0,0,0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+              }}
+            >
+              <h4 style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a', textAlign: 'center', margin: 0 }}>
+                Sơ đồ câu hỏi
+              </h4>
 
-                {/* Audio player if audio_url exists */}
-                {q.audio_url && (
-                  <div style={{ margin: '10px 0', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#0284c7', marginBottom: '4px' }}>
-                      <i className="fa-solid fa-headphones" style={{ marginRight: '4px' }}></i> File nghe Audio (Listening):
-                    </div>
-                    <audio controls src={q.audio_url} style={{ width: '100%', height: '36px' }}>
-                      Trình duyệt không hỗ trợ phát audio.
-                    </audio>
-                  </div>
-                )}
+              {/* Grid 4 columns of Question Numbers */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                {questionsList.map((q, qIdx) => {
+                  const isCurrent = currentQuestionIndex === qIdx;
+                  const isAnswered = userAnswers[q.id] !== undefined;
 
-                {/* Image illustration if image_url exists */}
-                {q.image_url && (
-                  <div style={{ margin: '10px 0', textAlign: 'center' }}>
-                    <img
-                      src={q.image_url}
-                      alt="Minh họa câu hỏi"
-                      style={{ maxHeight: '240px', maxWidth: '100%', objectFit: 'contain', borderRadius: '6px', border: '1px solid var(--border-color)' }}
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    />
-                  </div>
-                )}
+                  let bgColor = '#ffffff';
+                  let textColor = '#334155';
+                  let borderColor = '#cbd5e1';
 
-                {/* Options List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {q.options?.map((opt, oIdx) => {
-                    const isSelected = userAnswers[q.id] === opt.id || userAnswers[q.id] === opt.content;
-                    let optStyle = {
-                      padding: '12px 16px',
-                      borderRadius: '8px',
-                      border: isSelected ? '2px solid #0284c7' : '1px solid var(--border-color)',
-                      backgroundColor: isSelected ? '#e0f2fe' : 'var(--bg-surface)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      cursor: examResult ? 'default' : 'pointer',
-                      textAlign: 'left',
-                      fontSize: '0.88rem',
-                      fontWeight: isSelected ? '700' : '500',
-                      transition: 'all 0.15s ease',
-                    };
+                  if (isCurrent) {
+                    bgColor = '#0284c7';
+                    textColor = '#ffffff';
+                    borderColor = '#0284c7';
+                  } else if (isAnswered) {
+                    bgColor = '#f0fdf4';
+                    textColor = '#15803d';
+                    borderColor = '#16a34a';
+                  }
 
-                    if (examResult) {
-                      if (opt.is_correct) {
-                        optStyle.backgroundColor = '#dcfce7';
-                        optStyle.borderColor = '#16a34a';
-                        optStyle.color = '#15803d';
-                      } else if (isSelected && !opt.is_correct) {
-                        optStyle.backgroundColor = '#fee2e2';
-                        optStyle.borderColor = '#dc2626';
-                        optStyle.color = '#b91c1c';
-                      }
-                    }
-
-                    return (
-                      <div
-                        key={opt.id || oIdx}
-                        style={optStyle}
-                        onClick={() => handleSelectOption(q.id, opt.id || opt.content)}
-                      >
-                        <span style={{ fontWeight: '800', width: '28px', color: '#0284c7' }}>
-                          {String.fromCharCode(65 + oIdx)}.
-                        </span>
-                        <span style={{ flex: 1 }}>{opt.content}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Question Explanation */}
-                {examResult && q.explanation && (
-                  <div className="quiz-explanation-box">
-                    <i className="fa-solid fa-lightbulb" style={{ color: '#d97706', marginRight: '6px' }}></i>
-                    <strong>Lời giải chi tiết:</strong> {q.explanation}
-                  </div>
-                )}
+                  return (
+                    <button
+                      key={q.id || qIdx}
+                      type="button"
+                      onClick={() => setCurrentQuestionIndex(qIdx)}
+                      style={{
+                        height: '38px',
+                        borderRadius: '6px',
+                        border: `2px solid ${borderColor}`,
+                        backgroundColor: bgColor,
+                        color: textColor,
+                        fontWeight: '800',
+                        fontSize: '0.88rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      title={`Câu ${qIdx + 1}${isAnswered ? ' (Đã chọn)' : ''}`}
+                    >
+                      {qIdx + 1}
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-          </div>
 
-          {/* Submit Action */}
-          {!examResult && (
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                className="btn-primary"
-                onClick={handleSubmitExam}
-                disabled={isSubmitting}
-                style={{ padding: '12px 28px', fontSize: '0.95rem' }}
-              >
-                {isSubmitting ? (
-                  <>
-                    <i className="fa-solid fa-circle-notch fa-spin"></i>
-                    <span>Đang chấm điểm tự động...</span>
-                  </>
-                ) : (
-                  <>
-                    <i className="fa-solid fa-paper-plane"></i>
-                    <span>Nộp Bài & Chấm Điểm Ngay</span>
-                  </>
-                )}
-              </button>
+              {/* Action Submit Button */}
+              {!examResult && (
+                <button
+                  type="button"
+                  onClick={() => handleSubmitExam(false)}
+                  disabled={isSubmitting}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#16a34a',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: '800',
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '8px',
+                  }}
+                >
+                  <i className={`fa-solid ${isSubmitting ? 'fa-circle-notch fa-spin' : 'fa-paper-plane'}`}></i>
+                  <span>{isSubmitting ? 'Đang chấm điểm...' : 'Nộp bài'}</span>
+                </button>
+              )}
             </div>
-          )}
+
+            {/* RIGHT MAIN CONTENT: QUESTION & OPTIONS */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {currentQuestion ? (
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface, #ffffff)',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    padding: '24px',
+                    boxShadow: '0 2px 8px -2px rgba(0,0,0,0.05)',
+                  }}
+                >
+                  {/* Question Heading */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1' }}>
+                        {currentQuestion.skill || 'GRAMMAR'} · CEFR {currentQuestion.level || 'B1'}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({currentQuestion.points || 1.0} điểm)</span>
+                    </div>
+
+                    <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a', lineHeight: '1.5', margin: 0 }}>
+                      Câu {currentQuestionIndex + 1}: {currentQuestion.content}
+                    </h4>
+                  </div>
+
+                  {/* Audio player if audio_url exists */}
+                  {currentQuestion.audio_url && (
+                    <div style={{ margin: '14px 0', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0284c7', marginBottom: '4px' }}>
+                        <i className="fa-solid fa-headphones" style={{ marginRight: '4px' }}></i> File nghe Audio (Listening):
+                      </div>
+                      <audio controls src={currentQuestion.audio_url} style={{ width: '100%', height: '36px' }} />
+                    </div>
+                  )}
+
+                  {/* 4 Options (A, B, C, D) with clean radio selectors */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                    {(currentQuestion.options || []).map((opt, oIdx) => {
+                      const optLabel = ['A', 'B', 'C', 'D'][oIdx] || `${oIdx + 1}`;
+                      const isSelected = userAnswers[currentQuestion.id] === opt.id || userAnswers[currentQuestion.id] === opt.content;
+                      const isCorrect = opt.is_correct;
+
+                      let borderColor = '#e2e8f0';
+                      let bgColor = '#ffffff';
+
+                      if (examResult) {
+                        if (isCorrect) {
+                          borderColor = '#16a34a';
+                          bgColor = '#dcfce7';
+                        } else if (isSelected && !isCorrect) {
+                          borderColor = '#dc2626';
+                          bgColor = '#fee2e2';
+                        }
+                      } else if (isSelected) {
+                        borderColor = '#0284c7';
+                        bgColor = '#f0f9ff';
+                      }
+
+                      return (
+                        <div
+                          key={opt.id || oIdx}
+                          onClick={() => handleSelectOption(currentQuestion.id, opt.id || opt.content)}
+                          style={{
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            border: `1.5px solid ${borderColor}`,
+                            backgroundColor: bgColor,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            cursor: examResult ? 'default' : 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {/* Radio circle */}
+                          <div
+                            style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              border: `2px solid ${isSelected ? '#0284c7' : '#94a3b8'}`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {isSelected && (
+                              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0284c7' }} />
+                            )}
+                          </div>
+
+                          <span style={{ fontSize: '0.92rem', fontWeight: isSelected ? '700' : '500', color: '#1e293b' }}>
+                            <strong>{optLabel}.</strong> {opt.content}
+                          </span>
+
+                          {examResult && isCorrect && (
+                            <span style={{ marginLeft: 'auto', fontSize: '0.78rem', fontWeight: '800', color: '#15803d' }}>
+                              ✓ Đáp án đúng
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Lời giải thích khi đã nộp bài */}
+                  {examResult && (currentQuestion.explanation || currentQuestion.explanation_vi) && (
+                    <div style={{ padding: '12px 16px', backgroundColor: '#fefce8', borderRadius: '8px', border: '1px solid #fef08a', color: '#854d0e', fontSize: '0.85rem', marginBottom: '20px' }}>
+                      <strong>💡 Giải thích sư phạm:</strong> {currentQuestion.explanation_vi || currentQuestion.explanation}
+                    </div>
+                  )}
+
+                  {/* Bottom Navigation Buttons */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
+                      disabled={currentQuestionIndex === 0}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: '6px',
+                        backgroundColor: '#f1f5f9',
+                        color: currentQuestionIndex === 0 ? '#94a3b8' : '#334155',
+                        border: '1px solid #cbd5e1',
+                        fontWeight: '700',
+                        fontSize: '0.88rem',
+                        cursor: currentQuestionIndex === 0 ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Câu trước
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentQuestionIndex < questionsList.length - 1) {
+                          setCurrentQuestionIndex((prev) => prev + 1);
+                        } else {
+                          handleSubmitExam(false);
+                        }
+                      }}
+                      style={{
+                        padding: '10px 24px',
+                        borderRadius: '6px',
+                        backgroundColor: '#0284c7',
+                        color: '#ffffff',
+                        border: 'none',
+                        fontWeight: '700',
+                        fontSize: '0.88rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {currentQuestionIndex < questionsList.length - 1 ? 'Câu tiếp theo' : (examResult ? 'Xem lại' : 'Kiểm tra & Nộp bài')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: '24px', textAlign: 'center', backgroundColor: '#ffffff', borderRadius: '12px' }}>
+                  Không tìm thấy câu hỏi nào.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       ) : activeTab === 'history' ? (
-        /* VIEW 2: LỊCH SỬ LÀM BÀI THI */
+        /* VIEW 2: LỊCH SỬ LÀM BÀI CỦA TÀI KHOẢN */
         <div>
           {myAttempts.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)' }}>
-              <i className="fa-solid fa-clock-rotate-left" style={{ fontSize: '2.5rem', color: '#94a3b8', marginBottom: '12px' }}></i>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>Chưa có lượt thi nào</h3>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: '6px auto 16px', maxWidth: '400px' }}>
-                Hãy chọn một đề thi trong danh sách để kiểm tra trình độ của bạn.
-              </p>
-              <button className="btn-primary" onClick={() => setActiveTab('quizzes')}>
-                Vào danh sách đề thi
-              </button>
+            <div style={{ padding: '36px', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+              <i className="fa-solid fa-clock-rotate-left fa-2x" style={{ opacity: 0.5, marginBottom: '10px' }}></i>
+              <p style={{ margin: 0, fontWeight: '600' }}>Bạn chưa hoàn thành bài thi trắc nghiệm nào. Hãy chọn đề thi để bắt đầu luyện tập!</p>
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {myAttempts
                   .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                  .map((att, idx) => (
+                  .map((att) => (
                     <div
-                      key={att.id || idx}
+                      key={att.id}
                       style={{
                         padding: '16px 20px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-color)',
                         backgroundColor: 'var(--bg-surface)',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-card)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -545,7 +734,6 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
                   ))}
               </div>
 
-              {/* Phân trang Lịch sử làm bài */}
               <Pagination
                 currentPage={currentPage}
                 totalPages={Math.ceil(myAttempts.length / itemsPerPage)}
@@ -557,16 +745,16 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
           )}
         </div>
       ) : (
-        /* VIEW 3: DANH SÁCH ĐỀ THI TỪ CSDL */
+        /* VIEW 3: DANH SÁCH ĐỀ THI TỪ CSDL (LỌC THEO ĐĂNG KÝ KHÓA HỌC) */
         <div>
           {/* Top Controls: Filter Tabs & Search Bar */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
                 { id: 'ALL', label: `Tất cả (${quizzes.length})` },
-                { id: 'PLACEMENT', label: `🎯 Đánh giá đầu vào (${quizzes.filter((q) => q.quiz_type === 'PLACEMENT').length})` },
-                { id: 'PRACTICE', label: `📝 Luyện tập (${quizzes.filter((q) => q.quiz_type === 'PRACTICE' || !q.quiz_type).length})` },
-                { id: 'FINAL', label: `🏆 Cuối khóa (${quizzes.filter((q) => q.quiz_type === 'FINAL').length})` },
+                { id: 'PLACEMENT', label: `🎯 Đánh giá đầu vào` },
+                { id: 'PRACTICE', label: `📝 Luyện tập` },
+                { id: 'FINAL', label: `🏆 Cuối khóa` },
               ].map((p) => (
                 <button
                   key={p.id}
@@ -611,10 +799,24 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
 
           {(() => {
             const filteredQuizzes = quizzes.filter((q) => {
+              // Yêu cầu 1: Những đề thuộc về một khóa học thì chỉ người đã đăng ký khóa học đó mới thấy.
+              // Đề tự do không thuộc khóa học nào thì hiển thị công khai với mọi người.
+              const isLinkedToCourse = Boolean(q.course || q.course_id || q.course_title);
+              if (isLinkedToCourse) {
+                if (!isLoggedIn) return false;
+                if (user?.role !== 'ADMIN' && user?.role !== 'TEACHER') {
+                  const enrolled = isCourseEnrolled({ id: q.course || q.course_id, title: q.course_title }, myCourses);
+                  if (!enrolled) return false;
+                }
+              }
+
+              // Lọc theo Quiz Type
               if (selectedQuizType !== 'ALL') {
                 if (selectedQuizType === 'PRACTICE' && q.quiz_type && q.quiz_type !== 'PRACTICE') return false;
                 if (selectedQuizType !== 'PRACTICE' && q.quiz_type !== selectedQuizType) return false;
               }
+
+              // Lọc theo Search Query
               if (searchQuery.trim()) {
                 const query = searchQuery.toLowerCase();
                 const titleMatch = (q.title || '').toLowerCase().includes(query);
@@ -624,6 +826,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
               }
               return true;
             });
+
             const paginatedQuizzes = filteredQuizzes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
             if (isLoading) {
@@ -793,16 +996,6 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
           })()}
         </div>
       )}
-
-      {/* AI Progress Quiz Generation Modal */}
-      <StudentProgressQuizModal
-        isOpen={isAIModalOpen}
-        onClose={() => setIsAIModalOpen(false)}
-        onStartQuiz={(generatedQuiz) => {
-          setIsAIModalOpen(false);
-          handleStartQuiz(generatedQuiz);
-        }}
-      />
 
       {/* Toast thông báo ở góc dưới */}
       {toastMsg && (
