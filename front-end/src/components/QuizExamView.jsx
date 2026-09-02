@@ -24,6 +24,10 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  // Lịch sử chi tiết lần thi (Dedicated Review View)
+  const [selectedAttemptDetail, setSelectedAttemptDetail] = useState(null);
+  const [isLoadingAttemptDetail, setIsLoadingAttemptDetail] = useState(false);
+
   useEffect(() => {
     if (toastMsg) {
       const timer = setTimeout(() => setToastMsg(null), 3500);
@@ -101,35 +105,35 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
     const limitMinutes = Number(quiz.time_limit_minutes || 15);
     setTimeLeft(limitMinutes * 60);
 
-    // Nếu là quiz đã có sẵn questions
-    if (quiz.questions && quiz.questions.length > 0) {
-      setSelectedQuiz(quiz);
-      return;
-    }
-
     try {
-      const res = await assessmentAPI.getQuizDetail(quiz.id);
-      const detail = res.data?.data || res.data;
-      if (detail && detail.questions && detail.questions.length > 0) {
-        setSelectedQuiz(detail);
+      let fullQuizDetail = quiz;
+      // Luôn tải chi tiết đầy đủ của quiz để đảm bảo lấy đúng toàn bộ câu hỏi và đáp án từ CSDL
+      const res = await assessmentAPI.getQuizDetail(quiz.id).catch(() => null);
+      if (res?.data) {
+        fullQuizDetail = res.data.data || res.data;
+      }
 
-        // Bắt đầu attempt nếu đã đăng nhập
-        if (isLoggedIn) {
-          try {
-            const attemptRes = await assessmentAPI.startAttempt(quiz.id);
-            const attempt = attemptRes.data?.data || attemptRes.data;
-            if (attempt?.id) {
-              setActiveAttemptId(attempt.id);
-            }
-          } catch (err) {
-            console.warn('Could not start attempt on backend:', err);
+      if (!fullQuizDetail.questions || fullQuizDetail.questions.length === 0) {
+        setToastMsg('⚠️ Đề thi này hiện chưa có câu hỏi trong CSDL. Vui lòng chọn đề thi khác!');
+        return;
+      }
+
+      setSelectedQuiz(fullQuizDetail);
+
+      // Luôn tạo lượt thi mới (Attempt) trong CSDL nếu đã đăng nhập
+      if (isLoggedIn) {
+        try {
+          const attemptRes = await assessmentAPI.startAttempt(quiz.id);
+          const attempt = attemptRes.data?.data || attemptRes.data;
+          if (attempt?.id) {
+            setActiveAttemptId(attempt.id);
           }
+        } catch (err) {
+          console.warn('Could not start attempt on backend:', err);
         }
-      } else {
-        setToastMsg('⚠️ Đề thi này hiện chưa có câu hỏi trong CSDL. Vui lòng chọn đề thi khác hoặc tạo câu hỏi bằng AI!');
       }
     } catch (e) {
-      setToastMsg('⚠️ Không thể tải chi tiết đề thi từ CSDL.');
+      setToastMsg('⚠️ Không thể khởi động phòng thi trắc nghiệm.');
     }
   };
 
@@ -168,8 +172,13 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
         skillStats[sk].total += 1;
 
         const userChoice = userAnswers[q.id];
-        const correctOpt = q.options?.find((opt) => opt.is_correct);
-        const isCorrect = userChoice && (userChoice === correctOpt?.id || userChoice === correctOpt?.content);
+        const correctOpt = q.options?.find((opt) => opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true');
+        
+        const isCorrect = userChoice && correctOpt && (
+          String(userChoice).toLowerCase() === String(correctOpt.id).toLowerCase() ||
+          String(userChoice).trim().toLowerCase() === String(correctOpt.content).trim().toLowerCase()
+        );
+
         if (isCorrect) {
           correctCount++;
           skillStats[sk].correct += 1;
@@ -177,8 +186,8 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
 
         formattedAnswers.push({
           question_id: q.id,
-          selected_option_id: userChoice,
-          is_correct: Boolean(isCorrect),
+          selected_option_id: userChoice || null,
+          text_answer: '',
         });
       });
 
@@ -218,10 +227,363 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
     }
   };
 
+  // Mở xem chi tiết lần thi cũ từ lịch sử
+  const handleViewAttemptDetail = async (attemptId) => {
+    setIsLoadingAttemptDetail(true);
+    try {
+      const res = await assessmentAPI.getAttemptResult(attemptId);
+      const detail = res.data?.data || res.data;
+      if (detail) {
+        // Nếu answers từ attempt trống do trước đó chưa lưu chi tiết, tải chi tiết quiz tương ứng
+        if (!detail.answers || detail.answers.length === 0) {
+          const qRes = await assessmentAPI.getQuizDetail(detail.quiz_id).catch(() => null);
+          const qData = qRes?.data?.data || qRes?.data;
+          if (qData?.questions) {
+            detail.answers = qData.questions.map((q) => ({
+              id: q.id,
+              question_id: q.id,
+              question_content: q.content,
+              question_type: q.question_type,
+              skill: q.skill,
+              skill_display: q.skill,
+              selected_option_content: null,
+              is_correct: false,
+              score_earned: 0,
+              max_points: q.points || 1.0,
+              explanation: q.explanation || q.explanation_vi,
+              all_options: q.options || [],
+            }));
+          }
+        }
+        setSelectedAttemptDetail(detail);
+      } else {
+        setToastMsg('⚠️ Không tìm thấy chi tiết bài thi đã làm.');
+      }
+    } catch (err) {
+      console.warn('Could not load attempt detail:', err);
+      setToastMsg('⚠️ Không thể tải chi tiết bài làm từ CSDL.');
+    } finally {
+      setIsLoadingAttemptDetail(false);
+    }
+  };
+
   const questionsList = selectedQuiz?.questions || [];
   const currentQuestion = questionsList[currentQuestionIndex] || null;
   const answeredCount = Object.keys(userAnswers).length;
   const progressPercent = questionsList.length > 0 ? Math.round((answeredCount / questionsList.length) * 100) : 0;
+
+  // =========================================================================
+  // VIEW 1: TRANG CHI TIẾT LỊCH SỬ BÀI LÀM (DEDICATED ATTEMPT REVIEW PAGE)
+  // =========================================================================
+  if (selectedAttemptDetail) {
+    const answersList = selectedAttemptDetail.answers || [];
+    const correctAnswersCount = answersList.filter((a) => a.is_correct).length;
+    const unansweredCount = answersList.filter((a) => !a.selected_option && !a.selected_option_content).length;
+    const wrongCount = answersList.length - correctAnswersCount - unansweredCount;
+
+    return (
+      <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '40px' }}>
+        {/* Top Back Navigation Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => setSelectedAttemptDetail(null)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.88rem' }}
+          >
+            <i className="fa-solid fa-arrow-left"></i>
+            <span>Quay lại Lịch sử làm bài</span>
+          </button>
+
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Thời điểm nộp bài: {selectedAttemptDetail.completed_at ? new Date(selectedAttemptDetail.completed_at).toLocaleString('vi-VN') : 'Gần đây'}
+          </span>
+        </div>
+
+        {/* Master Score & Result Banner */}
+        <div
+          style={{
+            backgroundColor: 'var(--bg-surface, #ffffff)',
+            borderRadius: '16px',
+            border: '1px solid var(--border-color, #e2e8f0)',
+            padding: '28px',
+            boxShadow: '0 4px 15px -2px rgba(0,0,0,0.06)',
+            marginBottom: '28px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                <span
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    backgroundColor: selectedAttemptDetail.is_passed ? '#dcfce7' : '#fee2e2',
+                    color: selectedAttemptDetail.is_passed ? '#15803d' : '#dc2626',
+                  }}
+                >
+                  {selectedAttemptDetail.is_passed ? '✓ ĐÃ ĐẠT CHUẨN (PASS)' : '✗ CHƯA ĐẠT (FAIL)'}
+                </span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  {selectedAttemptDetail.quiz_type_display || 'Luyện tập'}
+                </span>
+              </div>
+
+              <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                {selectedAttemptDetail.quiz_title || 'Chi tiết bài làm trắc nghiệm'}
+              </h2>
+            </div>
+
+            {/* Quick Metrics */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', backgroundColor: '#f8fafc', padding: '12px 20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Điểm số</span>
+                <strong style={{ fontSize: '1.4rem', color: selectedAttemptDetail.is_passed ? '#16a34a' : '#ea580c' }}>
+                  {Math.round(Number(selectedAttemptDetail.percentage || selectedAttemptDetail.score || 0))}%
+                </strong>
+              </div>
+              <div style={{ width: '1px', height: '30px', backgroundColor: '#cbd5e1' }} />
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Đúng / Tổng số</span>
+                <strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>
+                  {correctAnswersCount}/{answersList.length} câu
+                </strong>
+              </div>
+              <div style={{ width: '1px', height: '30px', backgroundColor: '#cbd5e1' }} />
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Yêu cầu đạt</span>
+                <strong style={{ fontSize: '1.1rem', color: '#0284c7' }}>
+                  {Math.round(Number(selectedAttemptDetail.passing_score || 70))}%
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Summary Pill Row */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+            <span style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#f0fdf4', color: '#166534', fontSize: '0.82rem', fontWeight: '700' }}>
+              ✓ Đúng: {correctAnswersCount} câu
+            </span>
+            <span style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#fef2f2', color: '#991b1b', fontSize: '0.82rem', fontWeight: '700' }}>
+              ✗ Sai: {Math.max(0, wrongCount)} câu
+            </span>
+            {unansweredCount > 0 && (
+              <span style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#fefce8', color: '#854d0e', fontSize: '0.82rem', fontWeight: '700' }}>
+                ⚪ Chưa chọn: {unansweredCount} câu
+              </span>
+            )}
+            <span style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.82rem', fontWeight: '600', marginLeft: 'auto' }}>
+              <i className="fa-regular fa-clock" style={{ marginRight: '5px' }}></i>
+              Thời gian làm bài: {selectedAttemptDetail.time_spent_seconds ? `${Math.floor(selectedAttemptDetail.time_spent_seconds / 60)}p ${selectedAttemptDetail.time_spent_seconds % 60}s` : 'Hoàn tất'}
+            </span>
+          </div>
+        </div>
+
+        {/* Skill Breakdown (Nếu có) */}
+        {selectedAttemptDetail.skill_breakdown && selectedAttemptDetail.skill_breakdown.length > 0 && (
+          <div style={{ marginBottom: '28px', backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#0f172a', marginBottom: '12px' }}>
+              📊 Đánh giá năng lực theo kỹ năng trong bài thi:
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+              {selectedAttemptDetail.skill_breakdown.map((sk) => (
+                <div key={sk.skill} style={{ padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: '700' }}>
+                    <span>{sk.skill_display || sk.skill}</span>
+                    <span style={{ color: sk.percentage >= 70 ? '#16a34a' : '#ea580c' }}>{sk.percentage}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', marginTop: '8px', overflow: 'hidden' }}>
+                    <div style={{ width: `${sk.percentage}%`, height: '100%', backgroundColor: sk.percentage >= 70 ? '#16a34a' : '#ea580c' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Full Question-by-Question Review List */}
+        <div>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <i className="fa-solid fa-list-check" style={{ color: '#0284c7' }}></i>
+            <span>Xem lại chi tiết toàn bộ các câu hỏi ({answersList.length} câu):</span>
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {answersList.map((ans, idx) => {
+              const isAnsCorrect = ans.is_correct;
+              const hasAnswered = Boolean(ans.selected_option || ans.selected_option_content);
+              const questionContent = ans.question_content || ans.question_detail?.content || `Câu hỏi ${idx + 1}`;
+              const explanation = ans.explanation || ans.question_detail?.explanation;
+
+              let badgeBg = '#dcfce7';
+              let badgeColor = '#15803d';
+              let badgeText = `✓ ĐÚNG (+${ans.score_earned || 1.0} điểm)`;
+              let cardBorder = '#86efac';
+
+              if (!hasAnswered) {
+                badgeBg = '#fefce8';
+                badgeColor = '#854d0e';
+                badgeText = '⚪ CHƯA CHỌN ĐÁP ÁN (0 điểm)';
+                cardBorder = '#fef08a';
+              } else if (!isAnsCorrect) {
+                badgeBg = '#fee2e2';
+                badgeColor = '#dc2626';
+                badgeText = '✗ TRẢ LỜI SAI (0 điểm)';
+                cardBorder = '#fca5a5';
+              }
+
+              return (
+                <div
+                  key={ans.id || idx}
+                  style={{
+                    backgroundColor: 'var(--bg-surface, #ffffff)',
+                    borderRadius: '12px',
+                    border: `1.5px solid ${cardBorder}`,
+                    padding: '22px 24px',
+                    boxShadow: '0 2px 8px -2px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  {/* Question Header */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '800', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569' }}>
+                          Câu {idx + 1}
+                        </span>
+                        {ans.skill && (
+                          <span style={{ fontSize: '0.72rem', fontWeight: '700', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0284c7' }}>
+                            {ans.skill}
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a', lineHeight: '1.5', margin: 0 }}>
+                        {questionContent}
+                      </h4>
+                    </div>
+
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                        backgroundColor: badgeBg,
+                        color: badgeColor,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {badgeText}
+                    </span>
+                  </div>
+
+                  {/* 4 Options List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                    {(ans.all_options || []).map((opt, oIdx) => {
+                      const optLabel = ['A', 'B', 'C', 'D'][oIdx] || `${oIdx + 1}`;
+                      const isUserPicked = ans.selected_option === opt.id || ans.selected_option_content === opt.content;
+                      const isOptCorrect = opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true';
+
+                      let rowBorder = '#e2e8f0';
+                      let rowBg = '#ffffff';
+
+                      if (isOptCorrect) {
+                        rowBorder = '#16a34a';
+                        rowBg = '#f0fdf4';
+                      } else if (isUserPicked && !isOptCorrect) {
+                        rowBorder = '#dc2626';
+                        rowBg = '#fef2f2';
+                      }
+
+                      return (
+                        <div
+                          key={opt.id || oIdx}
+                          style={{
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            border: `1.5px solid ${rowBorder}`,
+                            backgroundColor: rowBg,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '0.9rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <strong style={{ color: isOptCorrect ? '#15803d' : isUserPicked ? '#dc2626' : '#0f172a' }}>
+                              {optLabel}.
+                            </strong>
+                            <span style={{ color: '#1e293b', fontWeight: (isOptCorrect || isUserPicked) ? '700' : '400' }}>
+                              {opt.content}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {isUserPicked && (
+                              <span
+                                style={{
+                                  fontSize: '0.75rem',
+                                  fontWeight: '800',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  backgroundColor: isOptCorrect ? '#dcfce7' : '#fee2e2',
+                                  color: isOptCorrect ? '#15803d' : '#dc2626',
+                                }}
+                              >
+                                {isOptCorrect ? '✓ Bạn đã chọn đúng' : '✗ Bạn đã chọn phương án này (Sai)'}
+                              </span>
+                            )}
+
+                            {!isUserPicked && isOptCorrect && (
+                              <span style={{ fontSize: '0.75rem', fontWeight: '800', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d' }}>
+                                ✓ Đáp án đúng chính xác
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* AI Pedagogical Explanation */}
+                  {explanation && (
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        backgroundColor: '#fefce8',
+                        border: '1px solid #fef08a',
+                        fontSize: '0.85rem',
+                        color: '#854d0e',
+                        lineHeight: '1.5',
+                      }}
+                    >
+                      <strong style={{ color: '#0284c7' }}>💡 Giải thích sư phạm từ AI:</strong> {explanation}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom Back Button */}
+          <div style={{ textAlign: 'center', marginTop: '30px' }}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setSelectedAttemptDetail(null)}
+              style={{ padding: '10px 24px', fontSize: '0.9rem' }}
+            >
+              <i className="fa-solid fa-arrow-left"></i>
+              <span>Quay lại Lịch sử làm bài</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -281,7 +643,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
         </div>
       )}
 
-      {/* VIEW 1: PHÒNG THI TRẮC NGHIỆM (CHUẨN GIAO DIỆN THEO MẪU HÌNH 4) */}
+      {/* VIEW 2: PHÒNG THI TRẮC NGHIỆM (CHUẨN GIAO DIỆN THEO MẪU HÌNH 4) */}
       {selectedQuiz ? (
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           {/* Top Header Bar with Quiz Title & Countdown Timer */}
@@ -358,7 +720,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
                       {examResult.isPassed ? '🎉 Chúc mừng! Bạn đã ĐẠT chuẩn bài thi!' : '⚠️ Bạn chưa đạt điểm chuẩn!'}
                     </h4>
                     <p style={{ fontSize: '0.85rem', color: examResult.isPassed ? '#166534' : '#7f1d1d', margin: '2px 0 0' }}>
-                      Kết quả: <strong>{examResult.correctCount}/{examResult.totalQuestions} câu đúng</strong> ({examResult.score}%) · Điểm chuẩn: {selectedQuiz.passing_score || 70}% · Thời gian: {Math.floor(examResult.timeSpentSecs / 60)}p {examResult.timeSpentSecs % 60}s
+                      Kết quả: <strong>{examResult.correctCount}/{examResult.totalQuestions} câu đúng</strong> ({examResult.score}%) · Yêu cầu đạt: {Math.round(Number(selectedQuiz.passing_score || 70))}% · Thời gian: {Math.floor(examResult.timeSpentSecs / 60)}p {examResult.timeSpentSecs % 60}s
                     </p>
                   </div>
                 </div>
@@ -545,7 +907,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
                     {(currentQuestion.options || []).map((opt, oIdx) => {
                       const optLabel = ['A', 'B', 'C', 'D'][oIdx] || `${oIdx + 1}`;
                       const isSelected = userAnswers[currentQuestion.id] === opt.id || userAnswers[currentQuestion.id] === opt.content;
-                      const isCorrect = opt.is_correct;
+                      const isCorrect = opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true';
 
                       let borderColor = '#e2e8f0';
                       let bgColor = '#ffffff';
@@ -671,7 +1033,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
           </div>
         </div>
       ) : activeTab === 'history' ? (
-        /* VIEW 2: LỊCH SỬ LÀM BÀI CỦA TÀI KHOẢN */
+        /* VIEW 3: LỊCH SỬ LÀM BÀI CỦA TÀI KHOẢN */
         <div>
           {myAttempts.length === 0 ? (
             <div style={{ padding: '36px', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
@@ -680,55 +1042,90 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {myAttempts
                   .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                   .map((att) => (
                     <div
                       key={att.id}
                       style={{
-                        padding: '16px 20px',
-                        borderRadius: '10px',
-                        border: '1px solid var(--border-color)',
-                        backgroundColor: 'var(--bg-surface)',
+                        padding: '18px 22px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-color, #e2e8f0)',
+                        backgroundColor: 'var(--bg-surface, #ffffff)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         flexWrap: 'wrap',
-                        gap: '12px',
+                        gap: '16px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                       }}
                     >
-                      <div>
-                        <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
-                          {att.quiz_title || `Bài kiểm tra trắc nghiệm`}
-                        </strong>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          Ngày nộp bài: {att.completed_at ? new Date(att.completed_at).toLocaleString('vi-VN') : 'Gần đây'} · {att.total_questions || 5} câu hỏi
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '1.2rem', fontWeight: '800', color: att.is_passed ? '#10b981' : '#f59e0b' }}>
-                            {att.score || 0}%
+                      <div style={{ flex: 1, minWidth: '240px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.7rem',
+                              fontWeight: '800',
+                              backgroundColor: '#e0f2fe',
+                              color: '#0369a1',
+                            }}
+                          >
+                            {att.quiz_type_display || 'Luyện tập'}
                           </span>
-                          <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            {att.correct_answers || 0}/{att.total_questions || 5} đúng
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            <i className="fa-regular fa-clock" style={{ marginRight: '4px' }}></i>
+                            {att.completed_at ? new Date(att.completed_at).toLocaleString('vi-VN') : 'Gần đây'}
                           </span>
                         </div>
 
-                        <span
+                        <strong style={{ fontSize: '1rem', color: 'var(--text-main, #0f172a)', display: 'block' }}>
+                          {att.quiz_title || `Bài kiểm tra trắc nghiệm`}
+                        </strong>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '1.25rem', fontWeight: '800', color: att.is_passed ? '#10b981' : '#f59e0b' }}>
+                            {Math.round(Number(att.percentage || att.score || 0))}%
+                          </span>
+                          <span
+                            style={{
+                              display: 'block',
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                              color: att.is_passed ? '#15803d' : '#dc2626',
+                            }}
+                          >
+                            {att.is_passed ? '✓ ĐẠT CHUẨN' : '✗ CHƯA ĐẠT'}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleViewAttemptDetail(att.id)}
+                          disabled={isLoadingAttemptDetail}
                           style={{
-                            padding: '4px 10px',
-                            borderRadius: '4px',
-                            fontSize: '0.75rem',
-                            fontWeight: '800',
-                            backgroundColor: att.is_passed ? '#dcfce7' : '#fee2e2',
-                            color: att.is_passed ? '#15803d' : '#dc2626',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontSize: '0.82rem',
+                            fontWeight: '700',
+                            backgroundColor: '#0284c7',
+                            color: '#ffffff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
                           }}
                         >
-                          {att.is_passed ? 'ĐẠT' : 'CHƯA ĐẠT'}
-                        </span>
+                          <i className="fa-solid fa-eye"></i>
+                          <span>Xem chi tiết bài làm</span>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -745,7 +1142,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
           )}
         </div>
       ) : (
-        /* VIEW 3: DANH SÁCH ĐỀ THI TỪ CSDL (LỌC THEO ĐĂNG KÝ KHÓA HỌC) */
+        /* VIEW 4: DANH SÁCH ĐỀ THI TỪ CSDL (LỌC THEO ĐĂNG KÝ KHÓA HỌC) */
         <div>
           {/* Top Controls: Filter Tabs & Search Bar */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -957,8 +1354,8 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
                             <i className="fa-solid fa-list-ol" style={{ color: '#0284c7', marginRight: '5px' }}></i>
                             {quiz.total_questions || quiz.questions?.length || 5} câu hỏi
                           </span>
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                            Điểm chuẩn: {quiz.passing_score || 70}%
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                            Yêu cầu đạt: {Math.round(Number(quiz.passing_score || 70))}%
                           </span>
                         </div>
 

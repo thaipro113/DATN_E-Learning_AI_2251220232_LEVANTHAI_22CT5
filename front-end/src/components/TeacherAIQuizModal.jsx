@@ -287,15 +287,24 @@ export default function TeacherAIQuizModal({
 
       // 2. Lưu từng câu hỏi vào Quiz
       for (const q of generatedQuestions) {
+        const hasCorrect = (q.options || []).some((opt) => opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true');
+        const formattedOptions = (q.options || []).map((opt, idx) => ({
+          content: opt.content || `Phương án ${idx + 1}`,
+          is_correct: hasCorrect ? Boolean(opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true') : idx === 0,
+          order_index: idx + 1,
+        }));
+
         await assessmentAPI.createQuestion(newQuizId, {
           content: q.content,
           question_type: 'SINGLE_CHOICE',
           skill: q.skill || skill,
           level: q.level || level,
-          explanation: q.explanation_vi || '',
-          points: q.points || 1.0,
-          options: q.options || [],
-        }).catch(() => {});
+          explanation: q.explanation_vi || q.explanation || '',
+          points: Number(q.points || 1.0),
+          options: formattedOptions,
+        }).catch((err) => {
+          console.warn('createQuestion error:', err);
+        });
       }
 
       const successMsg = `🎉 Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`;

@@ -334,7 +334,7 @@ class StudentAnswerSubmissionItemSerializer(serializers.Serializer):
     Serializer từng câu trả lời trong payload nộp bài của học viên.
     """
     question_id = serializers.UUIDField(required=True)
-    selected_option_id = serializers.UUIDField(required=False, allow_null=True)
+    selected_option_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     text_answer = serializers.CharField(required=False, allow_blank=True, default='')
 
 

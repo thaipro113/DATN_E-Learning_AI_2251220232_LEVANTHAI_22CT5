@@ -278,7 +278,8 @@ class GradingService:
 
                     # 1. Chấm câu hỏi trắc nghiệm (Single choice / True False)
                     if question.question_type in [QuestionType.SINGLE_CHOICE, QuestionType.TRUE_FALSE] and opt_id:
-                        selected_option = next((opt for opt in question.options.all() if str(opt.id) == str(opt_id)), None)
+                        opt_str = str(opt_id).strip().lower()
+                        selected_option = next((opt for opt in question.options.all() if str(opt.id).lower() == opt_str or opt.content.strip().lower() == opt_str), None)
                         if selected_option and selected_option.is_correct:
                             is_correct = True
                             score_earned = question.points
@@ -292,7 +293,8 @@ class GradingService:
 
                     # 3. Chấm câu hỏi trắc nghiệm nhiều đáp án (Multiple Choice)
                     elif question.question_type == QuestionType.MULTIPLE_CHOICE and opt_id:
-                        selected_option = next((opt for opt in question.options.all() if str(opt.id) == str(opt_id)), None)
+                        opt_str = str(opt_id).strip().lower()
+                        selected_option = next((opt for opt in question.options.all() if str(opt.id).lower() == opt_str or opt.content.strip().lower() == opt_str), None)
                         if selected_option and selected_option.is_correct:
                             is_correct = True
                             score_earned = question.points
