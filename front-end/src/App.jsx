@@ -242,6 +242,9 @@ export default function App() {
   // Xử lý Đăng xuất
   const handleLogout = () => {
     setIsLoggedIn(false);
+    setUser(null);
+    setMyCourses([]);
+    setMyAttempts([]);
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_info');
@@ -436,9 +439,9 @@ export default function App() {
       </div>
 
       {/* 2. Main Content Area */}
-      <main className="main-content">
+      <main className={`main-content ${currentTab === 'admin_dashboard' ? 'full-width-admin' : ''}`}>
         {/* Breadcrumb Bar with Back Button when in Subviews */}
-        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && (
+        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <button
               onClick={() => handleSelectTab(user.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')}

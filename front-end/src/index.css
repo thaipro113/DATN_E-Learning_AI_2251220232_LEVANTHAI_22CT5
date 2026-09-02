@@ -87,7 +87,9 @@ button {
   background: none;
 }
 
-input, select, textarea {
+input,
+select,
+textarea {
   font-family: inherit;
 }
 
@@ -106,6 +108,11 @@ input, select, textarea {
   max-width: var(--max-width);
   width: 100%;
   margin: 0 auto;
+  padding: 20px 24px 90px 24px;
+}
+
+.main-content.full-width-admin {
+  max-width: 1720px;
   padding: 20px 24px 90px 24px;
 }
 
@@ -132,6 +139,10 @@ input, select, textarea {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+}
+
+.header-inner.full-width-admin {
+  max-width: 1720px;
 }
 
 .brand-logo {
@@ -195,13 +206,33 @@ input, select, textarea {
 }
 
 /* Specific pastel icon colors */
-.nav-icon-sky { color: #0284c7; }
-.nav-icon-emerald { color: #10b981; }
-.nav-icon-orange { color: #ea580c; }
-.nav-icon-indigo { color: #6366f1; }
-.nav-icon-purple { color: #8b5cf6; }
-.nav-icon-amber { color: #d97706; }
-.nav-icon-rose { color: #f43f5e; }
+.nav-icon-sky {
+  color: #0284c7;
+}
+
+.nav-icon-emerald {
+  color: #10b981;
+}
+
+.nav-icon-orange {
+  color: #ea580c;
+}
+
+.nav-icon-indigo {
+  color: #6366f1;
+}
+
+.nav-icon-purple {
+  color: #8b5cf6;
+}
+
+.nav-icon-amber {
+  color: #d97706;
+}
+
+.nav-icon-rose {
+  color: #f43f5e;
+}
 
 .header-right {
   display: flex;
@@ -1012,8 +1043,15 @@ input, select, textarea {
 }
 
 @keyframes popIn {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .ai-chat-header {
@@ -1104,12 +1142,17 @@ input, select, textarea {
    ========================================================================== */
 
 @media (max-width: 1024px) {
-  .metric-grid, .stat-counters-grid, .skill-matrix-grid {
+
+  .metric-grid,
+  .stat-counters-grid,
+  .skill-matrix-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
   .course-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
   .hero-banner {
     flex-direction: column;
     align-items: flex-start;
@@ -1120,56 +1163,74 @@ input, select, textarea {
   .nav-links {
     display: none;
   }
+
   .mobile-menu-btn {
     display: block;
   }
+
   .mobile-bottom-nav {
     display: flex;
   }
+
   .mobile-drawer-overlay.open {
     display: block;
   }
+
   .mobile-drawer.open {
     display: flex;
   }
+
   .main-content {
     padding: 14px 12px 90px 12px;
   }
+
   .header-right .badge-stat {
     display: none;
   }
-  .metric-grid, .stat-counters-grid, .skill-matrix-grid, .course-grid {
+
+  .metric-grid,
+  .stat-counters-grid,
+  .skill-matrix-grid,
+  .course-grid {
     grid-template-columns: 1fr;
   }
+
   .hero-banner {
     padding: 18px 20px;
   }
+
   .hero-title {
     font-size: 1.35rem;
   }
+
   .hero-mascot-box {
     flex-direction: column;
     align-items: flex-start;
   }
+
   .hero-speech-bubble::before {
     display: none;
   }
+
   .ai-chat-window {
     width: calc(100vw - 24px);
     right: 12px;
     bottom: 74px;
     height: 70vh;
   }
+
   .floating-ai-btn {
     bottom: 72px;
     right: 16px;
     padding: 8px 14px;
     font-size: 0.85rem;
   }
+
   .filter-tabs-row {
     overflow-x: auto;
     padding-bottom: 4px;
   }
+
   .filter-tabs-pill {
     width: max-content;
   }
@@ -1206,7 +1267,7 @@ input, select, textarea {
   right: -50px;
   width: 250px;
   height: 250px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, rgba(255,255,255,0) 70%);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, rgba(255, 255, 255, 0) 70%);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -1597,9 +1658,11 @@ input, select, textarea {
     grid-template-columns: 1fr;
     padding: 32px 24px;
   }
+
   .udemy-hero-illustration {
     display: none;
   }
+
   .cta-banner-inner {
     flex-direction: column;
     align-items: flex-start;
@@ -1695,4 +1758,3 @@ input, select, textarea {
   position: sticky;
   top: 80px;
 }
-

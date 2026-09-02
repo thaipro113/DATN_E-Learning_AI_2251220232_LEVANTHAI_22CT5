@@ -28,7 +28,7 @@ export default function Header({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const role = user?.role || 'STUDENT';
+  const role = (isLoggedIn && user?.role) ? user.role : 'STUDENT';
 
   // Tính toán thời gian học và chuỗi học tập thực tế từ dữ liệu người dùng
   const totalWatchedSeconds = myCourses.reduce((acc, c) => acc + (c.last_watched_second || (c.progress_percent ? c.progress_percent * 20 : 0)), 0);
@@ -76,8 +76,8 @@ export default function Header({
         {/* Dynamic Navigation Tabs */}
         <nav style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
           <ul className="nav-links">
-            {/* 1. TABS DÀNH CHO HỌC VIÊN HOẶC KHÁCH */}
-            {role === 'STUDENT' && (
+            {/* 1. TABS DÀNH CHO HỌC VIÊN HOẶC KHÁCH CHƯA ĐĂNG NHẬP */}
+            {(!isLoggedIn || role === 'STUDENT') && (
               <>
                 <li>
                   <button
@@ -161,8 +161,8 @@ export default function Header({
               </>
             )}
 
-            {/* 2. TABS DÀNH CHO GIẢNG VIÊN */}
-            {role === 'TEACHER' && (
+            {/* 2. TABS DÀNH CHO GIẢNG VIÊN (CHỈ KHI ĐANG ĐĂNG NHẬP) */}
+            {isLoggedIn && role === 'TEACHER' && (
               <>
                 <li>
                   <button
@@ -204,8 +204,8 @@ export default function Header({
               </>
             )}
 
-            {/* 3. TABS DÀNH CHO ADMIN (Chỉ trang quản trị trung tâm) */}
-            {role === 'ADMIN' && (
+            {/* 3. TABS DÀNH CHO ADMIN (CHỈ KHI ĐANG ĐĂNG NHẬP) */}
+            {isLoggedIn && role === 'ADMIN' && (
               <li>
                 <button
                   className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`}
