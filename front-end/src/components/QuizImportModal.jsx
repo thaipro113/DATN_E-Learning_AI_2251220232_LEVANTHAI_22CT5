@@ -1,6 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { quizImportAPI, assessmentAPI, courseAPI } from '../services/api';
 
+const formatChapterName = (ch, idx = 0) => {
+  if (!ch) return 'Chương';
+  const rawTitle = (ch.title || '').trim();
+  if (/^(chương|chapter)\s*\d+/i.test(rawTitle)) {
+    return rawTitle;
+  }
+  return `Chương ${ch.order_index || idx + 1}: ${rawTitle || 'Chương học'}`;
+};
+
+const formatLessonName = (les, idx = 0) => {
+  if (!les) return 'Bài học';
+  const rawTitle = (les.title || '').trim();
+  if (/^(bài|lesson)\s*\d+/i.test(rawTitle)) {
+    return rawTitle;
+  }
+  return `Bài ${les.order_index || idx + 1}: ${rawTitle || 'Bài học'}`;
+};
+
 export default function QuizImportModal({ isOpen, onClose, onImportSuccess, initialCourse = null }) {
   const [sourceType, setSourceType] = useState('RAW_TEXT');
   const [rawText, setRawText] = useState(
@@ -128,15 +146,15 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
 
   const updateImportTitle = (currentScope, cObj, chObj, lesObj) => {
     const cTitle = cObj?.title || 'Khóa học';
-    const chTitle = chObj?.title || 'Chương học';
-    const lesTitle = lesObj?.title || 'Bài học';
+    const cleanChTitle = formatChapterName(chObj, 0);
+    const cleanLesTitle = formatLessonName(lesObj, 0);
 
     if (currentScope === 'COURSE') {
       setNewQuizTitle(`Đề thi Import: Toàn khóa ${cTitle}`);
     } else if (currentScope === 'CHAPTER') {
-      setNewQuizTitle(`Đề thi Import: Chương ${chTitle}`);
+      setNewQuizTitle(`Đề thi Import: ${cleanChTitle}`);
     } else if (currentScope === 'LESSON') {
-      setNewQuizTitle(`Đề thi Import: Bài học ${lesTitle}`);
+      setNewQuizTitle(`Đề thi Import: ${cleanLesTitle}`);
     } else {
       setNewQuizTitle('Đề thi trắc nghiệm mới từ File Import');
     }
@@ -407,7 +425,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
                     ) : (
                       chapters.map((ch, idx) => (
                         <option key={ch.id || idx} value={ch.id}>
-                          Chương {ch.order_index || idx + 1}: {ch.title}
+                          {formatChapterName(ch, idx)}
                         </option>
                       ))
                     )}
@@ -432,7 +450,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
                     ) : (
                       lessons.map((les, idx) => (
                         <option key={les.id || idx} value={les.id}>
-                          Bài {les.order_index || idx + 1}: {les.title}
+                          {formatLessonName(les, idx)}
                         </option>
                       ))
                     )}

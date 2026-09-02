@@ -1,6 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { aiAPI, assessmentAPI, courseAPI } from '../services/api';
 
+const formatChapterName = (ch, idx = 0) => {
+  if (!ch) return 'Chương';
+  const rawTitle = (ch.title || '').trim();
+  if (/^(chương|chapter)\s*\d+/i.test(rawTitle)) {
+    return rawTitle;
+  }
+  return `Chương ${ch.order_index || idx + 1}: ${rawTitle || 'Chương học'}`;
+};
+
+const formatLessonName = (les, idx = 0) => {
+  if (!les) return 'Bài học';
+  const rawTitle = (les.title || '').trim();
+  if (/^(bài|lesson)\s*\d+/i.test(rawTitle)) {
+    return rawTitle;
+  }
+  return `Bài ${les.order_index || idx + 1}: ${rawTitle || 'Bài học'}`;
+};
+
 export default function TeacherAIQuizModal({
   isOpen,
   onClose,
@@ -19,7 +37,7 @@ export default function TeacherAIQuizModal({
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [lessons, setLessons] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState('');
-
+  
   const [quizTitle, setQuizTitle] = useState('');
   const [topic, setTopic] = useState('');
   const [level, setLevel] = useState('B1');
@@ -164,18 +182,18 @@ export default function TeacherAIQuizModal({
   // Hàm tự động cập nhật tiêu đề đề thi và nội dung gợi ý prompt cho AI
   const updatePromptAndTitle = (currentScope, cObj, chObj, lesObj) => {
     const cTitle = cObj?.title || 'Khóa học tiếng Anh';
-    const chTitle = chObj?.title || 'Chương học';
-    const lesTitle = lesObj?.title || 'Bài giảng';
+    const cleanChTitle = formatChapterName(chObj, 0);
+    const cleanLesTitle = formatLessonName(lesObj, 0);
 
     if (currentScope === 'COURSE') {
       setQuizTitle(`Đề thi Tổng hợp Toàn khóa: ${cTitle}`);
       setTopic(`Toàn bộ kiến thức trọng tâm của khóa học "${cTitle}". Bao gồm ngữ pháp, từ vựng và kỹ năng giao tiếp cốt lõi.`);
     } else if (currentScope === 'CHAPTER') {
-      setQuizTitle(`Đề kiểm tra Chương: ${chTitle}`);
-      setTopic(`Kiến thức chương "${chTitle}" (Khóa học: ${cTitle}). Trọng tâm: ${chObj?.description || chObj?.learning_objectives || chTitle}`);
+      setQuizTitle(`Đề kiểm tra: ${cleanChTitle}`);
+      setTopic(`Kiến thức ${cleanChTitle} (Khóa học: ${cTitle}). Trọng tâm: ${chObj?.description || chObj?.learning_objectives || cleanChTitle}`);
     } else if (currentScope === 'LESSON') {
-      setQuizTitle(`Bài tập trắc nghiệm: ${lesTitle}`);
-      setTopic(`Nội dung bài học "${lesTitle}" (Chương: ${chTitle} - Khóa: ${cTitle}). ${lesObj?.content ? 'Tóm tắt bài: ' + lesObj.content.slice(0, 200) : ''}`);
+      setQuizTitle(`Bài tập trắc nghiệm: ${cleanLesTitle}`);
+      setTopic(`Nội dung ${cleanLesTitle} (${cleanChTitle} - Khóa: ${cTitle}). ${lesObj?.content ? 'Tóm tắt bài: ' + lesObj.content.slice(0, 200) : ''}`);
     } else if (currentScope === 'TOPIC') {
       setQuizTitle(`Đề trắc nghiệm AI: Chủ đề tự do`);
       if (!topic) setTopic('Thì Quá khứ đơn và Quá khứ tiếp diễn (Past Simple vs Past Continuous)');
@@ -454,7 +472,7 @@ export default function TeacherAIQuizModal({
                     ) : (
                       chapters.map((ch, idx) => (
                         <option key={ch.id || idx} value={ch.id}>
-                          Chương {ch.order_index || idx + 1}: {ch.title} ({(ch.lessons || []).length} bài học)
+                          {formatChapterName(ch, idx)} ({(ch.lessons || []).length} bài học)
                         </option>
                       ))
                     )}
@@ -479,7 +497,7 @@ export default function TeacherAIQuizModal({
                     ) : (
                       lessons.map((les, idx) => (
                         <option key={les.id || idx} value={les.id}>
-                          Bài {les.order_index || idx + 1}: {les.title} ({les.duration_minutes || 15} phút)
+                          {formatLessonName(les, idx)} ({les.duration_minutes || 15} phút)
                         </option>
                       ))
                     )}
