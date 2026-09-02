@@ -254,55 +254,54 @@ class AIQuizService:
         if not questions_raw:
             return False, "Không thể sinh câu hỏi từ mô hình AI vào lúc này. Vui lòng thử lại sau.", None
 
-        # 5. Lưu Quiz loại PRACTICE và các Questions/Options vào CSDL
-        with transaction.atomic():
-            quiz_title = f"⚡ Ôn tập AI: {chapter.title}"
-            quiz = Quiz.objects.create(
-                course=course,
-                created_by=student,
-                title=quiz_title,
-                description=f"Đề ôn tập thích ứng được AI tạo tự động dựa trên {len(completed_lessons_info)} bài học bạn đã hoàn thành trong chương '{chapter.title}'.",
-                quiz_type=QuizType.PRACTICE,
-                level=student.level or 'B1',
-                time_limit_minutes=max(len(questions_raw) * 2, 5),
-                passing_score=70.0,
-                is_published=True
-            )
+        # 5. Định dạng đề thi và các phương án trả lời trực tiếp (Không lưu rác vào CSDL)
+        formatted_questions = []
+        for q_idx, q_data in enumerate(questions_raw, start=1):
+            skill_val = q_data.get('skill', 'GRAMMAR')
+            if skill_val not in [c[0] for c in SkillType.choices]:
+                skill_val = SkillType.GRAMMAR
 
-            for q_idx, q_data in enumerate(questions_raw, start=1):
-                skill_val = q_data.get('skill', 'GRAMMAR')
-                if skill_val not in [c[0] for c in SkillType.choices]:
-                    skill_val = SkillType.GRAMMAR
+            level_val = q_data.get('level', student.level or 'B1')
+            options_data = q_data.get('options', [])
+            has_correct = any(opt.get('is_correct') is True or str(opt.get('is_correct')).lower() == 'true' for opt in options_data)
 
-                level_val = q_data.get('level', student.level or 'B1')
+            clean_options = []
+            for opt_idx, opt in enumerate(options_data, start=1):
+                is_corr = bool(opt.get('is_correct') is True or str(opt.get('is_correct')).lower() == 'true')
+                if not has_correct and opt_idx == 1:
+                    is_corr = True
+                clean_options.append({
+                    'id': f"opt-{q_idx}-{opt_idx}",
+                    'content': opt.get('content', f"Option {opt_idx}"),
+                    'is_correct': is_corr,
+                    'order_index': opt_idx
+                })
 
-                question = Question.objects.create(
-                    quiz=quiz,
-                    content=q_data.get('content', f"Question {q_idx}"),
-                    question_type=QuestionType.SINGLE_CHOICE,
-                    skill=skill_val,
-                    level=level_val,
-                    explanation=q_data.get('explanation_vi', ''),
-                    points=float(q_data.get('points', 1.0)),
-                    order_index=q_idx
-                )
+            formatted_questions.append({
+                'id': f"q-{q_idx}",
+                'content': q_data.get('content', f"Question {q_idx}"),
+                'question_type': 'SINGLE_CHOICE',
+                'skill': skill_val,
+                'level': level_val,
+                'explanation': q_data.get('explanation_vi') or q_data.get('explanation', ''),
+                'points': float(q_data.get('points', 1.0)),
+                'options': clean_options,
+                'order_index': q_idx
+            })
 
-                options_data = q_data.get('options', [])
-                # Đảm bảo có ít nhất 1 đáp án đúng
-                has_correct = any(opt.get('is_correct') for opt in options_data)
-                for opt_idx, opt in enumerate(options_data, start=1):
-                    is_corr = opt.get('is_correct', False)
-                    if not has_correct and opt_idx == 1:
-                        is_corr = True  # Fallback nếu AI quên cờ đúng
+        quiz_dict = {
+            'id': f"temp-ai-quiz-{uuid.uuid4()}",
+            'title': f"⚡ Ôn tập AI: {chapter.title}",
+            'description': f"Đề ôn tập thích ứng được AI tạo tự động dựa trên {len(completed_lessons_info)} bài học bạn đã học trong chương '{chapter.title}'.",
+            'quiz_type': 'PRACTICE',
+            'level': student.level or 'B1',
+            'time_limit_minutes': max(len(formatted_questions) * 2, 5),
+            'passing_score': 70.0,
+            'total_questions': len(formatted_questions),
+            'questions': formatted_questions,
+        }
 
-                    AnswerOption.objects.create(
-                        question=question,
-                        content=opt.get('content', f"Option {opt_idx}"),
-                        is_correct=is_corr,
-                        order_index=opt_idx
-                    )
-
-        return True, f"Tạo đề ôn tập AI thành công gồm {quiz.total_questions} câu hỏi!", quiz
+        return True, f"Tạo đề ôn tập AI thành công gồm {len(formatted_questions)} câu hỏi!", quiz_dict
 
     @staticmethod
     def generate_quiz_for_teacher(

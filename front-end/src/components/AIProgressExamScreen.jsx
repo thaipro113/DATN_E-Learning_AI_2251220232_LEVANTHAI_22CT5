@@ -72,8 +72,14 @@ export default function AIProgressExamScreen({ quiz, onFinishExam, onBackToLearn
     let correctCount = 0;
     questions.forEach((q) => {
       const chosen = userAnswers[q.id];
-      const correctOpt = q.options?.find((opt) => opt.is_correct);
-      if (chosen && (chosen === correctOpt?.id || chosen === correctOpt?.content)) {
+      const correctOpt = q.options?.find((opt) => opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true');
+      const isCorrect = Boolean(
+        chosen && correctOpt && (
+          String(chosen).toLowerCase() === String(correctOpt.id).toLowerCase() ||
+          String(chosen).trim().toLowerCase() === String(correctOpt.content).trim().toLowerCase()
+        )
+      );
+      if (isCorrect) {
         correctCount++;
       }
     });
@@ -237,8 +243,13 @@ export default function AIProgressExamScreen({ quiz, onFinishExam, onBackToLearn
 
             {questions.map((q, idx) => {
               const userChoice = userAnswers[q.id];
-              const correctOpt = q.options?.find((opt) => opt.is_correct);
-              const isCorrect = userChoice && (userChoice === correctOpt?.id || userChoice === correctOpt?.content);
+              const correctOpt = q.options?.find((opt) => opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true');
+              const isCorrect = Boolean(
+                userChoice && correctOpt && (
+                  String(userChoice).toLowerCase() === String(correctOpt.id).toLowerCase() ||
+                  String(userChoice).trim().toLowerCase() === String(correctOpt.content).trim().toLowerCase()
+                )
+              );
 
               return (
                 <div
@@ -277,16 +288,22 @@ export default function AIProgressExamScreen({ quiz, onFinishExam, onBackToLearn
                   {/* Options List */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
                     {q.options?.map((opt, oIdx) => {
-                      const isUserSelected = userChoice === opt.id || userChoice === opt.content;
+                      const isOptCorrect = opt.is_correct === true || String(opt.is_correct).toLowerCase() === 'true';
+                      const isUserSelected = Boolean(
+                        userChoice && (
+                          String(userChoice).toLowerCase() === String(opt.id).toLowerCase() ||
+                          String(userChoice).trim().toLowerCase() === String(opt.content).trim().toLowerCase()
+                        )
+                      );
                       let bg = 'var(--bg-subtle)';
                       let border = '1px solid var(--border-color)';
                       let textColor = 'var(--text-main)';
 
-                      if (opt.is_correct) {
+                      if (isOptCorrect) {
                         bg = '#dcfce7';
                         border = '2px solid #16a34a';
                         textColor = '#15803d';
-                      } else if (isUserSelected && !opt.is_correct) {
+                      } else if (isUserSelected && !isOptCorrect) {
                         bg = '#fee2e2';
                         border = '2px solid #dc2626';
                         textColor = '#991b1b';

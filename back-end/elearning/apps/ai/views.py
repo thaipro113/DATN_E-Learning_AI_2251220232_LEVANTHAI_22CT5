@@ -219,7 +219,7 @@ class GenerateProgressQuizAPIView(APIView):
             )
 
         return success_response(
-            data=QuizDetailStudentSerializer(quiz).data,
+            data=quiz,
             message=message,
             status_code=status.HTTP_201_CREATED
         )
