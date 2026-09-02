@@ -21,6 +21,8 @@ import CourseDetailModal from './components/CourseDetailModal';
 import PaymentCheckoutModal from './components/PaymentCheckoutModal';
 import AdminDashboardView from './components/AdminDashboardView';
 import AICommunicationView from './components/AICommunicationView';
+import Footer from './components/Footer';
+import FloatingContactWidget from './components/FloatingContactWidget';
 import { authAPI, recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
 
 export default function App() {
@@ -682,7 +684,15 @@ export default function App() {
         }}
       />
 
-      {/* 9. Mobile Bottom Navigation Bar */}
+      {/* 9. Site Footer */}
+      {currentTab !== 'admin_dashboard' && (
+        <Footer onSelectTab={handleSelectTab} currentTab={currentTab} />
+      )}
+
+      {/* 10. Floating Quick Contact Stack (Zalo, FB Messenger, Hotline, Scroll Top) */}
+      <FloatingContactWidget onOpenAITutor={() => setIsAITutorModalOpen(true)} />
+
+      {/* 11. Mobile Bottom Navigation Bar */}
       <MobileBottomNav
         currentTab={currentTab}
         onSelectTab={handleSelectTab}
