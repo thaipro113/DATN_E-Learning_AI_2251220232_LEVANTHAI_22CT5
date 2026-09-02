@@ -809,10 +809,14 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
               <button
                 className="btn-primary"
                 onClick={() => {
+                  const nextChOrder = chapters.length > 0
+                    ? Math.max(...chapters.map((c) => Number(c.order_index || 0))) + 1
+                    : 1;
                   setShowAddChapter(true);
                   setEditingChapterId(null);
-                  setChapterTitle('');
+                  setChapterTitle(`Chương ${nextChOrder}: `);
                   setChapterDesc('');
+                  setChapterOrderIndex(nextChOrder);
                 }}
                 style={{ fontSize: '0.82rem', padding: '6px 14px' }}
               >
@@ -936,9 +940,17 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                         <button
                           className="btn-outline"
                           onClick={() => {
+                            const nextLesOrder = (ch.lessons && ch.lessons.length > 0)
+                              ? Math.max(...ch.lessons.map((l) => Number(l.order_index || 0))) + 1
+                              : 1;
                             setAddingLessonChapterId(ch.id);
                             setEditingLessonId(null);
-                            setLessonTitle('');
+                            setLessonTitle(`Bài ${nextLesOrder}: `);
+                            setLessonOrderIndex(nextLesOrder);
+                            setLessonVideoUrl('');
+                            setLessonDuration(15);
+                            setLessonContent('');
+                            setLessonIsPreview(false);
                           }}
                           style={{ fontSize: '0.75rem', padding: '4px 10px', backgroundColor: '#e0f2fe', color: '#0284c7' }}
                         >
@@ -952,6 +964,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                             setEditingChapterId(ch.id);
                             setChapterTitle(ch.title);
                             setChapterDesc(ch.description || '');
+                            setChapterOrderIndex(ch.order_index || 1);
                             setShowAddChapter(true);
                           }}
                           style={{ fontSize: '0.75rem', padding: '4px 8px' }}
@@ -1205,7 +1218,9 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                                 className="btn-outline"
                                 onClick={() => {
                                   setEditingLessonId(les.id);
+                                  setAddingLessonChapterId(null);
                                   setLessonTitle(les.title);
+                                  setLessonOrderIndex(les.order_index || 1);
                                   setLessonVideoUrl(les.video_url || '');
                                   setLessonDuration(les.duration_minutes || 15);
                                   setLessonContent(les.content || '');
