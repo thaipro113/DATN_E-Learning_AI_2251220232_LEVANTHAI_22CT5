@@ -351,10 +351,10 @@ export default function AdminDashboardView() {
   };
 
   // Thống kê tổng hợp
-  const totalLessons = courses.reduce((acc, c) => acc + (c.total_lessons || 4), 0);
-  const totalUsersCount = users.length || 14;
-  const totalCoursesCount = courses.length || 6;
-  const totalQuizzesCount = quizzes.length || 15;
+  const totalLessons = courses.reduce((acc, c) => acc + (c.total_lessons || 0), 0);
+  const totalUsersCount = users.length;
+  const totalCoursesCount = courses.length;
+  const totalQuizzesCount = quizzes.length;
 
   const barData = [
     { label: 'Người dùng', value: totalUsersCount, max: Math.max(50, totalUsersCount * 1.5), color: '#38bdf8' },

@@ -315,7 +315,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <h4 style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                CHƯƠNG TRÌNH HỌC ({currentData.chapters?.length || 1} Chương · {currentData.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 1} Bài học)
+                CHƯƠNG TRÌNH HỌC ({currentData.chapters?.length || 0} Chương · {currentData.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 0} Bài học)
               </h4>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 Bấm vào các bài có nhãn <strong style={{ color: '#16a34a' }}>"Học thử miễn phí"</strong> để xem video

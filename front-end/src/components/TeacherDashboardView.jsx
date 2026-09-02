@@ -496,8 +496,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                         </p>
 
                         <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginBottom: '12px' }}>
-                          <span><i className="fa-solid fa-layer-group"></i> {course.total_chapters || 2} chương</span>
-                          <span><i className="fa-solid fa-circle-play"></i> {course.total_lessons || 4} bài giảng</span>
+                          <span><i className="fa-solid fa-layer-group"></i> {course.total_chapters != null ? course.total_chapters : (course.chapters?.length || 0)} chương</span>
+                          <span><i className="fa-solid fa-circle-play"></i> {course.total_lessons != null ? course.total_lessons : (course.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 0)} bài giảng</span>
                         </div>
 
                         {/* Action Buttons */}

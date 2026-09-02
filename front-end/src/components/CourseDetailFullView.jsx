@@ -274,7 +274,7 @@ export default function CourseDetailFullView({
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                📚 Giáo trình khóa học ({course.chapters?.length || 1} Chương · {course.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 1} Bài giảng)
+                📚 Giáo trình khóa học ({course.chapters?.length || 0} Chương · {course.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 0} Bài giảng)
               </h3>
               <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: '700' }}>
                 ✓ Các bài có nhãn "Học thử miễn phí" có thể xem ngay

@@ -210,7 +210,7 @@ export default function GuestUdemyHomeView({
                       <i className="fa-solid fa-star"></i>
                       <i className="fa-solid fa-star-half-stroke"></i>
                     </div>
-                    <span className="rating-count">({course.total_lessons || 4} bài học)</span>
+                    <span className="rating-count">({course.total_lessons != null ? course.total_lessons : 0} bài học)</span>
                   </div>
 
                   {/* Pricing & CTA */}
