@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { courseAPI } from '../services/api';
-import { getYouTubeEmbedUrl, isYouTubeUrl } from '../utils/media';
+import { courseAPI, aiAPI } from '../services/api';
+import { getYouTubeEmbedUrl, isYouTubeUrl, generateSlug, cleanCourseTitle } from '../utils/media';
 import ConfirmModal from './ConfirmModal';
 
 export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, onCourseUpdated, user }) {
   const [courseDetail, setCourseDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const [isGeneratingChapterDesc, setIsGeneratingChapterDesc] = useState(false);
+  const [isGeneratingLessonContent, setIsGeneratingLessonContent] = useState(false);
 
   // Confirm Modal State
   const [confirmModal, setConfirmModal] = useState({
@@ -29,6 +32,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   // Edit Course State
   const [isEditingCourse, setIsEditingCourse] = useState(false);
   const [editTitle, setEditTitle] = useState('');
+  const [editSlug, setEditSlug] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editLevel, setEditLevel] = useState('B1');
   const [editStatus, setEditStatus] = useState('PUBLISHED');
@@ -36,6 +40,97 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [categories, setCategories] = useState([]);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState('');
   const [editPrice, setEditPrice] = useState(0);
+
+  // Tự động sinh mô tả khóa học chi tiết bằng AI
+  const handleGenerateAIDescription = async () => {
+    if (!editTitle.trim()) {
+      setToastMsg('⚠️ Vui lòng nhập tiêu đề khóa học trước!');
+      return;
+    }
+
+    setIsGeneratingDesc(true);
+    const selectedCat = categories.find((c) => String(c.id) === String(editCategoryId));
+    const categoryName = selectedCat ? selectedCat.name : 'Tiếng Anh Tổng Quát';
+
+    try {
+      const res = await aiAPI.generateCourseDescription({
+        title: editTitle.trim(),
+        target_type: 'COURSE',
+        category: categoryName,
+        level: editLevel,
+        is_free: Number(editPrice) === 0,
+        price: Number(editPrice || 0),
+      });
+
+      const aiText = res.data?.data?.description || res.data?.description;
+      if (aiText && aiText.length > 50) {
+        setEditDescription(aiText.trim());
+        setToastMsg('✨ AI đã tự động tư duy và viết xong bản mô tả chi tiết cho khóa học!');
+      } else {
+        throw new Error('Empty response from AI backend');
+      }
+    } catch (e) {
+      console.warn('AI Description Generation error:', e);
+      setToastMsg('⚠️ Không thể kết nối đến máy chủ AI để sinh mô tả.');
+    } finally {
+      setIsGeneratingDesc(false);
+    }
+  };
+
+  // AI viết mục tiêu chương học
+  const handleGenerateChapterAIDesc = async () => {
+    if (!chapterTitle.trim()) {
+      setToastMsg('⚠️ Vui lòng nhập "Tên chương học" trước!');
+      return;
+    }
+    setIsGeneratingChapterDesc(true);
+    try {
+      const res = await aiAPI.generateCourseDescription({
+        title: editTitle || courseDetail?.title || 'Khóa học tiếng Anh',
+        target_type: 'CHAPTER',
+        chapter_title: chapterTitle.trim(),
+        level: editLevel || courseDetail?.level || 'B1',
+      });
+      const aiText = res.data?.data?.description || res.data?.description;
+      if (aiText) {
+        setChapterDesc(aiText.trim());
+        setToastMsg('✨ AI đã viết xong mục tiêu chương học!');
+      }
+    } catch (e) {
+      console.warn('AI Chapter Desc error:', e);
+      setToastMsg('⚠️ Không thể kết nối AI để sinh mục tiêu chương.');
+    } finally {
+      setIsGeneratingChapterDesc(false);
+    }
+  };
+
+  // AI tóm tắt trọng tâm bài học
+  const handleGenerateLessonAIContent = async (chTitle) => {
+    if (!lessonTitle.trim()) {
+      setToastMsg('⚠️ Vui lòng nhập "Tên bài học" trước!');
+      return;
+    }
+    setIsGeneratingLessonContent(true);
+    try {
+      const res = await aiAPI.generateCourseDescription({
+        title: editTitle || courseDetail?.title || 'Khóa học tiếng Anh',
+        target_type: 'LESSON',
+        chapter_title: chTitle || 'Chương học',
+        lesson_title: lessonTitle.trim(),
+        level: editLevel || courseDetail?.level || 'B1',
+      });
+      const aiText = res.data?.data?.description || res.data?.description;
+      if (aiText) {
+        setLessonContent(aiText.trim());
+        setToastMsg('✨ AI đã tóm tắt xong kiến thức trọng tâm cho bài giảng!');
+      }
+    } catch (e) {
+      console.warn('AI Lesson Content error:', e);
+      setToastMsg('⚠️ Không thể kết nối AI để sinh nội dung bài học.');
+    } finally {
+      setIsGeneratingLessonContent(false);
+    }
+  };
 
   // Chapter State
   const [showAddChapter, setShowAddChapter] = useState(false);
@@ -84,6 +179,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
         if (data) {
           setCourseDetail(data);
           setEditTitle(data.title || '');
+          setEditSlug(data.slug || '');
           setEditDescription(data.description || '');
           setEditLevel(data.level || 'B1');
           setEditStatus(data.status || 'PUBLISHED');
@@ -113,6 +209,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
     e.preventDefault();
     const payload = {
       title: editTitle.trim(),
+      slug: editSlug.trim() || generateSlug(editTitle),
       description: editDescription.trim(),
       level: editLevel,
       status: editStatus,
@@ -515,7 +612,13 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                   <input
                     type="text"
                     value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditTitle(val);
+                      if (!editSlug || editSlug === generateSlug(editTitle)) {
+                        setEditSlug(generateSlug(val));
+                      }
+                    }}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                     required
                   />
@@ -533,6 +636,27 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                     <option value="B2">B2 Upper-Inter</option>
                     <option value="C1">C1 Advanced</option>
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>Slug định danh URL (Chuẩn SEO):</label>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    elearning.vn/courses/<strong>{editSlug || 'ten-khoa-hoc'}</strong>
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{ padding: '8px 10px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRight: 'none', borderRadius: '4px 0 0 4px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    /courses/
+                  </span>
+                  <input
+                    type="text"
+                    value={editSlug}
+                    onChange={(e) => setEditSlug(generateSlug(e.target.value))}
+                    placeholder="chinh-phuc-ngu-phap-b2"
+                    style={{ flex: 1, padding: '8px', borderRadius: '0 4px 4px 0', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  />
                 </div>
               </div>
 
@@ -635,12 +759,36 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
               </div>
 
               <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Mô tả:</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>Mô tả khóa học:</label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAIDescription}
+                    disabled={isGeneratingDesc}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.74rem',
+                      fontWeight: '700',
+                      color: '#7c3aed',
+                      backgroundColor: '#f5f3ff',
+                      border: '1px solid #ddd6fe',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      cursor: isGeneratingDesc ? 'not-allowed' : 'pointer',
+                    }}
+                    title="AI tự động phân tích Tiêu đề, Trình độ CEFR để soạn bản mô tả chi tiết"
+                  >
+                    <i className={`fa-solid ${isGeneratingDesc ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
+                    <span>{isGeneratingDesc ? 'AI đang viết...' : '✨ AI Viết mô tả chi tiết'}</span>
+                  </button>
+                </div>
                 <textarea
-                  rows={2}
+                  rows={4}
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem', lineHeight: '1.4' }}
                 />
               </div>
 
@@ -709,13 +857,40 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                     title="Số thứ tự chương"
                   />
                 </div>
-                <input
-                  type="text"
-                  placeholder="Mô tả mục tiêu của chương học..."
-                  value={chapterDesc}
-                  onChange={(e) => setChapterDesc(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                />
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#15803d' }}>Mô tả mục tiêu của chương học:</label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateChapterAIDesc}
+                      disabled={isGeneratingChapterDesc}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '0.72rem',
+                        fontWeight: '700',
+                        color: '#15803d',
+                        backgroundColor: '#dcfce7',
+                        border: '1px solid #86efac',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        cursor: isGeneratingChapterDesc ? 'not-allowed' : 'pointer',
+                      }}
+                      title="AI tự động phân tích tên chương để viết mô tả mục tiêu súc tích, vừa đủ"
+                    >
+                      <i className={`fa-solid ${isGeneratingChapterDesc ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
+                      <span>{isGeneratingChapterDesc ? 'AI đang viết...' : '✨ AI viết mục tiêu chương'}</span>
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Nhập mô tả mục tiêu của chương hoặc bấm '✨ AI viết mục tiêu chương'..."
+                    value={chapterDesc}
+                    onChange={(e) => setChapterDesc(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  />
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
                   <button type="button" className="btn-outline" onClick={() => setShowAddChapter(false)}>Hủy</button>
                   <button type="submit" className="btn-primary" style={{ backgroundColor: '#15803d' }}>Lưu Chương</button>
@@ -901,12 +1076,36 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                         </div>
 
                         <div>
-                          <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Nội dung trọng tâm bài học:</label>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0284c7' }}>Nội dung trọng tâm bài học:</label>
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateLessonAIContent(ch.title)}
+                              disabled={isGeneratingLessonContent}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: '700',
+                                color: '#0284c7',
+                                backgroundColor: '#e0f2fe',
+                                border: '1px solid #bae6fd',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                cursor: isGeneratingLessonContent ? 'not-allowed' : 'pointer',
+                              }}
+                              title="AI tự động tóm tắt kiến thức trọng tâm súc tích cho bài giảng"
+                            >
+                              <i className={`fa-solid ${isGeneratingLessonContent ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
+                              <span>{isGeneratingLessonContent ? 'AI đang tóm tắt...' : '✨ AI tóm tắt trọng tâm'}</span>
+                            </button>
+                          </div>
                           <textarea
-                            rows={2}
+                            rows={3}
                             value={lessonContent}
                             onChange={(e) => setLessonContent(e.target.value)}
-                            placeholder="Tóm tắt kiến thức, từ vựng hoặc cấu trúc câu cần ghi nhớ..."
+                            placeholder="Tóm tắt kiến thức, từ vựng hoặc cấu trúc câu cần ghi nhớ hoặc bấm '✨ AI tóm tắt trọng tâm'..."
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                           />
                         </div>

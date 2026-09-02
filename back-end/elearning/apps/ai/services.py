@@ -42,10 +42,13 @@ class AIService:
     @staticmethod
     def list_student_sessions(student: CustomUser, filters: Dict[str, Any] = None):
         """
-        Lấy danh sách các phiên trò chuyện của học viên.
+        Lấy danh sách các phiên trò chuyện của học viên (ADMIN / Staff sẽ xem toàn bộ phiên của hệ thống).
         """
         filters = filters or {}
-        queryset = ChatSession.objects.filter(student=student, is_active=True).select_related('course', 'lesson')
+        if getattr(student, 'role', '') == 'ADMIN' or getattr(student, 'is_staff', False) or getattr(student, 'is_superuser', False):
+            queryset = ChatSession.objects.filter(is_active=True).select_related('student', 'course', 'lesson')
+        else:
+            queryset = ChatSession.objects.filter(student=student, is_active=True).select_related('course', 'lesson')
 
         session_type = filters.get('session_type')
         if session_type:
@@ -55,6 +58,8 @@ class AIService:
         if search:
             queryset = queryset.filter(
                 Q(title__icontains=search) |
+                Q(student__full_name__icontains=search) |
+                Q(student__email__icontains=search) |
                 Q(course__title__icontains=search) |
                 Q(lesson__title__icontains=search)
             )

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Pagination from './Pagination';
 import { cleanCourseTitle } from '../utils/media';
 
 export default function GuestUdemyHomeView({
@@ -9,6 +10,12 @@ export default function GuestUdemyHomeView({
   onSelectCourse,
 }) {
   const [selectedCat, setSelectedCat] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCat]);
 
   const filteredCourses = courses.filter((c) => {
     if (selectedCat === 'ALL') return true;
@@ -154,84 +161,95 @@ export default function GuestUdemyHomeView({
         </div>
 
         <div className="udemy-course-grid">
-          {filteredCourses.map((course) => (
-            <div key={course.id} className="udemy-course-card" onClick={() => onSelectCourse(course)}>
-              {/* Thumbnail Header */}
-              <div className="udemy-card-thumb" style={{ overflow: 'hidden' }}>
-                {course.thumbnail_url ? (
-                  <img
-                    src={course.thumbnail_url}
-                    alt={course.title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="udemy-thumb-placeholder">
-                    <i className="fa-solid fa-graduation-cap"></i>
-                  </div>
-                )}
-                <span className={`udemy-level-badge level-${course.level?.toLowerCase() || 'b1'}`}>
-                  CEFR {course.level || 'B1'}
-                </span>
-                {course.is_free && (
-                  <span className="udemy-free-badge">Miễn phí</span>
-                )}
-              </div>
-
-              {/* Card Body */}
-              <div className="udemy-card-body">
-                <span className="udemy-card-category">
-                  {course.category?.name || 'Ngữ pháp Tiếng Anh'}
-                </span>
-                <h3 className="udemy-card-title">{cleanCourseTitle(course.title)}</h3>
-                <p className="udemy-card-instructor">
-                  <i className="fa-solid fa-chalkboard-user"></i>
-                  <span>{course.teacher?.full_name || 'Thầy Nguyễn Văn An'}</span>
-                </p>
-
-                {/* Rating & Stats */}
-                <div className="udemy-card-rating">
-                  <span className="rating-num">4.9</span>
-                  <div className="rating-stars">
-                    <i className="fa-solid fa-star"></i>
-                    <i className="fa-solid fa-star"></i>
-                    <i className="fa-solid fa-star"></i>
-                    <i className="fa-solid fa-star"></i>
-                    <i className="fa-solid fa-star-half-stroke"></i>
-                  </div>
-                  <span className="rating-count">({course.total_lessons || 4} bài học)</span>
+          {filteredCourses
+            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+            .map((course) => (
+              <div key={course.id} className="udemy-course-card" onClick={() => onSelectCourse(course)}>
+                {/* Thumbnail Header */}
+                <div className="udemy-card-thumb" style={{ overflow: 'hidden' }}>
+                  {course.thumbnail_url ? (
+                    <img
+                      src={course.thumbnail_url}
+                      alt={course.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="udemy-thumb-placeholder">
+                      <i className="fa-solid fa-graduation-cap"></i>
+                    </div>
+                  )}
+                  <span className={`udemy-level-badge level-${course.level?.toLowerCase() || 'b1'}`}>
+                    CEFR {course.level || 'B1'}
+                  </span>
+                  {course.is_free && (
+                    <span className="udemy-free-badge">Miễn phí</span>
+                  )}
                 </div>
 
-                {/* Pricing & CTA */}
-                <div className="udemy-card-footer">
-                  <div className="price-box">
-                    {course.is_free ? (
-                      <span className="price-free">Miễn phí 100%</span>
-                    ) : (
-                      <>
-                        <span className="price-current">
-                          {Number(course.price || 299000).toLocaleString('vi-VN')} đ
-                        </span>
-                        <span className="price-original">599.000 đ</span>
-                      </>
-                    )}
+                {/* Card Body */}
+                <div className="udemy-card-body">
+                  <span className="udemy-card-category">
+                    {course.category?.name || 'Ngữ pháp Tiếng Anh'}
+                  </span>
+                  <h3 className="udemy-card-title">{cleanCourseTitle(course.title)}</h3>
+                  <p className="udemy-card-instructor">
+                    <i className="fa-solid fa-chalkboard-user"></i>
+                    <span>{course.teacher?.full_name || 'Thầy Nguyễn Văn An'}</span>
+                  </p>
+
+                  {/* Rating & Stats */}
+                  <div className="udemy-card-rating">
+                    <span className="rating-num">4.9</span>
+                    <div className="rating-stars">
+                      <i className="fa-solid fa-star"></i>
+                      <i className="fa-solid fa-star"></i>
+                      <i className="fa-solid fa-star"></i>
+                      <i className="fa-solid fa-star"></i>
+                      <i className="fa-solid fa-star-half-stroke"></i>
+                    </div>
+                    <span className="rating-count">({course.total_lessons || 4} bài học)</span>
                   </div>
-                  <button
-                    className="btn-enroll-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectCourse(course);
-                    }}
-                  >
-                    Xem khóa học
-                  </button>
+
+                  {/* Pricing & CTA */}
+                  <div className="udemy-card-footer">
+                    <div className="price-box">
+                      {course.is_free ? (
+                        <span className="price-free">Miễn phí 100%</span>
+                      ) : (
+                        <>
+                          <span className="price-current">
+                            {Number(course.price || 299000).toLocaleString('vi-VN')} đ
+                          </span>
+                          <span className="price-original">599.000 đ</span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      className="btn-enroll-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectCourse(course);
+                      }}
+                    >
+                      Xem khóa học
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
+
+        {/* Phân trang Khóa học Trang chủ */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredCourses.length / itemsPerPage)}
+          totalItems={filteredCourses.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </section>
 
       {/* 4. Why Choose Us / Features Showcase Section */}

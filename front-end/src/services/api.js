@@ -93,6 +93,9 @@ export const aiAPI = {
   // UC_T4: Giáo viên / Admin sinh câu hỏi trắc nghiệm AI theo Chủ đề & Trình độ
   generateTeacherQuiz: (topic, level = 'B1', count = 5, skill = 'GRAMMAR') =>
     apiClient.post('ai/quizzes/generate/', { topic, level, count, skill }),
+  // AI Tự động tư duy & Sinh mô tả khóa học chuyên sâu cho Giảng viên
+  generateCourseDescription: (data) =>
+    apiClient.post('ai/courses/generate-description/', data),
 };
 
 export const recommendationAPI = {

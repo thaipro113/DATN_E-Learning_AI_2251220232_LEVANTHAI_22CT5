@@ -5,7 +5,8 @@ from .views import (
     SendMessageAPIView,
     GrammarCheckAPIView,
     GenerateProgressQuizAPIView,
-    GenerateTeacherQuizAPIView
+    GenerateTeacherQuizAPIView,
+    GenerateCourseDescriptionAPIView
 )
 
 app_name = 'ai'
@@ -24,5 +25,8 @@ urlpatterns = [
     # 4. AI Sinh đề thi trắc nghiệm (Quiz Generator)
     path('quizzes/generate/', GenerateTeacherQuizAPIView.as_view(), name='generate_teacher_quiz'),
     path('quizzes/generate-by-progress/', GenerateProgressQuizAPIView.as_view(), name='generate_progress_quiz'),
+
+    # 5. AI Tự động tư duy & Sinh mô tả khóa học cho Giảng viên
+    path('courses/generate-description/', GenerateCourseDescriptionAPIView.as_view(), name='generate_course_description'),
 ]
 

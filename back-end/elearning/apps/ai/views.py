@@ -266,3 +266,70 @@ class GenerateTeacherQuizAPIView(APIView):
             status_code=status.HTTP_200_OK
         )
 
+
+class GenerateCourseDescriptionAPIView(APIView):
+    """
+    API Endpoint cho phép Giáo viên / Admin sinh mô tả khóa học chi tiết và tự động tư duy theo Tiêu đề + Trình độ CEFR.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from .llm_client import get_llm_provider
+        from .serializers import GenerateCourseDescriptionRequestSerializer
+
+        serializer = GenerateCourseDescriptionRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu sinh mô tả khóa học không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        title = serializer.validated_data.get('title')
+        target_type = serializer.validated_data.get('target_type', 'COURSE')
+        chapter_title = serializer.validated_data.get('chapter_title', '')
+        lesson_title = serializer.validated_data.get('lesson_title', '')
+        category = serializer.validated_data.get('category', 'Tiếng Anh Tổng Quát')
+        level = serializer.validated_data.get('level', 'B1')
+        price = serializer.validated_data.get('price', 0)
+        is_free = serializer.validated_data.get('is_free', True)
+
+        try:
+            llm = get_llm_provider()
+            if target_type == 'CHAPTER':
+                description = llm.generate_chapter_description(
+                    course_title=title,
+                    chapter_title=chapter_title or title,
+                    level=level
+                )
+                msg = "AI đã tạo thành công mô tả mục tiêu chương học!"
+            elif target_type == 'LESSON':
+                description = llm.generate_lesson_content(
+                    course_title=title,
+                    chapter_title=chapter_title or "Chương tổng quát",
+                    lesson_title=lesson_title or title,
+                    level=level
+                )
+                msg = "AI đã tạo thành công tóm tắt trọng tâm bài giảng!"
+            else:
+                description = llm.generate_course_description(
+                    title=title,
+                    category=category,
+                    level=level,
+                    is_free=is_free,
+                    price=float(price)
+                )
+                msg = "AI đã tạo thành công mô tả chi tiết cho khóa học!"
+
+            return success_response(
+                data={'description': description},
+                message=msg,
+                status_code=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return error_response(
+                message=f"Lỗi khi gọi AI sinh mô tả: {str(e)}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+

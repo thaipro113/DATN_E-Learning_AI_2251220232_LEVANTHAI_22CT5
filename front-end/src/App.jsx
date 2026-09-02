@@ -110,13 +110,19 @@ export default function App() {
   const [myCourses, setMyCourses] = useState([]);
   const [myAttempts, setMyAttempts] = useState([]);
 
-  // Đồng bộ Hash URL khi tab thay đổi và khi bấm Back/Forward trình duyệt
+  // Đồng bộ Hash URL và ngắt phát âm Speech Synthesis khi tab thay đổi
   useEffect(() => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     window.location.hash = `#/${currentTab}`;
   }, [currentTab]);
 
   useEffect(() => {
     const handleHashChange = () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       const tab = getTabFromHash();
       setCurrentTab(tab);
     };
@@ -243,6 +249,9 @@ export default function App() {
 
   // Xử lý Đăng xuất
   const handleLogout = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     setIsLoggedIn(false);
     setUser(null);
     setMyCourses([]);

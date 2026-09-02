@@ -61,6 +61,8 @@ class ChatSessionListSerializer(serializers.ModelSerializer):
     """
     session_type_display = serializers.CharField(source='get_session_type_display', read_only=True)
     target_level_display = serializers.CharField(source='get_target_level_display', read_only=True)
+    student_name = serializers.CharField(source='student.full_name', read_only=True, default=None)
+    student_email = serializers.CharField(source='student.email', read_only=True, default=None)
     course_title = serializers.CharField(source='course.title', read_only=True, default=None)
     lesson_title = serializers.CharField(source='lesson.title', read_only=True, default=None)
     total_messages = serializers.IntegerField(read_only=True)
@@ -69,6 +71,9 @@ class ChatSessionListSerializer(serializers.ModelSerializer):
         model = ChatSession
         fields = [
             'id',
+            'student',
+            'student_name',
+            'student_email',
             'title',
             'session_type',
             'session_type_display',
@@ -254,4 +259,53 @@ class GeneratedQuestionPreviewSerializer(serializers.Serializer):
     explanation_vi = serializers.CharField()
     points = serializers.FloatField(default=1.0)
     options = GeneratedOptionPreviewSerializer(many=True)
+
+
+class GenerateCourseDescriptionRequestSerializer(serializers.Serializer):
+    """
+    Serializer tiếp nhận yêu cầu sinh mô tả khóa học, mục tiêu chương hoặc tóm tắt bài giảng từ AI.
+    """
+    title = serializers.CharField(
+        required=True,
+        max_length=255,
+        error_messages={'required': "Vui lòng nhập tiêu đề."}
+    )
+    target_type = serializers.ChoiceField(
+        choices=['COURSE', 'CHAPTER', 'LESSON'],
+        required=False,
+        default='COURSE'
+    )
+    chapter_title = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default='',
+        max_length=255
+    )
+    lesson_title = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default='',
+        max_length=255
+    )
+    category = serializers.CharField(
+        required=False,
+        default="Tiếng Anh Tổng Quát",
+        max_length=150
+    )
+    level = serializers.ChoiceField(
+        choices=EnglishLevel.choices,
+        required=False,
+        default=EnglishLevel.B1
+    )
+    price = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        default=0
+    )
+    is_free = serializers.BooleanField(
+        required=False,
+        default=True
+    )
+
 

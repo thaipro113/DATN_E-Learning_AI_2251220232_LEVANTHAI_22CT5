@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { aiAPI, assessmentAPI, courseAPI } from '../services/api';
 
-export default function TeacherAIQuizModal({ isOpen, onClose, onSaveSuccess }) {
+export default function TeacherAIQuizModal({ isOpen, onClose, onSaveSuccess, courses: passedCourses = [], initialCourse = null }) {
   const [scopeType, setScopeType] = useState('COURSE'); // 'COURSE' | 'CHAPTER' | 'LESSON' | 'TOPIC'
   const [courses, setCourses] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -17,18 +17,40 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveSuccess }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
 
-  // Fetch danh sách khóa học thực tế của giáo viên
+  // Nạp danh sách khóa học thực tế của giáo viên
   useEffect(() => {
-    if (isOpen) {
-      courseAPI.getCourses().then((res) => {
-        const fetchedCourses = res.data?.data?.results || res.data?.data || [];
-        setCourses(fetchedCourses);
-        if (fetchedCourses.length > 0) {
-          setSelectedCourseId(fetchedCourses[0].id);
+    if (!isOpen) return;
+
+    const loadCourses = async () => {
+      let list = Array.isArray(passedCourses) && passedCourses.length > 0 ? passedCourses : [];
+
+      if (list.length === 0) {
+        try {
+          const res = await courseAPI.getCourses();
+          const fetched = res.data?.data?.results || res.data?.results || res.data?.data || res.data || [];
+          if (Array.isArray(fetched) && fetched.length > 0) {
+            list = fetched;
+          }
+        } catch (e) {
+          console.warn('Could not fetch courses in TeacherAIQuizModal:', e);
         }
-      }).catch((e) => console.log('Loaded default courses for modal.'));
-    }
-  }, [isOpen]);
+      }
+
+      setCourses(list);
+
+      // Nếu mở từ một khóa học cụ thể
+      if (initialCourse) {
+        setSelectedCourseId(initialCourse.id || initialCourse.slug);
+        if (initialCourse.level) setLevel(initialCourse.level);
+        setTopic(initialCourse.title || 'Thì Quá khứ đơn và Quá khứ tiếp diễn');
+      } else if (list.length > 0) {
+        setSelectedCourseId(list[0].id || list[0].slug);
+        if (list[0].level) setLevel(list[0].level);
+      }
+    };
+
+    loadCourses();
+  }, [isOpen, initialCourse, passedCourses]);
 
   if (!isOpen) return null;
 
@@ -261,24 +283,85 @@ export default function TeacherAIQuizModal({ isOpen, onClose, onSaveSuccess }) {
             {/* Chọn Khóa học thật từ CSDL */}
             {scopeType !== 'TOPIC' && (
               <div>
-                <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Chọn Khóa học áp dụng:
+                <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  Khóa học áp dụng:
                 </label>
-                <select
-                  value={selectedCourseId}
-                  onChange={(e) => {
-                    setSelectedCourseId(e.target.value);
-                    const selected = courses.find((c) => c.id === e.target.value);
-                    if (selected) setTopic(selected.title);
-                  }}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                >
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title} (CEFR {c.level})
-                    </option>
-                  ))}
-                </select>
+                {initialCourse ? (
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: '#f5f3ff',
+                      border: '1.5px solid #c4b5fd',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          backgroundColor: '#7c3aed',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1rem',
+                        }}
+                      >
+                        <i className="fa-solid fa-graduation-cap"></i>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          ✓ Đã liên kết trực tiếp với khóa học của bạn
+                        </div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '2px' }}>
+                          {initialCourse.title}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        backgroundColor: '#7c3aed',
+                        color: 'white',
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                      }}
+                    >
+                      CEFR {initialCourse.level || level}
+                    </span>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedCourseId}
+                    onChange={(e) => {
+                      const cid = e.target.value;
+                      setSelectedCourseId(cid);
+                      const selected = courses.find((c) => String(c.id) === String(cid) || c.slug === cid);
+                      if (selected) {
+                        if (selected.level) setLevel(selected.level);
+                        setTopic(selected.title);
+                      }
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  >
+                    {courses.length === 0 ? (
+                      <option value="">(Chưa có khóa học nào - Chọn theo chủ đề tự do)</option>
+                    ) : (
+                      courses.map((c) => (
+                        <option key={c.id || c.slug} value={c.id || c.slug}>
+                          {c.title} (CEFR {c.level || 'B1'})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                )}
               </div>
             )}
 

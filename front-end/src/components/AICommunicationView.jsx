@@ -8,66 +8,192 @@ const SCENARIOS = [
     icon: 'fa-mug-hot',
     color: '#0284c7',
     bg: '#e0f2fe',
-    title: 'Giao tiếp đời sống',
+    title: 'Giao tiếp đời sống & Sở thích',
     subtitle: 'Daily Small Talk & Hobbies',
     level: 'A2 - B1',
     starterPrompt: "Hi there! 👋 I'm your AI English speaking partner. How's your day going? What did you do today?",
-    suggestions: ["I had a busy day at work.", "The weather is really nice today!", "I am learning English on this platform."],
+    suggestions: [
+      "I had a busy day at work, but everything went smoothly.",
+      "The weather is really nice today, so I went for a morning walk.",
+      "I am learning English on this platform to improve my speaking skills.",
+      "Could you recommend some good hobbies to relax on weekends?",
+    ],
   },
   {
     id: 'interview',
     icon: 'fa-briefcase',
     color: '#0f766e',
     bg: '#ccfbf1',
-    title: 'Phỏng vấn xin việc',
+    title: 'Phỏng vấn xin việc & Thăng tiến',
     subtitle: 'Job Interview Simulation',
     level: 'B1 - B2',
     starterPrompt: "Good morning! Welcome to the interview. Could you please start by introducing yourself and your professional background?",
-    suggestions: ["Sure! I am a passionate developer with 2 years of experience.", "Thank you for this opportunity.", "I specialize in software engineering."],
+    suggestions: [
+      "Sure! I am a passionate developer with 2 years of experience in software engineering.",
+      "Thank you for this opportunity. I specialize in building responsive web applications.",
+      "Could you tell me more about the key responsibilities and expectations for this role?",
+      "My greatest strength is analytical problem-solving and collaborating with team members.",
+    ],
   },
   {
     id: 'travel',
     icon: 'fa-plane-departure',
     color: '#7c3aed',
     bg: '#ede9fe',
-    title: 'Du lịch & Sân bay',
+    title: 'Du lịch & Sân bay / Hải quan',
     subtitle: 'Airport & Travel Check-in',
     level: 'A2 - B1',
     starterPrompt: "Hello passenger! May I see your passport and flight booking confirmation, please? Where are you flying today?",
-    suggestions: ["Here is my passport. I'm flying to Singapore.", "Can I have a window seat, please?", "How much luggage am I allowed to check in?"],
+    suggestions: [
+      "Here is my passport and boarding pass. I'm flying to Singapore.",
+      "Can I request a window seat near the front of the plane, please?",
+      "How much luggage am I allowed to check in for this flight?",
+      "Which gate do I need to go to for my connecting flight?",
+    ],
   },
   {
     id: 'restaurant',
     icon: 'fa-utensils',
     color: '#ea580c',
     bg: '#ffedd5',
-    title: 'Gọi món nhà hàng',
+    title: 'Gọi món nhà hàng & Ẩm thực',
     subtitle: 'Restaurant & Food Ordering',
     level: 'A1 - B1',
     starterPrompt: "Good evening! Welcome to our restaurant. Here is the menu. Are you ready to order or would you like a few minutes?",
-    suggestions: ["Could you recommend your signature dish?", "I would like to order a steak with salad.", "Can I have a glass of water first?"],
+    suggestions: [
+      "Could you recommend your chef's special or signature dish?",
+      "I would like to order a medium-rare steak with grilled vegetables and salad.",
+      "Could I have a glass of water without ice first, please?",
+      "Do you have any vegetarian or gluten-free options available on the menu?",
+    ],
   },
   {
     id: 'business',
     icon: 'fa-building',
     color: '#2563eb',
     bg: '#dbeafe',
-    title: 'Tiếng Anh công sở',
+    title: 'Tiếng Anh công sở & Họp dự án',
     subtitle: 'Workplace Meetings & Emails',
     level: 'B2 - C1',
     starterPrompt: "Hi team! Let's review our weekly sprint progress. Could you share your key milestones and any blockers you faced?",
-    suggestions: ["We successfully completed the backend API integration.", "We might need extra time for QA testing.", "Everything is on track according to the timeline."],
+    suggestions: [
+      "We successfully completed the backend API integration ahead of schedule.",
+      "We might need extra time for QA testing before deploying to production.",
+      "Everything is on track according to our project timeline and milestone roadmap.",
+      "Let's schedule a brief follow-up meeting with the design team tomorrow morning.",
+    ],
   },
   {
     id: 'ielts',
     icon: 'fa-graduation-cap',
     color: '#db2777',
     bg: '#fce7f3',
-    title: 'Luyện Speaking IELTS',
-    subtitle: 'IELTS Speaking Part 1 & 2',
+    title: 'Luyện Speaking IELTS Part 1 & 2',
+    subtitle: 'IELTS Speaking Band 6.5 - 8.0',
     level: 'B1 - C1',
     starterPrompt: "Welcome to your IELTS Speaking practice session. Let's talk about your hometown. What do you like most about the place where you grew up?",
-    suggestions: ["My hometown is a vibrant coastal city with friendly people.", "I appreciate the peaceful atmosphere and greenery.", "It has developed rapidly over the past few years."],
+    suggestions: [
+      "My hometown is a vibrant coastal city known for its rich culture and hospitality.",
+      "I truly appreciate the peaceful atmosphere and lush greenery in my neighborhood.",
+      "It has developed rapidly over the past few years with modern infrastructure.",
+      "In my opinion, the local street food is one of the most distinctive features.",
+    ],
+  },
+  {
+    id: 'hotel',
+    icon: 'fa-hotel',
+    color: '#0891b2',
+    bg: '#cffafe',
+    title: 'Khách sạn & Đặt phòng nghỉ dưỡng',
+    subtitle: 'Hotel Check-in & Concierge',
+    level: 'A2 - B1',
+    starterPrompt: "Welcome to Grand Horizon Hotel! How can I assist you with your check-in or stay today?",
+    suggestions: [
+      "Hi, I have a reservation under the name Le Van Thai for 3 nights.",
+      "Does our booking include complimentary buffet breakfast and high-speed Wi-Fi?",
+      "Could I request a late check-out at 2:00 PM tomorrow, please?",
+      "Can you recommend some popular tourist attractions or nice cafes nearby?",
+    ],
+  },
+  {
+    id: 'shopping',
+    icon: 'fa-bag-shopping',
+    color: '#d97706',
+    bg: '#fef3c7',
+    title: 'Mua sắm, Mặc cả & Hoàn tiền',
+    subtitle: 'Shopping, Discounts & Refunds',
+    level: 'A1 - B1',
+    starterPrompt: "Hello! Looking for anything specific today? We have a special promotional discount on our new fashion collection!",
+    suggestions: [
+      "Could I try this jacket on in a medium size, please?",
+      "Is there any student discount or member promotion available today?",
+      "Can I return or exchange this item within 7 days if it doesn't fit?",
+      "Do you accept international credit cards and mobile payment?",
+    ],
+  },
+  {
+    id: 'doctor',
+    icon: 'fa-user-doctor',
+    color: '#e11d48',
+    bg: '#ffe4e6',
+    title: 'Khám bệnh & Chăm sóc sức khỏe',
+    subtitle: 'Medical Clinic & Pharmacy',
+    level: 'A2 - B2',
+    starterPrompt: "Hello, please take a seat. How are you feeling today? What symptoms have you been experiencing recently?",
+    suggestions: [
+      "I've had a severe headache and a mild fever since yesterday morning.",
+      "My throat is very sore and I have difficulty swallowing food.",
+      "How many times a day should I take this prescribed medicine?",
+      "Do I need to do any blood tests or come back for a follow-up check?",
+    ],
+  },
+  {
+    id: 'negotiation',
+    icon: 'fa-handshake',
+    color: '#4f46e5',
+    bg: '#e0e7ff',
+    title: 'Đàm phán thương mại & Hợp đồng',
+    subtitle: 'Contract Negotiation & Terms',
+    level: 'B2 - C1',
+    starterPrompt: "Thank you for joining our negotiation meeting today. Let's discuss the contract pricing, delivery schedule, and payment terms.",
+    suggestions: [
+      "We would like to propose a 5% discount for bulk orders placed quarterly.",
+      "Can we adjust the payment terms to net 30 days after invoice issuance?",
+      "We are confident this strategic partnership will bring mutual benefits to both sides.",
+      "Let's review clause 4 regarding the warranty period and service level agreement.",
+    ],
+  },
+  {
+    id: 'coffee_chat',
+    icon: 'fa-comments',
+    color: '#059669',
+    bg: '#d1fae5',
+    title: 'Chém gió bạn bè tại quán Cafe',
+    subtitle: 'Casual Coffee Chat & Friendship',
+    level: 'A2 - B1',
+    starterPrompt: "Hey! Long time no see! It's so great catching up with you here at the cafe. What have you been up to lately?",
+    suggestions: [
+      "Not much! Just busy with work and studying new AI technologies.",
+      "I recently started going to the gym and reading more self-development books.",
+      "Have you watched that new trending sci-fi series on Netflix yet?",
+      "We should definitely hang out more often whenever we have free time on weekends!",
+    ],
+  },
+  {
+    id: 'directions',
+    icon: 'fa-map-location-dot',
+    color: '#9333ea',
+    bg: '#f3e8ff',
+    title: 'Hỏi đường & Đón xe Taxi / Grab',
+    subtitle: 'Asking for Directions & Transit',
+    level: 'A1 - A2',
+    starterPrompt: "Excuse me! Are you looking for directions or looking to book a taxi around the city center?",
+    suggestions: [
+      "Could you please tell me how to get to the nearest metro station?",
+      "How long does it take to walk to the central market from here?",
+      "Is it within walking distance or should I take a bus or taxi?",
+      "Please take me to Tan Son Nhat Airport as soon as possible, thank you!",
+    ],
   },
 ];
 
@@ -87,10 +213,12 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
@@ -151,6 +279,15 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
     }
   }, [isLoggedIn]);
 
+  // Hủy phát âm khi rời khỏi trang / component unmount
+  useEffect(() => {
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   // Phát âm tiếng Anh (Text-to-Speech)
   const handleSpeakText = (text) => {
     if ('speechSynthesis' in window) {
@@ -163,8 +300,11 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
     }
   };
 
-  // Bắt đầu một tình huống hội thoại mới (KHÔNG tự động phát âm)
+  // Bắt đầu một tình huống hội thoại mới (Hủy phát âm cũ và giữ nguyên vị trí cuộn trang)
   const handleSelectScenario = async (sc) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     setSelectedScenario(sc);
     setSessionId(null);
     setMessages([
@@ -175,6 +315,9 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
         model_used: 'AI Communication Coach',
       },
     ]);
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = 0;
+    }
   };
 
   const handleCreateNewSession = async () => {
@@ -461,7 +604,7 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{SCENARIOS.length} kịch bản</span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '340px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '440px', overflowY: 'auto', paddingRight: '4px' }}>
               {filteredScenarios.map((sc) => {
                 const isSelected = selectedScenario.id === sc.id;
                 return (
@@ -676,6 +819,7 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
 
           {/* Messages Stream */}
           <div
+            ref={chatContainerRef}
             style={{
               flex: 1,
               overflowY: 'auto',
@@ -811,7 +955,6 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
                 </span>
               </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Quick Reply Suggestions Chips */}

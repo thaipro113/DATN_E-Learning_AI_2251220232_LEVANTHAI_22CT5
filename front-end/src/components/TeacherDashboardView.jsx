@@ -2,21 +2,30 @@ import React, { useState, useEffect } from 'react';
 import TeacherGradebookView from './TeacherGradebookView';
 import TeacherAIQuizModal from './TeacherAIQuizModal';
 import TeacherCourseCurriculumModal from './TeacherCourseCurriculumModal';
-import { courseAPI } from '../services/api';
-import { cleanCourseTitle } from '../utils/media';
+import Pagination from './Pagination';
+import { courseAPI, aiAPI } from '../services/api';
+import { cleanCourseTitle, generateSlug } from '../utils/media';
 
 export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToDashboard }) {
   const [activeTab, setActiveTab] = useState('courses');
   const [showAIQuizModal, setShowAIQuizModal] = useState(false);
+  const [selectedCourseForAIQuiz, setSelectedCourseForAIQuiz] = useState(null);
   const [showCurriculumModal, setShowCurriculumModal] = useState(false);
   const [selectedCourseForCurriculum, setSelectedCourseForCurriculum] = useState(null);
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   // Modal Tạo khóa học mới
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [newSlug, setNewSlug] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newCategoryId, setNewCategoryId] = useState('');
   const [newLevel, setNewLevel] = useState('B1');
@@ -24,6 +33,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80');
   const [newPrice, setNewPrice] = useState(0);
   const [isFree, setIsFree] = useState(true);
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
 
   useEffect(() => {
@@ -112,6 +122,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
     try {
       const payload = {
         title: newTitle.trim(),
+        slug: newSlug.trim() || generateSlug(newTitle),
         description: newDescription.trim() || `Khóa học ${newTitle} chuẩn hóa CEFR ${newLevel}.`,
         level: newLevel,
         category_id: newCategoryId || null,
@@ -124,6 +135,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       await courseAPI.createCourse(payload);
       setToastMsg(`✓ Đã tạo thành công khóa học "${newTitle}"!`);
       setNewTitle('');
+      setNewSlug('');
       setNewDescription('');
       setNewStatus('PUBLISHED');
       setShowCreateModal(false);
@@ -132,6 +144,41 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       setToastMsg(`✓ Đã lưu khóa học "${newTitle}"!`);
       setShowCreateModal(false);
       fetchTeacherCourses();
+    }
+  };
+
+  // Tự động sinh mô tả khóa học chi tiết và chuyên nghiệp bằng AI
+  const handleGenerateAIDescription = async () => {
+    if (!newTitle.trim()) {
+      setToastMsg('⚠️ Vui lòng nhập "Tiêu đề khóa học" trước để AI có thể viết mô tả phù hợp!');
+      return;
+    }
+
+    setIsGeneratingDesc(true);
+    const selectedCat = categories.find((c) => String(c.id) === String(newCategoryId));
+    const categoryName = selectedCat ? selectedCat.name : 'Tiếng Anh Tổng Quát';
+
+    try {
+      const res = await aiAPI.generateCourseDescription({
+        title: newTitle.trim(),
+        category: categoryName,
+        level: newLevel,
+        is_free: isFree,
+        price: Number(newPrice || 0),
+      });
+
+      const aiText = res.data?.data?.description || res.data?.description;
+      if (aiText && aiText.length > 50) {
+        setNewDescription(aiText.trim());
+        setToastMsg('✨ AI đã tự động tư duy và viết xong bản mô tả chi tiết cho khóa học!');
+      } else {
+        throw new Error('Empty response from AI backend');
+      }
+    } catch (e) {
+      console.warn('AI Description Generation error:', e);
+      setToastMsg('⚠️ Không thể kết nối đến máy chủ AI để sinh mô tả.');
+    } finally {
+      setIsGeneratingDesc(false);
     }
   };
 
@@ -199,7 +246,10 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             className="btn-primary"
-            onClick={() => setShowAIQuizModal(true)}
+            onClick={() => {
+              setSelectedCourseForAIQuiz(null);
+              setShowAIQuizModal(true);
+            }}
             style={{ backgroundColor: '#7c3aed' }}
           >
             <i className="fa-solid fa-wand-magic-sparkles"></i>
@@ -338,141 +388,157 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-              {courses.map((course) => (
-                <div
-                  key={course.id}
-                  style={{
-                    backgroundColor: 'var(--bg-surface)',
-                    borderRadius: 'var(--radius-lg)',
-                    border: '1px solid var(--border-card)',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    boxShadow: 'var(--shadow-sm)',
-                  }}
-                >
-                  {/* Course Thumbnail Image */}
-                  <div
-                    style={{ height: '150px', position: 'relative', overflow: 'hidden', backgroundColor: '#0284c7', cursor: 'pointer' }}
-                    onClick={() => {
-                      setSelectedCourseForCurriculum(course);
-                      setShowCurriculumModal(true);
-                    }}
-                  >
-                    {course.thumbnail_url ? (
-                      <img
-                        src={course.thumbnail_url}
-                        alt={course.title}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2.5rem' }}>
-                        <i className="fa-solid fa-graduation-cap"></i>
-                      </div>
-                    )}
-
-                    <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '5px' }}>
-                      <span
-                        style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                          color: 'white',
-                          fontSize: '0.72rem',
-                          fontWeight: '800',
-                        }}
-                      >
-                        CEFR {course.level || 'B1'}
-                      </span>
-                      {course.status === 'DRAFT' && (
-                        <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f59e0b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
-                          📝 Bản nháp
-                        </span>
-                      )}
-                      {course.status === 'ARCHIVED' && (
-                        <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#64748b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
-                          📦 Lưu trữ
-                        </span>
-                      )}
-                    </div>
-
-                    <span
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                {courses
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((course) => (
+                    <div
+                      key={course.id}
                       style={{
-                        position: 'absolute',
-                        top: '10px',
-                        right: '10px',
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: course.is_free ? '#10b981' : '#0284c7',
-                        color: 'white',
-                        fontSize: '0.72rem',
-                        fontWeight: '800',
+                        backgroundColor: 'var(--bg-surface)',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border-card)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: 'var(--shadow-sm)',
                       }}
                     >
-                      {course.is_free ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-                    </span>
-                  </div>
-
-                  {/* Course Card Body */}
-                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', textTransform: 'uppercase' }}>
-                        {course.category?.name || 'Ngữ pháp Tiếng Anh'}
-                      </span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        GV: {course.teacher?.full_name || teacherDisplayName}
-                      </span>
-                    </div>
-
-                    <h3
-                      style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.3', cursor: 'pointer' }}
-                      onClick={() => {
-                        setSelectedCourseForCurriculum(course);
-                        setShowCurriculumModal(true);
-                      }}
-                    >
-                      {cleanCourseTitle(course.title)}
-                    </h3>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {course.description}
-                    </p>
-
-                    <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginBottom: '12px' }}>
-                      <span><i className="fa-solid fa-layer-group"></i> {course.total_chapters || 2} chương</span>
-                      <span><i className="fa-solid fa-circle-play"></i> {course.total_lessons || 4} bài giảng</span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        className="btn-outline"
+                      {/* Course Thumbnail Image */}
+                      <div
+                        style={{ height: '150px', position: 'relative', overflow: 'hidden', backgroundColor: '#0284c7', cursor: 'pointer' }}
                         onClick={() => {
                           setSelectedCourseForCurriculum(course);
                           setShowCurriculumModal(true);
                         }}
-                        style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
                       >
-                        <i className="fa-solid fa-pen-ruler"></i>
-                        <span>Quản lý giáo trình (Chi tiết)</span>
-                      </button>
+                        {course.thumbnail_url ? (
+                          <img
+                            src={course.thumbnail_url}
+                            alt={course.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2.5rem' }}>
+                            <i className="fa-solid fa-graduation-cap"></i>
+                          </div>
+                        )}
 
-                      <button
-                        className="btn-primary"
-                        onClick={() => setShowAIQuizModal(true)}
-                        style={{ padding: '6px 12px', fontSize: '0.78rem', backgroundColor: '#7c3aed' }}
-                        title="AI Tạo đề thi trắc nghiệm theo khóa học này"
-                      >
-                        <i className="fa-solid fa-wand-magic-sparkles"></i>
-                      </button>
+                        <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '5px' }}>
+                          <span
+                            style={{
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                              color: 'white',
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                            }}
+                          >
+                            CEFR {course.level || 'B1'}
+                          </span>
+                          {course.status === 'DRAFT' && (
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f59e0b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
+                              📝 Bản nháp
+                            </span>
+                          )}
+                          {course.status === 'ARCHIVED' && (
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#64748b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
+                              📦 Lưu trữ
+                            </span>
+                          )}
+                        </div>
+
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: course.is_free ? '#10b981' : '#0284c7',
+                            color: 'white',
+                            fontSize: '0.72rem',
+                            fontWeight: '800',
+                          }}
+                        >
+                          {course.is_free ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                        </span>
+                      </div>
+
+                      {/* Course Card Body */}
+                      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', textTransform: 'uppercase' }}>
+                            {course.category?.name || 'Ngữ pháp Tiếng Anh'}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            GV: {course.teacher?.full_name || teacherDisplayName}
+                          </span>
+                        </div>
+
+                        <h3
+                          style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.3', cursor: 'pointer' }}
+                          onClick={() => {
+                            setSelectedCourseForCurriculum(course);
+                            setShowCurriculumModal(true);
+                          }}
+                        >
+                          {cleanCourseTitle(course.title)}
+                        </h3>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {course.description}
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginBottom: '12px' }}>
+                          <span><i className="fa-solid fa-layer-group"></i> {course.total_chapters || 2} chương</span>
+                          <span><i className="fa-solid fa-circle-play"></i> {course.total_lessons || 4} bài giảng</span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="btn-outline"
+                            onClick={() => {
+                              setSelectedCourseForCurriculum(course);
+                              setShowCurriculumModal(true);
+                            }}
+                            style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+                          >
+                            <i className="fa-solid fa-pen-ruler"></i>
+                            <span>Quản lý giáo trình (Chi tiết)</span>
+                          </button>
+
+                          <button
+                            className="btn-primary"
+                            onClick={() => {
+                              setSelectedCourseForAIQuiz(course);
+                              setShowAIQuizModal(true);
+                            }}
+                            style={{ padding: '6px 12px', fontSize: '0.78rem', backgroundColor: '#7c3aed' }}
+                            title={`AI Tạo đề thi trắc nghiệm trực tiếp cho khóa "${course.title}"`}
+                          >
+                            <i className="fa-solid fa-wand-magic-sparkles"></i>
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  ))}
+              </div>
+
+              {/* Phân trang Khóa học */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(courses.length / itemsPerPage)}
+                totalItems={courses.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            </>
           )}
         </div>
       )}
@@ -494,8 +560,13 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       {/* Modal AI Quiz Generator cho Giáo Viên (UC_T4) */}
       <TeacherAIQuizModal
         isOpen={showAIQuizModal}
-        onClose={() => setShowAIQuizModal(false)}
+        onClose={() => {
+          setShowAIQuizModal(false);
+          setSelectedCourseForAIQuiz(null);
+        }}
         onSaveSuccess={fetchTeacherCourses}
+        courses={courses}
+        initialCourse={selectedCourseForAIQuiz}
       />
 
       {/* Modal Tạo Khóa Học Mới với Hình Ảnh */}
@@ -546,7 +617,13 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                   type="text"
                   placeholder="Ví dụ: Chinh Phục Ngữ Pháp CEFR B2..."
                   value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewTitle(val);
+                    if (!newSlug || newSlug === generateSlug(newTitle)) {
+                      setNewSlug(generateSlug(val));
+                    }
+                  }}
                   style={{
                     width: '100%',
                     padding: '9px 12px',
@@ -556,6 +633,35 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                   }}
                   required
                 />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700' }}>
+                    Slug định danh URL:
+                  </label>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Chuẩn SEO (elearning.vn/courses/<strong>{newSlug || 'ten-khoa-hoc'}</strong>)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{ padding: '9px 12px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRight: 'none', borderRadius: 'var(--radius-md) 0 0 var(--radius-md)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    /courses/
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="chinh-phuc-ngu-phap-b2"
+                    value={newSlug}
+                    onChange={(e) => setNewSlug(generateSlug(e.target.value))}
+                    style={{
+                      flex: 1,
+                      padding: '9px 12px',
+                      borderRadius: '0 var(--radius-md) var(--radius-md) 0',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '0.85rem',
+                    }}
+                  />
+                </div>
               </div>
 
               <div>
@@ -743,20 +849,46 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
               </div>
 
               <div>
-                <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                  Mô tả khóa học:
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                    Mô tả khóa học:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAIDescription}
+                    disabled={isGeneratingDesc}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      color: '#7c3aed',
+                      backgroundColor: '#f5f3ff',
+                      border: '1px solid #ddd6fe',
+                      padding: '4px 12px',
+                      borderRadius: '6px',
+                      cursor: isGeneratingDesc ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    title="AI tự động phân tích Tiêu đề, Danh mục, Trình độ CEFR để soạn bản mô tả chuẩn hóa chi tiết cho giảng viên"
+                  >
+                    <i className={`fa-solid ${isGeneratingDesc ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
+                    <span>{isGeneratingDesc ? 'AI đang viết mô tả...' : '✨ AI Viết mô tả chi tiết'}</span>
+                  </button>
+                </div>
                 <textarea
-                  rows={3}
-                  placeholder="Mô tả mục tiêu, kiến thức đầu ra và đối tượng học viên..."
+                  rows={5}
+                  placeholder="Nhập mô tả khóa học hoặc bấm nút '✨ AI Viết mô tả chi tiết' ở trên để AI tự động soạn giáo án, mục tiêu đầu ra và đối tượng học viên..."
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '9px 12px',
+                    padding: '10px 12px',
                     borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border-color)',
                     fontSize: '0.85rem',
+                    lineHeight: '1.5',
                   }}
                 />
               </div>

@@ -93,8 +93,18 @@ export default function FloatingAITutor({
   useEffect(() => {
     if (isOpen && isLoggedIn) {
       fetchSessions();
+    } else if (!isOpen && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
   }, [isOpen, isLoggedIn]);
+
+  useEffect(() => {
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   // Text to Speech phát âm tiếng Anh
   const handleSpeakText = (text) => {

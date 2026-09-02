@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CourseDetailModal from './CourseDetailModal';
+import Pagination from './Pagination';
 import { cleanCourseTitle } from '../utils/media';
 
 export default function CourseCatalogView({ courses = [], myCourses = [], onEnroll, onNavigateToLearning }) {
   const [selectedLevel, setSelectedLevel] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingCourse, setViewingCourse] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedLevel, searchQuery]);
 
   const levels = ['ALL', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
@@ -92,119 +99,132 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
           <p style={{ color: 'var(--text-muted)' }}>Không tìm thấy khóa học nào phù hợp với bộ lọc hiện tại.</p>
         </div>
       ) : (
-        <div className="course-grid">
-          {filteredCourses.map((course) => {
-            const isFree = course.is_free || Number(course.price) === 0;
-            const isEnrolled = myCourses.some((m) => (m.course?.id || m.id) === course.id);
+        <>
+          <div className="course-grid">
+            {filteredCourses
+              .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+              .map((course) => {
+                const isFree = course.is_free || Number(course.price) === 0;
+                const isEnrolled = myCourses.some((m) => (m.course?.id || m.id) === course.id);
 
-            return (
-              <div key={course.id} className="course-card">
-                {/* Card Image Banner */}
-                <div
-                  className="course-card-top"
-                  style={{
-                    height: '140px',
-                    backgroundColor: '#0284c7',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setViewingCourse(course)}
-                >
-                  {course.thumbnail_url ? (
-                    <img
-                      src={course.thumbnail_url}
-                      alt={course.title}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
+                return (
+                  <div key={course.id} className="course-card">
+                    {/* Card Image Banner */}
+                    <div
+                      className="course-card-top"
+                      style={{
+                        height: '140px',
+                        backgroundColor: '#0284c7',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
                       }}
-                    />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2.5rem' }}>
-                      <i className="fa-solid fa-graduation-cap"></i>
-                    </div>
-                  )}
-                  <span className="course-level-tag">
-                    CEFR {course.level || 'B1'}
-                  </span>
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      backgroundColor: isFree ? '#10b981' : '#f59e0b',
-                      color: 'white',
-                      fontSize: '0.72rem',
-                      fontWeight: '800',
-                    }}
-                  >
-                    {isFree ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-                  </span>
-                </div>
-
-                <div className="course-card-content">
-                  <div>
-                    <span className="course-cat-tag">
-                      {course.category?.name || 'Ngữ pháp Tiếng Anh'}
-                    </span>
-                    <h3
-                      className="course-card-title"
-                      style={{ cursor: 'pointer' }}
                       onClick={() => setViewingCourse(course)}
                     >
-                      {cleanCourseTitle(course.title)}
-                    </h3>
-                    <p className="course-card-desc">{course.description}</p>
-                  </div>
-
-                  <div className="course-card-footer">
-                    <span className="course-price-text" style={{ color: isFree ? '#059669' : 'var(--text-main)' }}>
-                      {isFree ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-                    </span>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        className="btn-outline"
-                        onClick={() => setViewingCourse(course)}
-                        style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                        title="Xem giáo trình chi tiết"
-                      >
-                        <i className="fa-solid fa-eye" style={{ marginRight: '4px' }}></i>
-                        <span>Chi tiết</span>
-                      </button>
-
-                      {isEnrolled ? (
-                        <button
-                          className="btn-primary"
-                          onClick={() => onNavigateToLearning && onNavigateToLearning(course)}
-                          style={{ padding: '6px 12px', fontSize: '0.8rem', backgroundColor: '#059669' }}
-                        >
-                          <i className="fa-solid fa-circle-play"></i>
-                          <span>Vào học</span>
-                        </button>
-                      ) : (
-                        <button
-                          className="btn-primary"
-                          onClick={() => onEnroll && onEnroll(course)}
-                          style={{
-                            padding: '6px 12px',
-                            fontSize: '0.8rem',
-                            backgroundColor: isFree ? '#0284c7' : '#ea580c',
+                      {course.thumbnail_url ? (
+                        <img
+                          src={course.thumbnail_url}
+                          alt={course.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
                           }}
-                        >
-                          <i className={`fa-solid ${isFree ? 'fa-plus' : 'fa-cart-shopping'}`}></i>
-                          <span>{isFree ? 'Ghi danh' : 'Mua ngay'}</span>
-                        </button>
+                        />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2.5rem' }}>
+                          <i className="fa-solid fa-graduation-cap"></i>
+                        </div>
                       )}
+                      <span className="course-level-tag">
+                        CEFR {course.level || 'B1'}
+                      </span>
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: isFree ? '#10b981' : '#f59e0b',
+                          color: 'white',
+                          fontSize: '0.72rem',
+                          fontWeight: '800',
+                        }}
+                      >
+                        {isFree ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                      </span>
+                    </div>
+
+                    <div className="course-card-content">
+                      <div>
+                        <span className="course-cat-tag">
+                          {course.category?.name || 'Ngữ pháp Tiếng Anh'}
+                        </span>
+                        <h3
+                          className="course-card-title"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setViewingCourse(course)}
+                        >
+                          {cleanCourseTitle(course.title)}
+                        </h3>
+                        <p className="course-card-desc">{course.description}</p>
+                      </div>
+
+                      <div className="course-card-footer">
+                        <span className="course-price-text" style={{ color: isFree ? '#059669' : 'var(--text-main)' }}>
+                          {isFree ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="btn-outline"
+                            onClick={() => setViewingCourse(course)}
+                            style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                            title="Xem giáo trình chi tiết"
+                          >
+                            <i className="fa-solid fa-eye" style={{ marginRight: '4px' }}></i>
+                            <span>Chi tiết</span>
+                          </button>
+
+                          {isEnrolled ? (
+                            <button
+                              className="btn-primary"
+                              onClick={() => onNavigateToLearning && onNavigateToLearning(course)}
+                              style={{ padding: '6px 12px', fontSize: '0.8rem', backgroundColor: '#059669' }}
+                            >
+                              <i className="fa-solid fa-circle-play"></i>
+                              <span>Vào học</span>
+                            </button>
+                          ) : (
+                            <button
+                              className="btn-primary"
+                              onClick={() => onEnroll && onEnroll(course)}
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '0.8rem',
+                                backgroundColor: isFree ? '#0284c7' : '#ea580c',
+                              }}
+                            >
+                              <i className={`fa-solid ${isFree ? 'fa-plus' : 'fa-cart-shopping'}`}></i>
+                              <span>{isFree ? 'Ghi danh' : 'Mua ngay'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+          </div>
+
+          {/* Phân trang Khóa học */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(filteredCourses.length / itemsPerPage)}
+            totalItems={filteredCourses.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
+        </>
       )}
 
       {/* Course Detail Modal */}

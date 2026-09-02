@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authAPI, courseAPI } from '../services/api';
+import Pagination from './Pagination';
 
 export default function TeacherGradebookView() {
   const [selectedCourseId, setSelectedCourseId] = useState('ALL');
@@ -7,6 +8,12 @@ export default function TeacherGradebookView() {
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCourseId, searchQuery]);
 
   useEffect(() => {
     const fetchGradebookData = async () => {
@@ -189,62 +196,73 @@ export default function TeacherGradebookView() {
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.map((s) => (
-                <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <td style={{ padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div className="user-avatar-circle" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>
-                        {s.name ? s.name.charAt(0).toUpperCase() : 'S'}
+              {filteredStudents
+                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                .map((s) => (
+                  <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="user-avatar-circle" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>
+                          {s.name ? s.name.charAt(0).toUpperCase() : 'S'}
+                        </div>
+                        <div>
+                          <strong style={{ display: 'block', color: 'var(--text-main)' }}>{s.name}</strong>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.email}</span>
+                        </div>
                       </div>
-                      <div>
-                        <strong style={{ display: 'block', color: 'var(--text-main)' }}>{s.name}</strong>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.email}</span>
+                    </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--text-secondary)' }}>
+                      {s.course_title}
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '80px', height: '6px', backgroundColor: 'var(--bg-muted)', borderRadius: '9999px', overflow: 'hidden' }}>
+                          <div style={{ width: `${s.progress}%`, height: '100%', backgroundColor: s.progress === 100 ? '#10b981' : '#0284c7' }}></div>
+                        </div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '700' }}>{s.progress}%</span>
                       </div>
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 14px', color: 'var(--text-secondary)' }}>
-                    {s.course_title}
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '80px', height: '6px', backgroundColor: 'var(--bg-muted)', borderRadius: '9999px', overflow: 'hidden' }}>
-                        <div style={{ width: `${s.progress}%`, height: '100%', backgroundColor: s.progress === 100 ? '#10b981' : '#0284c7' }}></div>
-                      </div>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '700' }}>{s.progress}%</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <span style={{ fontWeight: '800', color: s.quiz_score >= 80 ? '#10b981' : '#f59e0b' }}>
-                      {s.quiz_score}%
-                    </span>
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <span
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.72rem',
-                        fontWeight: '700',
-                        backgroundColor: s.status === 'COMPLETED' ? '#dcfce7' : '#e0f2fe',
-                        color: s.status === 'COMPLETED' ? '#15803d' : '#0284c7',
-                      }}
-                    >
-                      {s.status === 'COMPLETED' ? 'HOÀN THÀNH' : 'ĐANG HỌC'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    {s.certificate_issued ? (
-                      <span style={{ color: '#d97706', fontWeight: '700', fontSize: '0.78rem' }}>
-                        <i className="fa-solid fa-award"></i> Đã cấp
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <span style={{ fontWeight: '800', color: s.quiz_score >= 80 ? '#10b981' : '#f59e0b' }}>
+                        {s.quiz_score}%
                       </span>
-                    ) : (
-                      <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>Chưa cấp</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <span
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.72rem',
+                          fontWeight: '700',
+                          backgroundColor: s.status === 'COMPLETED' ? '#dcfce7' : '#e0f2fe',
+                          color: s.status === 'COMPLETED' ? '#15803d' : '#0284c7',
+                        }}
+                      >
+                        {s.status === 'COMPLETED' ? 'HOÀN THÀNH' : 'ĐANG HỌC'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      {s.certificate_issued ? (
+                        <span style={{ color: '#d97706', fontWeight: '700', fontSize: '0.78rem' }}>
+                          <i className="fa-solid fa-award"></i> Đã cấp
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>Chưa cấp</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
+
+          {/* Phân trang Sổ điểm */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(filteredStudents.length / itemsPerPage)}
+            totalItems={filteredStudents.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
     </div>

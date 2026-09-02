@@ -306,6 +306,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
         model = Course
         fields = [
             'title',
+            'slug',
             'description',
             'category_id',
             'level',
@@ -314,6 +315,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             'status'
         ]
         extra_kwargs = {
+            'slug': {'required': False, 'allow_blank': True},
             'thumbnail_url': {'required': False, 'allow_blank': True},
             'price': {'required': False, 'default': 0},
             'status': {'required': False, 'default': CourseStatus.DRAFT},

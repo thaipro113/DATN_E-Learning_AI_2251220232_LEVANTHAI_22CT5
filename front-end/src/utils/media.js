@@ -34,3 +34,19 @@ export function cleanCourseTitle(title) {
   if (!title) return '';
   return String(title).replace(/\s*\(\s*CEFR\s+[A-Z0-9-+\s]+\s*\)/gi, '').trim();
 }
+
+/**
+ * Generate clean URL slug from Vietnamese text
+ */
+export function generateSlug(text) {
+  if (!text) return '';
+  return String(text)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}

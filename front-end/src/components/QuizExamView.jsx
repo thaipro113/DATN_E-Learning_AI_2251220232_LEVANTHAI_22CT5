@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { assessmentAPI } from '../services/api';
 import StudentProgressQuizModal from './StudentProgressQuizModal';
+import Pagination from './Pagination';
 
 export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
   const [quizzes, setQuizzes] = useState([]);
@@ -15,6 +16,12 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [activeAttemptId, setActiveAttemptId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedQuizType]);
 
   const fetchQuizzesAndHistory = async () => {
     setIsLoading(true);
@@ -474,57 +481,70 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {myAttempts.map((att, idx) => (
-                <div
-                  key={att.id || idx}
-                  style={{
-                    padding: '16px 20px',
-                    backgroundColor: 'var(--bg-surface)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-card)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '12px',
-                  }}
-                >
-                  <div>
-                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
-                      {att.quiz_title || `Bài kiểm tra trắc nghiệm`}
-                    </strong>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      Ngày nộp bài: {att.completed_at ? new Date(att.completed_at).toLocaleString('vi-VN') : 'Gần đây'} · {att.total_questions || 5} câu hỏi
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: '1.2rem', fontWeight: '800', color: att.is_passed ? '#10b981' : '#f59e0b' }}>
-                        {att.score || 0}%
-                      </span>
-                      <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        {att.correct_answers || 0}/{att.total_questions || 5} đúng
-                      </span>
-                    </div>
-
-                    <span
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {myAttempts
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((att, idx) => (
+                    <div
+                      key={att.id || idx}
                       style={{
-                        padding: '4px 10px',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: '800',
-                        backgroundColor: att.is_passed ? '#dcfce7' : '#fee2e2',
-                        color: att.is_passed ? '#15803d' : '#dc2626',
+                        padding: '16px 20px',
+                        backgroundColor: 'var(--bg-surface)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-card)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px',
                       }}
                     >
-                      {att.is_passed ? 'ĐẠT' : 'CHƯA ĐẠT'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                      <div>
+                        <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
+                          {att.quiz_title || `Bài kiểm tra trắc nghiệm`}
+                        </strong>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Ngày nộp bài: {att.completed_at ? new Date(att.completed_at).toLocaleString('vi-VN') : 'Gần đây'} · {att.total_questions || 5} câu hỏi
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '1.2rem', fontWeight: '800', color: att.is_passed ? '#10b981' : '#f59e0b' }}>
+                            {att.score || 0}%
+                          </span>
+                          <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {att.correct_answers || 0}/{att.total_questions || 5} đúng
+                          </span>
+                        </div>
+
+                        <span
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: '800',
+                            backgroundColor: att.is_passed ? '#dcfce7' : '#fee2e2',
+                            color: att.is_passed ? '#15803d' : '#dc2626',
+                          }}
+                        >
+                          {att.is_passed ? 'ĐẠT' : 'CHƯA ĐẠT'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Phân trang Lịch sử làm bài */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(myAttempts.length / itemsPerPage)}
+                totalItems={myAttempts.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            </>
           )}
         </div>
       ) : (
@@ -557,46 +577,62 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-            {quizzes
-              .filter((q) => {
-                if (selectedQuizType === 'ALL') return true;
-                if (selectedQuizType === 'PRACTICE') return q.quiz_type === 'PRACTICE' || !q.quiz_type;
-                return q.quiz_type === selectedQuizType;
-              })
-              .map((quiz) => (
-                <div key={quiz.id} className="quiz-card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span className="quiz-level-tag">
-                      {quiz.quiz_type === 'PLACEMENT' ? '🎯 Đầu vào' : quiz.quiz_type === 'FINAL' ? '🏆 Cuối khóa' : '📝 Luyện tập'} · CEFR {quiz.level || 'B1'}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                      <i className="fa-regular fa-clock" style={{ marginRight: '4px' }}></i>
-                      {quiz.time_limit_minutes || 15} phút
-                    </span>
-                  </div>
+          {(() => {
+            const filteredQuizzes = quizzes.filter((q) => {
+              if (selectedQuizType === 'ALL') return true;
+              if (selectedQuizType === 'PRACTICE') return q.quiz_type === 'PRACTICE' || !q.quiz_type;
+              return q.quiz_type === selectedQuizType;
+            });
+            const paginatedQuizzes = filteredQuizzes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-                  <h3 className="quiz-card-title">{quiz.title}</h3>
-                  <p className="quiz-card-desc">{quiz.description || 'Đề thi trắc nghiệm giúp đánh giá và củng cố kiến thức.'}</p>
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                  {paginatedQuizzes.map((quiz) => (
+                    <div key={quiz.id} className="quiz-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span className="quiz-level-tag">
+                          {quiz.quiz_type === 'PLACEMENT' ? '🎯 Đầu vào' : quiz.quiz_type === 'FINAL' ? '🏆 Cuối khóa' : '📝 Luyện tập'} · CEFR {quiz.level || 'B1'}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                          <i className="fa-regular fa-clock" style={{ marginRight: '4px' }}></i>
+                          {quiz.time_limit_minutes || 15} phút
+                        </span>
+                      </div>
 
-                  <div className="quiz-card-footer">
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      <i className="fa-solid fa-list-ol" style={{ marginRight: '4px' }}></i>
-                      {quiz.total_questions || quiz.questions?.length || 5} câu hỏi
-                    </span>
+                      <h3 className="quiz-card-title">{quiz.title}</h3>
+                      <p className="quiz-card-desc">{quiz.description || 'Đề thi trắc nghiệm giúp đánh giá và củng cố kiến thức.'}</p>
 
-                    <button
-                      className="btn-primary"
-                      onClick={() => handleStartQuiz(quiz)}
-                      style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-                    >
-                      <i className="fa-solid fa-play"></i>
-                      <span>Vào thi ngay</span>
-                    </button>
-                  </div>
+                      <div className="quiz-card-footer">
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          <i className="fa-solid fa-list-ol" style={{ marginRight: '4px' }}></i>
+                          {quiz.total_questions || quiz.questions?.length || 5} câu hỏi
+                        </span>
+
+                        <button
+                          className="btn-primary"
+                          onClick={() => handleStartQuiz(quiz)}
+                          style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                        >
+                          <i className="fa-solid fa-play"></i>
+                          <span>Vào thi ngay</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-          </div>
+
+                {/* Phân trang Đề thi */}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(filteredQuizzes.length / itemsPerPage)}
+                  totalItems={filteredQuizzes.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                />
+              </>
+            );
+          })()}
         </div>
       )}
 

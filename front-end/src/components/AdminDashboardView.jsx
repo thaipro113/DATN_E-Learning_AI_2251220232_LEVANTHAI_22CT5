@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { authAPI, courseAPI, assessmentAPI, aiAPI, learningAPI, quizImportAPI, recommendationAPI } from '../services/api';
 import ConfirmModal from './ConfirmModal';
+import Pagination from './Pagination';
 
 export default function AdminDashboardView() {
   const [activeAdminNav, setActiveAdminNav] = useState('users');
@@ -15,6 +16,12 @@ export default function AdminDashboardView() {
   const [isLoading, setIsLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeAdminNav, searchTerm]);
 
   // Edit User Modal State
   const [editingUserModal, setEditingUserModal] = useState({
@@ -671,9 +678,10 @@ export default function AdminDashboardView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {users
-                        .filter((u) => !searchTerm || (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) || (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())))
-                        .map((u) => (
+                      {(() => {
+                        const filteredUsers = users.filter((u) => !searchTerm || (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) || (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())));
+                        const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                        return paginatedUsers.map((u) => (
                           <tr key={u.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <td style={{ padding: '14px 16px', fontWeight: '700' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -760,11 +768,26 @@ export default function AdminDashboardView() {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
               )}
+
+              {/* Phân trang Người dùng */}
+              {(() => {
+                const totalFiltered = users.filter((u) => !searchTerm || (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) || (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))).length;
+                return (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalFiltered / itemsPerPage)}
+                    totalItems={totalFiltered}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                  />
+                );
+              })()}
             </div>
           )}
 
@@ -804,58 +827,76 @@ export default function AdminDashboardView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {categories.map((cat) => {
-                      const countCourses = courses.filter((c) => c.category?.id === cat.id || c.category === cat.id || c.category?.name === cat.name).length;
-                      return (
-                        <tr key={cat.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
-                                <i className="fa-solid fa-folder-open"></i>
-                              </div>
-                              <span style={{ color: 'var(--text-main)' }}>{cat.name}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '14px 16px', color: '#64748b', fontSize: '0.82rem' }}>
-                            <code>{cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-')}</code>
-                          </td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.84rem', maxWidth: '280px' }}>
-                            {cat.description || 'Chưa có mô tả chi tiết'}
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#334155', fontWeight: '800', fontSize: '0.78rem' }}>
-                              {countCourses} khóa học
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: '800', backgroundColor: cat.is_active !== false ? '#dcfce7' : '#fee2e2', color: cat.is_active !== false ? '#15803d' : '#dc2626' }}>
-                              {cat.is_active !== false ? 'HIỂN THỊ' : 'ẨN'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                              <button
-                                onClick={() => handleOpenEditCategory(cat)}
-                                style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', backgroundColor: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd', cursor: 'pointer' }}
-                              >
-                                <i className="fa-solid fa-pen"></i> Sửa
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCategory(cat)}
-                                style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', cursor: 'pointer' }}
-                              >
-                                <i className="fa-solid fa-trash-can"></i> Xóa
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      {(() => {
+                        const filteredCategories = categories.filter((cat) => !searchTerm || (cat.name && cat.name.toLowerCase().includes(searchTerm.toLowerCase())));
+                        const paginatedCategories = filteredCategories.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                        return paginatedCategories.map((cat) => {
+                          const countCourses = courses.filter((c) => c.category?.id === cat.id || c.category === cat.id || c.category?.name === cat.name).length;
+                          return (
+                            <tr key={cat.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                              <td style={{ padding: '14px 16px', fontWeight: '700' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
+                                    <i className="fa-solid fa-folder-open"></i>
+                                  </div>
+                                  <span style={{ color: 'var(--text-main)' }}>{cat.name}</span>
+                                </div>
+                              </td>
+                              <td style={{ padding: '14px 16px', color: '#64748b', fontSize: '0.82rem' }}>
+                                <code>{cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-')}</code>
+                              </td>
+                              <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.84rem', maxWidth: '280px' }}>
+                                {cat.description || 'Chưa có mô tả chi tiết'}
+                              </td>
+                              <td style={{ padding: '14px 16px' }}>
+                                <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#334155', fontWeight: '800', fontSize: '0.78rem' }}>
+                                  {countCourses} khóa học
+                                </span>
+                              </td>
+                              <td style={{ padding: '14px 16px' }}>
+                                <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: '800', backgroundColor: cat.is_active !== false ? '#dcfce7' : '#fee2e2', color: cat.is_active !== false ? '#15803d' : '#dc2626' }}>
+                                  {cat.is_active !== false ? 'HIỂN THỊ' : 'ẨN'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  <button
+                                    onClick={() => handleOpenEditCategory(cat)}
+                                    style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', backgroundColor: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd', cursor: 'pointer' }}
+                                  >
+                                    <i className="fa-solid fa-pen"></i> Sửa
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCategory(cat)}
+                                    style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', cursor: 'pointer' }}
+                                  >
+                                    <i className="fa-solid fa-trash-can"></i> Xóa
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Phân trang Danh mục */}
+                {(() => {
+                  const totalFiltered = categories.filter((cat) => !searchTerm || (cat.name && cat.name.toLowerCase().includes(searchTerm.toLowerCase()))).length;
+                  return (
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={Math.ceil(totalFiltered / itemsPerPage)}
+                      totalItems={totalFiltered}
+                      itemsPerPage={itemsPerPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  );
+                })()}
               </div>
-            </div>
-          )}
+            )}
 
           {/* ==================== TAB 2: KHÓA HỌC & DANH MỤC (COURSES APP) ==================== */}
           {activeAdminNav === 'courses' && (
@@ -892,9 +933,10 @@ export default function AdminDashboardView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {courses
-                      .filter((c) => !searchTerm || (c.title && c.title.toLowerCase().includes(searchTerm.toLowerCase())) || (c.teacher?.full_name && c.teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase())))
-                      .map((c) => (
+                    {(() => {
+                      const filteredCourses = courses.filter((c) => !searchTerm || (c.title && c.title.toLowerCase().includes(searchTerm.toLowerCase())) || (c.teacher?.full_name && c.teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase())));
+                      const paginatedCourses = filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                      return paginatedCourses.map((c) => (
                         <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                           <td style={{ padding: '14px 16px', fontWeight: '700' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -954,10 +996,25 @@ export default function AdminDashboardView() {
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
+
+              {/* Phân trang Khóa học */}
+              {(() => {
+                const totalFiltered = courses.filter((c) => !searchTerm || (c.title && c.title.toLowerCase().includes(searchTerm.toLowerCase())) || (c.teacher?.full_name && c.teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase()))).length;
+                return (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalFiltered / itemsPerPage)}
+                    totalItems={totalFiltered}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                  />
+                );
+              })()}
             </div>
           )}
 
@@ -996,9 +1053,10 @@ export default function AdminDashboardView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {quizzes
-                      .filter((q) => !searchTerm || (q.title && q.title.toLowerCase().includes(searchTerm.toLowerCase())))
-                      .map((q) => (
+                    {(() => {
+                      const filteredQuizzes = quizzes.filter((q) => !searchTerm || (q.title && q.title.toLowerCase().includes(searchTerm.toLowerCase())));
+                      const paginatedQuizzes = filteredQuizzes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                      return paginatedQuizzes.map((q) => (
                         <tr key={q.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                           <td style={{ padding: '14px 16px', fontWeight: '700' }}>
                             <div>{q.title}</div>
@@ -1037,10 +1095,25 @@ export default function AdminDashboardView() {
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
+
+              {/* Phân trang Đề thi */}
+              {(() => {
+                const totalFiltered = quizzes.filter((q) => !searchTerm || (q.title && q.title.toLowerCase().includes(searchTerm.toLowerCase()))).length;
+                return (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalFiltered / itemsPerPage)}
+                    totalItems={totalFiltered}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                  />
+                );
+              })()}
             </div>
           )}
 
@@ -1070,27 +1143,30 @@ export default function AdminDashboardView() {
                   </thead>
                   <tbody>
                     {certificates.length > 0 ? (
-                      certificates.map((cert) => (
-                        <tr key={cert.id || cert.certificate_code} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: '800', color: '#0284c7' }}>
-                            {cert.certificate_code}
-                          </td>
-                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                            {cert.course_title || cert.enrollment?.course?.title || 'Khóa học Tiếng Anh'}
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            {cert.student_name || cert.enrollment?.student?.full_name || 'Học viên'}
-                          </td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
-                            {new Date(cert.issued_at || Date.now()).toLocaleDateString('vi-VN')}
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.75rem', fontWeight: '800' }}>
-                              ✓ CHÍNH THỰC
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      (() => {
+                        const paginatedCerts = certificates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                        return paginatedCerts.map((cert) => (
+                          <tr key={cert.id || cert.certificate_code} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '14px 16px', fontWeight: '800', color: '#0284c7' }}>
+                              {cert.certificate_code}
+                            </td>
+                            <td style={{ padding: '14px 16px', fontWeight: '700' }}>
+                              {cert.course_title || cert.enrollment?.course?.title || 'Khóa học Tiếng Anh'}
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              {cert.student_name || cert.enrollment?.student?.full_name || 'Học viên'}
+                            </td>
+                            <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
+                              {new Date(cert.issued_at || Date.now()).toLocaleDateString('vi-VN')}
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.75rem', fontWeight: '800' }}>
+                                ✓ CHÍNH THỰC
+                              </span>
+                            </td>
+                          </tr>
+                        ));
+                      })()
                     ) : (
                       <tr>
                         <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
@@ -1101,20 +1177,40 @@ export default function AdminDashboardView() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Phân trang Chứng chỉ */}
+              {certificates.length > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(certificates.length / itemsPerPage)}
+                  totalItems={certificates.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                />
+              )}
             </div>
           )}
 
           {/* ==================== TAB 5: TRỢ LÝ AI & LỊCH SỬ HỘI THOẠI (AI APP) ==================== */}
           {activeAdminNav === 'ai_sessions' && (
             <div className="quiz-room-container">
-              <div style={{ marginBottom: '18px' }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
-                  <i className="fa-solid fa-headset" style={{ color: '#0d9488', marginRight: '8px' }}></i>
-                  Nhật Ký Phiên Hội Thoại Trợ Lý AI Coach
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                  Theo dõi toàn bộ các phiên luyện giao tiếp, sửa lỗi ngữ pháp và token AI (apps/ai)
-                </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
+                    <i className="fa-solid fa-headset" style={{ color: '#0d9488', marginRight: '8px' }}></i>
+                    Nhật Ký Phiên Hội Thoại Trợ Lý AI Coach
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
+                    Theo dõi toàn bộ các phiên luyện giao tiếp, sửa lỗi ngữ pháp và token AI (apps/ai)
+                  </p>
+                </div>
+                <input
+                  type="text"
+                  placeholder="🔍 Tìm theo chủ đề, học viên..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', width: '250px' }}
+                />
               </div>
 
               <div style={{ overflowX: 'auto' }}>
@@ -1130,47 +1226,65 @@ export default function AdminDashboardView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {aiSessions.map((s) => (
-                      <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                          <div>{s.title}</div>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Loại: {s.session_type || 'ROLEPLAY'}</span>
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>{s.student_name || 'Học viên'}</td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: '0.78rem', fontWeight: '800' }}>
-                            {s.target_level || 'B1'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: '0.82rem', color: '#0d9488', fontWeight: '700' }}>
-                          ✦ Groq/Qwen & Gemini
-                        </td>
-                        <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
-                          {new Date(s.created_at || Date.now()).toLocaleDateString('vi-VN')}
-                        </td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                          <button
-                            onClick={() => handleDeleteAISession(s)}
-                            style={{
-                              padding: '6px 14px',
-                              borderRadius: '6px',
-                              fontSize: '0.8rem',
-                              fontWeight: '700',
-                              backgroundColor: '#fef2f2',
-                              color: '#dc2626',
-                              border: '1px solid #fecaca',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <i className="fa-solid fa-trash-can" style={{ marginRight: '6px' }}></i>
-                            Xóa
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const filteredAiSessions = aiSessions.filter((s) => !searchTerm || (s.title && s.title.toLowerCase().includes(searchTerm.toLowerCase())) || (s.student_name && s.student_name.toLowerCase().includes(searchTerm.toLowerCase())));
+                      const paginatedAiSessions = filteredAiSessions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                      return paginatedAiSessions.map((s) => (
+                        <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>
+                            <div>{s.title}</div>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Loại: {s.session_type || 'ROLEPLAY'}</span>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>{s.student_name || 'Học viên'}</td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: '0.78rem', fontWeight: '800' }}>
+                              {s.target_level || 'B1'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: '0.82rem', color: '#0d9488', fontWeight: '700' }}>
+                            ✦ Groq/Qwen & Gemini
+                          </td>
+                          <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
+                            {new Date(s.created_at || Date.now()).toLocaleDateString('vi-VN')}
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                            <button
+                              onClick={() => handleDeleteAISession(s)}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: '700',
+                                backgroundColor: '#fef2f2',
+                                color: '#dc2626',
+                                border: '1px solid #fecaca',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <i className="fa-solid fa-trash-can" style={{ marginRight: '6px' }}></i>
+                              Xóa
+                            </button>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
+
+              {/* Phân trang Phiên AI */}
+              {(() => {
+                const totalFiltered = aiSessions.filter((s) => !searchTerm || (s.title && s.title.toLowerCase().includes(searchTerm.toLowerCase())) || (s.student_name && s.student_name.toLowerCase().includes(searchTerm.toLowerCase()))).length;
+                return (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalFiltered / itemsPerPage)}
+                    totalItems={totalFiltered}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                  />
+                );
+              })()}
             </div>
           )}
 
@@ -1201,26 +1315,29 @@ export default function AdminDashboardView() {
                   </thead>
                   <tbody>
                     {importBatches.length > 0 ? (
-                      importBatches.map((b) => (
-                        <tr key={b.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>{b.title}</td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', fontSize: '0.78rem', fontWeight: '700' }}>
-                              {b.source_type}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', backgroundColor: b.status === 'COMPLETED' ? '#dcfce7' : '#fef3c7', color: b.status === 'COMPLETED' ? '#15803d' : '#b45309', fontSize: '0.75rem', fontWeight: '800' }}>
-                              {b.status}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>{b.total_parsed || 0} câu</td>
-                          <td style={{ padding: '14px 16px', fontWeight: '700', color: '#15803d' }}>{b.total_imported || 0} câu</td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
-                            {new Date(b.created_at || Date.now()).toLocaleDateString('vi-VN')}
-                          </td>
-                        </tr>
-                      ))
+                      (() => {
+                        const paginatedBatches = importBatches.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                        return paginatedBatches.map((b) => (
+                          <tr key={b.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '14px 16px', fontWeight: '700' }}>{b.title}</td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', fontSize: '0.78rem', fontWeight: '700' }}>
+                                {b.source_type}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', backgroundColor: b.status === 'COMPLETED' ? '#dcfce7' : '#fef3c7', color: b.status === 'COMPLETED' ? '#15803d' : '#b45309', fontSize: '0.75rem', fontWeight: '800' }}>
+                                {b.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 16px', fontWeight: '700' }}>{b.total_parsed || 0} câu</td>
+                            <td style={{ padding: '14px 16px', fontWeight: '700', color: '#15803d' }}>{b.total_imported || 0} câu</td>
+                            <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
+                              {new Date(b.created_at || Date.now()).toLocaleDateString('vi-VN')}
+                            </td>
+                          </tr>
+                        ));
+                      })()
                     ) : (
                       <tr>
                         <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
@@ -1231,6 +1348,17 @@ export default function AdminDashboardView() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Phân trang Đợt import */}
+              {importBatches.length > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(importBatches.length / itemsPerPage)}
+                  totalItems={importBatches.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                />
+              )}
             </div>
           )}
 
