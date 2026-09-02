@@ -84,6 +84,13 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
     }
   };
 
+  const handleCourseUpdatedOrDeleted = (deletedCourseId) => {
+    if (deletedCourseId) {
+      setCourses((prev) => prev.filter((c) => c.id !== deletedCourseId && c.slug !== deletedCourseId));
+    }
+    fetchTeacherCourses();
+  };
+
   useEffect(() => {
     fetchTeacherCourses();
   }, [user]);
@@ -459,7 +466,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         isOpen={showCurriculumModal}
         onClose={() => setShowCurriculumModal(false)}
         course={selectedCourseForCurriculum}
-        onCourseUpdated={fetchTeacherCourses}
+        onCourseUpdated={handleCourseUpdatedOrDeleted}
+        user={user}
       />
 
       {/* Modal AI Quiz Generator cho Giáo Viên (UC_T4) */}
@@ -530,12 +538,48 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
               </div>
 
               <div>
-                <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                  Ảnh đại diện khóa học (Thumbnail URL):
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700' }}>
+                    Ảnh đại diện khóa học (Thumbnail):
+                  </label>
+                  <label
+                    htmlFor="create-course-thumb-file"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      color: '#0284c7',
+                      backgroundColor: '#e0f2fe',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <i className="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Tải ảnh từ máy tính</span>
+                  </label>
+                  <input
+                    id="create-course-thumb-file"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setNewThumbnailUrl(event.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </div>
                 <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/photo-..."
+                  type="text"
+                  placeholder="Nhập URL ảnh hoặc bấm nút 'Tải ảnh từ máy tính' ở trên..."
                   value={newThumbnailUrl}
                   onChange={(e) => setNewThumbnailUrl(e.target.value)}
                   style={{
@@ -549,13 +593,36 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
 
                 {/* Thumbnail Preview */}
                 {newThumbnailUrl && (
-                  <div style={{ marginTop: '8px', height: '110px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                  <div style={{ marginTop: '8px', height: '110px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', position: 'relative' }}>
                     <img
                       src={newThumbnailUrl}
                       alt="Preview"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       onError={(e) => (e.target.style.display = 'none')}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setNewThumbnailUrl('')}
+                      style={{
+                        position: 'absolute',
+                        top: '6px',
+                        right: '6px',
+                        backgroundColor: 'rgba(0,0,0,0.6)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                      }}
+                      title="Gỡ ảnh"
+                    >
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
                   </div>
                 )}
 

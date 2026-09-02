@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 
 from common.responses import success_response, error_response
@@ -30,7 +30,6 @@ from .schemas import (
     generate_progress_quiz_schema,
     generate_teacher_quiz_schema
 )
-
 
 # ==================== CHAT SESSION VIEWS ====================
 
@@ -162,7 +161,7 @@ class GrammarCheckAPIView(APIView):
     """
     API Endpoint kiểm tra & phân tích sửa lỗi ngữ pháp tiếng Anh.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @grammar_check_schema
     def post(self, request):

@@ -26,9 +26,17 @@ class AIService:
     @staticmethod
     def create_session(student: CustomUser, validated_data: dict) -> ChatSession:
         """
-        Khởi tạo phiên trò chuyện AI mới.
+        Khởi tạo phiên trò chuyện AI mới và lưu tin nhắn mở đầu (nếu có).
         """
+        initial_message = validated_data.pop('initial_message', None)
         session = ChatSession.objects.create(student=student, **validated_data)
+        if initial_message:
+            ChatMessage.objects.create(
+                session=session,
+                sender_type=MessageSenderType.AI,
+                content=initial_message,
+                model_used='AI Communication Coach'
+            )
         return session
 
     @staticmethod
@@ -124,7 +132,7 @@ class AIService:
             recent_messages = list(session.messages.order_by('created_at')[:10])
             history = []
             for msg in recent_messages:
-                role = 'user' if msg.sender_type == MessageSenderType.USER else 'model'
+                role = 'user' if msg.sender_type == MessageSenderType.USER else 'assistant'
                 history.append({'role': role, 'content': msg.content})
 
             # 3. Gọi LLM Provider

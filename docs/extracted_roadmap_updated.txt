@@ -1,0 +1,667 @@
+ĐỒ ÁN TỐT NGHIỆP
+XÂY DỰNG NỀN TẢNG E-LEARNING TIẾNG ANH
+TÍCH HỢP TRÍ TUỆ NHÂN TẠO
+ReactJS + Django REST Framework + PostgreSQL + AI/LLM
+Phạm vi: Đồ án cá nhân – Modular Monolith, không sử dụng Microservices
+1. Tên đề tài
+Xây dựng nền tảng E-learning tiếng Anh tích hợp trí tuệ nhân tạo hỗ trợ học tập và cá nhân hóa lộ trình.
+English: Development of an AI-Integrated English E-learning Platform for Intelligent Learning and Personalized Learning Paths.
+2. Định hướng cho đồ án cá nhân
+Vì thực hiện một mình, hệ thống dùng Modular Monolith thay cho Microservices. Mục tiêu là một sản phẩm hoàn chỉnh, có chiều sâu và đủ khả năng giải thích khi bảo vệ.
+Một Django backend + một PostgreSQL database.
+ReactJS + TypeScript
+        ↓ HTTPS / REST API
+Django REST Framework
+ ├── Accounts
+ ├── Courses
+ ├── Learning
+ ├── Assessments
+ ├── AI
+ │    ├── Tutor Agent
+ │    ├── AI Quiz Generator
+ │    └── LLM Service / Tools
+ ├── Recommendations
+ └── Quiz Import
+        ↓
+PostgreSQL
+AI Module → LLM API
+Chia Django thành các app/module rõ ràng nhưng chạy trong cùng ứng dụng.
+AI nằm trong AI module của Django; React không gọi AI provider trực tiếp. AI module gồm 1 AI Agent chính (AI English Tutor) và các AI service hỗ trợ.
+Làm E-learning core trước rồi mới tích hợp AI.
+Không đưa Microservices, API Gateway, Kubernetes, gRPC hoặc nhiều database vào phạm vi chính.
+Celery + Redis chỉ là tùy chọn khi cần xử lý background job; không thuộc MVP.
+RAG/pgvector, speech AI và các mô hình ML nâng cao chỉ là phần mở rộng nếu còn thời gian.
+3. Mục tiêu và phạm vi
+Quản lý Student, Teacher, Admin.
+Course → Chapter → Lesson → Material.
+Enrollment và learning progress.
+Quiz, question, option, attempt, scoring.
+AI English Tutor Agent.
+AI sinh câu hỏi.
+Cá nhân hóa lộ trình dựa trên kết quả học tập bằng Learning Analytics + Rule-based Recommendation.
+Teacher upload XLSX/CSV → tự động tạo quiz → preview → publish.
+Authentication, authorization, validation, testing và deployment.
+4. Kiến trúc hệ thống
+ReactJS + TypeScript
+        ↓ HTTPS / REST API
+Django REST Framework
+ ├── Accounts
+ ├── Courses
+ ├── Learning
+ ├── Assessments
+ ├── AI
+ │    ├── Tutor Agent
+ │    ├── AI Quiz Generator
+ │    └── LLM Service / Tools
+ ├── Recommendations
+ └── Quiz Import
+        ↓
+PostgreSQL
+AI Module → LLM API
+Đây là Modular Monolith: module được tách rõ về trách nhiệm nhưng không phải các service độc lập.
+5. Công nghệ
+Thành phần
+Công nghệ
+Mức độ
+Frontend
+ReactJS + TypeScript
+Bắt buộc
+UI
+bootstrap
+ CSS
+Khuyến nghị
+Backend
+Python + Django + Django REST Framework
+Bắt buộc
+Database
+PostgreSQL
+Bắt buộc
+ORM
+Django ORM
+Bắt buộc
+Auth
+JWT + Refresh Token
+Bắt buộc
+AI
+LLM API
+Bắt buộc
+Excel/CSV
+openpyxl / pandas
+Bắt buộc
+API Docs
+Swagger/OpenAPI
+Khuyến nghị
+Testing
+Pytest + Django Test + React Testing Library
+Khuyến nghị
+Background
+Celery + Redis
+Tùy chọn
+RAG
+pgvector
+Tùy chọn
+Deployment
+Docker
+Sau khi core hoàn thiện
+Version control
+Git + GitHub
+Bắt buộc
+Diagram
+Draw.io / PlantUML
+Bắt buộc
+UI
+Figma
+Khuyến nghị
+6. Chức năng
+6.1 Student
+Register/Login/Profile
+Xem và lọc khóa học
+Đăng ký
+(mua)
+ khóa học
+Học lesson và theo dõi progress
+Làm quiz, xem điểm và đáp án
+AI Tutor Agent và giải thích lỗi
+Xem skill score và recommendation
+6.2 Teacher
+CRUD Course/Chapter/Lesson
+Tạo khóa học (bán hoặc free tùy giáo viên) và upload video lên từng bài học ( trong 1 khóa sẽ có nhiều bài học)
+Upload tài liệu
+Tạo quiz thủ công
+AI sinh quiz
+Upload CSV/XLSX ngân hàng câu hỏi
+Preview, chỉnh sửa, publish
+Xem kết quả học viên
+6.3 Admin
+Quản lý User/Role
+Quản lý Category/Course
+Khóa/mở tài khoản
+Thống kê cơ bản
+7. Ba AI Feature cốt lõi
+7.1 AI English Tutor Agent
+Student → React → Django → AI Tutor Agent → Tools/LLM → lưu lịch sử → React.
+Giải thích ngữ pháp
+Từ vựng
+Sửa câu
+Ví dụ
+Luyện hội thoại
+Giải thích câu sai
+API: POST /api/v1/ai/tutor/chat
+AI Tutor Agent có thể sử dụng các tool nội bộ như get_user_progress(), get_skill_score(), get_current_lesson() và get_quiz_result() để trả lời dựa trên dữ liệu học tập thực tế.
+7.2 AI sinh câu hỏi
+Input: topic, level, số lượng, type và context. LLM trả JSON theo schema; backend validate; Teacher preview/edit/approve trước khi lưu/publish.
+API: POST /api/v1/ai/quizzes/generate
+7.3 Cá nhân hóa và Recommendation
+Quiz score + wrong questions + completion + study time + topic + level → Learning Analytics → Skill Score → Weak Topic → Rule-based Recommendation.
+Baseline có thể dùng: SkillScore = 0.6 × QuizScore + 0.2 × Completion + 0.2 × RecentPerformance. LLM chỉ hỗ trợ giải thích recommendation, không tự quyết định điểm.
+7.4 Upload Quiz
+Teacher upload XLSX/CSV
+Kiểm tra file
+Parse bảng
+Map Topic/Question/Options/Answer
+Validate
+Group theo Topic
+Quiz Builder tạo Quiz/Question/Option
+Preview
+Chỉnh sửa
+Publish
+Với file có format chuẩn, dùng Python parser là chính xác nhất. 
+AI chỉ hỗ trợ khi format không chuẩn hoặc cần semantic mapping.
+Không triển khai AI tự chấm điểm trong MVP. Multiple Choice/True-False/Fill Blank dùng rule-based scoring; Writing/Speaking AI evaluation chỉ là hướng phát triển.
+8. Database
+Bảng
+Cột chính
+users
+id, email, password_hash, full_name, role, level, created_at
+roles
+id, name
+categories
+id, name, description
+courses
+id, category_id, teacher_id, title, description, level, status
+chapters
+id, course_id, title, order_index
+lessons
+id, chapter_id, title, content, video_url, order_index
+materials
+id, lesson_id, file_url, file_type
+enrollments
+id, user_id, course_id, enrolled_at, status
+lesson_progress
+id, user_id, lesson_id, completed, progress_percent, completed_at
+quizzes
+id, course_id/lesson_id, title, description, status
+questions
+id, quiz_id, topic, question_text, type, explanation, source
+options
+id, question_id, option_text, is_correct
+quiz_attempts
+id, quiz_id, user_id, score, started_at, submitted_at
+attempt_answers
+id, attempt_id, question_id, option_id, is_correct
+ai_conversations
+id, user_id, title, created_at
+ai_messages
+id, conversation_id, role, content, created_at
+skills
+id, name
+user_skill_scores
+id, user_id, skill_id, score, updated_at
+recommendations
+id, user_id, type, reason, target_course_id, target_lesson_id, score
+import_jobs
+id, teacher_id, file_url, status, total_rows, success_rows, error_rows
+import_errors
+id, import_job_id, row_number, error_message, raw_data
+9. ERD – quan hệ chính
+User 1-N Enrollment; Course 1-N Enrollment.
+Category 1-N Course; Course 1-N Chapter; Chapter 1-N Lesson.
+Course/Lesson 1-N Quiz; Quiz 1-N Question; Question 1-N Option.
+User 1-N QuizAttempt; QuizAttempt 1-N AttemptAnswer.
+User 1-N AIConversation; AIConversation 1-N AIMessage.
+User 1-N Recommendation.
+User N-N Skill qua UserSkillScore.
+Teacher 1-N ImportJob; ImportJob 1-N ImportError.
+10. Class Diagram
+Domain: User, Role, Course, Category, Chapter, Lesson, Material, Enrollment, LessonProgress, Quiz, Question, Option, QuizAttempt, AttemptAnswer, AIConversation, AIMessage, Skill, UserSkillScore, Recommendation, ImportJob, ImportError.
+Services: AuthService, CourseService, LearningProgressService, QuizService, AITutorAgentService, AIQuizGeneratorService, RecommendationService, QuizImportService, FileParserService, LearningAnalyticsService, LLMService.
+11. API
+Module
+API tiêu biểu
+Auth
+POST /api/v1/auth/register; POST /api/v1/auth/login; POST /api/v1/auth/refresh
+Courses
+GET /api/v1/courses; GET /api/v1/courses/{id}; POST/PUT/DELETE /api/v1/courses/{id}
+Lessons
+GET /api/v1/courses/{id}/lessons; POST/PUT/DELETE /api/v1/lessons/{id}
+Enrollment
+POST /api/v1/courses/{id}/enroll; GET /api/v1/me/courses
+Progress
+POST /api/v1/lessons/{id}/complete; GET /api/v1/courses/{id}/progress
+Quiz
+GET /api/v1/quizzes/{id}; POST /api/v1/quizzes/{id}/attempts; POST /api/v1/attempts/{id}/submit
+AI Tutor Agent
+POST /api/v1/ai/tutor/chat
+AI Quiz
+POST /api/v1/ai/quizzes/generate
+Recommendation
+GET /api/v1/recommendations/me
+Quiz Import
+POST /api/v1/quiz-imports; GET /api/v1/quiz-imports/{id}; POST /api/v1/quiz-imports/{id}/publish
+12. AI Architecture
+LLM dùng cho AI Tutor Agent và AI Quiz Generator. Learning Analytics/thuật toán dùng cho Skill Score, weak-topic detection và recommendation ranking. LLM chỉ giải thích recommendation; không cần tự train LLM.
+AI Tutor Agent có thể sử dụng các tool đọc course/lesson/progress/quiz result. RAG là phần mở rộng: tài liệu → extract → chunk → embedding → vector store → retrieve → LLM.
+13. Sơ đồ cần có
+STT
+Sơ đồ
+Mục đích
+1
+Context Diagram
+Actor và hệ thống bên ngoài
+2
+System Architecture
+React, Django, DB, AI
+3
+Use Case Diagram
+Student/Teacher/Admin
+4
+ERD
+Database
+5
+Class Diagram
+Entity và service
+6
+Activity – Login/Register
+Authentication
+7
+Activity – Learning
+Học và progress
+8
+Activity – Quiz
+Làm/nộp quiz
+9
+Activity – Personalized Learning
+Analytics → recommendation
+10
+Activity – Upload Quiz
+Upload → parse → publish
+11
+Sequence – Login
+Authentication
+12
+Sequence – AI Tutor
+React → Django → Tutor Agent → Tools/LLM → DB
+13
+Sequence – AI Generate Quiz
+Teacher → AI Quiz → validation → DB
+14
+Sequence – Upload Quiz
+Parser → Quiz Builder
+15
+Sequence – Personalized Learning
+Data → skill → recommendation
+16
+Deployment Diagram
+Triển khai
+14. Cấu trúc Django
+backend/
+├── config/
+├── apps/
+│   ├── accounts/
+│   ├── courses/
+│   ├── learning/
+│   ├── assessments/
+│   ├── ai/
+│   ├── recommendations/
+│   └── quiz_import/
+├── common/
+├── manage.py
+└── requirements.txt
+chia theo các thư mục như exception,pagination,permission,schemas,tests mỗi thư mục chức năng sẽ chứa model riêng ,serializer,urls,views
+Mỗi app có thể có models.py, serializers.py, views.py/viewsets.py, services.py, permissions.py, urls.py và tests/. Logic nghiệp vụ nên đặt ở service thay vì dồn vào views.
+15. Cấu trúc React
+Refactor code tốt nhất có th
+ế
+frontend/src/
+├── components/
+├── layouts/
+├── pages/
+├── features/
+│   ├── auth/
+│   ├── courses/
+│   ├── learning/
+│   ├── quizzes/
+│   ├── ai-tutor/
+│   ├── recommendations/
+│   └── quiz-import/
+├── services/
+├── hooks/
+├── types/
+├── routes/
+└── utils/
+16. Security và Testing
+JWT + refresh token
+Django password hashing
+Role-based permissions
+Validate file type/size/content
+API key trong environment variables
+Giới hạn prompt/upload
+Log import/publish
+Unit test service/parser/validator
+Integration test API + PostgreSQL
+AI output/schema tests và kiểm thử tool của Tutor Agent
+End-to-end Teacher upload → publish → Student quiz
+17. Lộ trình
+Giai đoạn
+Công việc
+Kết quả
+1
+Phân tích: mục tiêu, scope, actor, requirements
+SRS
+2
+Thiết kế: Context, Use Case, ERD, Class, Sequence, Activity
+Bộ sơ đồ
+3
+Django + DRF + PostgreSQL + JWT
+Auth + API nền
+4
+Course/Chapter/Lesson/Enrollment/Progress
+E-learning core
+5
+Quiz/Question/Option/Attempt/Score
+Assessment
+6
+React tích hợp core
+Website end-to-end
+7
+AI Tutor Agent
+Agent + tool calling + chat
+8
+AI Quiz Generator
+Sinh + validate + preview
+9
+Learning Analytics + Skill Score + Recommendation
+Cá nhân hóa rule-based
+10
+XLSX/CSV Parser + Quiz Builder
+Auto quiz import
+11
+Testing + Docker/deploy
+Demo ổn định
+12
+Báo cáo + slide + screenshots
+Bảo vệ
+18. MVP và phần mở rộng
+MVP bắt buộc
+Auth + Role
+Course + Lesson
+Enrollment + Progress
+Quiz + Scoring
+AI Tutor Agent
+AI Quiz Generator
+Recommendation cơ bản (rule-based)
+Không triển khai AI tự chấm Writing/Speaking trong MVP.
+XLSX/CSV → Quiz
+Teacher preview/publish
+Testing + deployment
+Nếu còn thời gian
+RAG + pgvector
+Speech-to-text/Speaking
+Pronunciation evaluation
+ML recommendation nâng cao
+Celery + Redis
+Realtime notification
+19. Không nên đưa vào phạm vi chính
+Microservices
+API Gateway
+Kubernetes
+gRPC
+RabbitMQ / Kafka
+Nhiều database
+Tự train LLM từ đầu
+Quá nhiều Agent/model AI
+Payment
+Livestream/video call
+Các nội dung này chỉ nên ghi ở phần hướng phát triển nếu muốn thể hiện khả năng mở rộng.
+20. Thứ tự bắt đầu
+Chốt đề tài và scope
+Viết requirements
+Context Diagram
+Use Case
+ERD
+Class Diagram
+4 Sequence: Login, AI Tutor, AI Quiz, Upload Quiz
+Figma
+Django + PostgreSQL + DRF + JWT
+Accounts → Courses → Learning → Quiz
+React tích hợp API core
+AI Tutor Agent
+AI Tutor Agent → AI Quiz → Recommendation → Quiz Import
+Testing → Docker/deploy → báo cáo
+21. Ba luồng AI trọng tâm và một luồng nghiệp vụ khi bảo vệ
+AI Tutor Agent
+Student → React → Django API → AI Service → LLM → Database → React.
+AI Generate Quiz
+Teacher → React → Django → AI → Validate JSON → Question Service → Database → Preview → Approve.
+Upload Quiz
+Teacher → XLSX/CSV → Django → Parser → Validator → Quiz Builder → Database → Preview → Publish.
+Personalized Learning
+Student activity → Learning Analytics → Skill Score → Weak Topic → Recommendation Engine → AI explanation → Learning Path.
+22. Tiêu chí hoàn thành tốt
+Core E-learning ổn định
+Database và ERD hợp lý
+REST API + validation + permission
+AI/Agent có use case thực tế và kiểm soát được output
+Recommendation dựa trên dữ liệu học tập
+Quiz Import có validation và preview
+Có testing và xử lý lỗi
+Giải thích được lựa chọn công nghệ và lý do không dùng Microservices
+Có hướng phát triển nhưng không phụ thuộc vào tính năng mở rộng
+23. Kết luận
+Phạm vi phù hợp nhất cho đồ án cá nhân là ReactJS + TypeScript, Django REST Framework, PostgreSQL và LLM API. Django tổ chức theo Modular Monolith với Accounts, Courses, Learning, Assessments, AI, Recommendations và Quiz Import.
+Ba điểm AI cốt lõi của sản phẩm là AI English Tutor Agent, AI Generate Quiz và Personalized Learning/Recommendation. Upload Quiz là chức năng nghiệp vụ hỗ trợ giáo viên, không tính là AI. Đây là phạm vi đủ lớn để có chiều sâu nhưng vẫn kiểm soát được cho một người hoàn thành.
+PHẦN BỔ SUNG – ÁP DỤNG ROADMAP VÀO ĐỒ ÁN
+E-learning tiếng Anh + AI | ReactJS + Django REST Framework + PostgreSQL | Modular Monolith
+1. Nguyên tắc áp dụng
+Roadmap gốc được thiết kế cho nhóm 5 người. Với đồ án cá nhân, giữ nguyên tư duy evidence-first, traceability và human-in-the-loop nhưng giảm số lượng task và phạm vi. Kiến trúc chính là Modular Monolith, không Microservices.
+Stack: ReactJS + TypeScript, Django + Django REST Framework, PostgreSQL.
+AI: LLM API cho AI Tutor và AI sinh câu hỏi; thuật toán analytics cho cá nhân hóa; parser XLSX/CSV cho Quiz Import.
+React chỉ gọi Django API; Django quản lý AI provider, prompt, validation, secrets và lịch sử.
+Teacher phải preview/edit/approve nội dung AI trước khi publish.
+Project Vault là Single Source of Truth.
+Mỗi feature quan trọng phải truy vết được Requirement → User Story → API/Code → Test → Evidence.
+2. Mapping roadmap vào đồ án
+Giai đoạn
+Roadmap
+Áp dụng cho đồ án
+Deliverable
+1
+Kick-off
+Tên đề tài, problem, objectives, metrics, scope, repo/vault
+project-charter; README; decision-log; AI_USAGE_LOG
+2
+Discovery & Requirements
+Persona Student/Teacher; requirements; business rules; benchmark
+problem-statement; persona-jtbd; requirements; business-rules; glossary; vault-qa-benchmark
+3
+PRD, Prototype & UX
+User flow, Figma, prototype happy path, usability test
+PRD; user-flow; Figma; usability-test; design-system
+4
+User Stories & Technical Specs
+8–12 stories; AC; architecture; ERD; API; class/sequence/activity
+user-stories; architecture; ERD; API/OpenAPI; story-specs; traceability
+5*
+Backend Foundation
+Django/DRF/PostgreSQL/JWT; Accounts; permission
+backend skeleton; migrations; auth API
+6*
+E-learning Core
+Course/Chapter/Lesson/Enrollment/Progress/Quiz
+core API + DB + tests
+7*
+Frontend & Integration
+React pages và tích hợp API; Student/Teacher flows
+frontend MVP + integrated demo
+8
+AI Feature
+4 AI features; validation/fallback; eval ≥20 cases
+ai-feature-spec; eval-set; AI services; evaluation-result
+9
+Code Review
+PR/self-review; bug normalization; merge
+PR evidence; code-review; bug-log
+10
+Testing & QA
+Unit/integration/API/frontend/E2E; regression
+test-strategy; test-cases; QA_REPORT; evidence
+11
+Security/NFR
+AuthZ, validation, secrets, logging, error handling
+security-checklist; nfr-report
+12
+Release
+Docker/CI; deploy; seed data; docs
+Docker; CI; demo URL; README; RUNBOOK; RELEASE; CHANGELOG; TRACEABILITY
+* Giai đoạn 5–7 là cách phân bổ đề xuất cho phần roadmap chưa xuất hiện trong bảng bạn gửi; khi có bảng chính thức của môn học, ưu tiên đối chiếu và giữ nguyên yêu cầu của môn.
+3. Giai đoạn 1 – Kick-off
+Chốt đề tài: Xây dựng nền tảng E-learning tiếng Anh tích hợp trí tuệ nhân tạo hỗ trợ học tập và cá nhân hóa lộ trình.
+Actors: Student, Teacher, Admin.
+Core value: học tập, đánh giá, AI feedback, cá nhân hóa và giảm thời gian tạo Quiz.
+Definition of Done: code chạy; API có validation/permission; test luồng chính; tài liệu và evidence được cập nhật.
+Success metrics: core flow end-to-end; AI Tutor và AI Quiz có eval set ≥20 case; Quiz Import parse đúng file mẫu; Recommendation có lý do dựa trên learning data.
+4. Giai đoạn 2 – Discovery, Requirements & Vault
+Requirements nên có ID để truy vết.
+FR-001 Register/Login.
+FR-002 Role-based access Student/Teacher/Admin.
+FR-003 Student xem và enroll Course.
+FR-004 Student học Lesson và lưu Progress.
+FR-005 Student làm Quiz và xem Result.
+FR-006 Student sử dụng AI English Tutor.
+FR-007 Teacher quản lý Course/Lesson/Quiz.
+FR-008 Teacher yêu cầu AI sinh Quiz.
+FR-009 Teacher upload XLSX/CSV để tạo Quiz.
+FR-010 Hệ thống phân tích learning data.
+FR-011 Hệ thống tính Skill Score và Weak Topic.
+FR-012 Hệ thống tạo Recommendation.
+Business Rules
+BR-001 Chỉ Student được enroll Course.
+BR-002 Chỉ Teacher/Admin được quản lý nội dung theo permission.
+BR-003 AI-generated Quiz phải validate trước khi lưu và Teacher approve trước publish.
+BR-004 Student phải enroll trước khi làm Quiz của Course.
+BR-005 File import sai format hoặc thiếu trường bắt buộc phải báo lỗi theo row.
+BR-006 Recommendation phải có learning data và reason.
+5. Giai đoạn 3 – PRD, Prototype & UX
+Student happy path: Login → Home → Course → Enroll → Lesson → Quiz → Result → Recommendation.
+AI Tutor: Tutor → Conversation → Question → AI response → History.
+Teacher AI Quiz: Quiz → Generate with AI → Preview → Edit → Approve → Publish.
+Teacher Import: Upload XLSX/CSV → Validate → Preview → Create Quiz → Edit → Publish.
+Recommendation: Dashboard → Skill/Weak Topic → Recommended Course/Lesson → Continue Learning.
+Prototype tối thiểu cần demo được happy path; chưa cần thiết kế mọi màn hình trước khi code.
+6. Giai đoạn 4 – User Stories & Technical Specs
+US-001 Student đăng nhập.
+US-002 Student enroll Course.
+US-003 Student hoàn thành Lesson.
+US-004 Student làm Quiz và nhận điểm.
+US-005 Student hỏi AI Tutor.
+US-006 Teacher tạo Quiz bằng AI.
+US-007 Teacher upload file Quiz.
+US-008 Teacher preview/approve/publish Quiz.
+US-009 Hệ thống tính Skill Score.
+US-010 Student nhận Recommendation.
+Mỗi story có Acceptance Criteria Given/When/Then, API, entity, test case và liên kết requirement.
+7. Technical Design – sơ đồ cần có
+Context Diagram – actors và hệ thống bên ngoài.
+System Architecture – React, Django modules, PostgreSQL, LLM provider, file parser.
+Use Case Diagram – Student/Teacher/Admin.
+ERD – User, Course, Chapter, Lesson, Enrollment, Progress, Quiz, Question, Option, Attempt, AI history, Skill, Recommendation, Import Job.
+Class Diagram – domain entities + service classes.
+Activity Diagram – Login, Learning, Quiz, AI Tutor, AI Quiz, Personalized Learning, Quiz Import.
+Sequence Diagram – Login, AI Tutor, AI Generate Quiz, Upload Quiz, Personalized Learning.
+Deployment Diagram – Frontend, Backend, Database, AI provider, file storage.
+8. Database & Django Modules
+Modules: accounts, courses, learning, assessments, ai, recommendations, quiz_import. Tất cả chạy trong cùng Django application và dùng PostgreSQL chung.
+Bảng lõi: users, roles, categories, courses, chapters, lessons, materials, enrollments, lesson_progress, quizzes, questions, options, quiz_attempts, attempt_answers, ai_conversations, ai_messages, skills, user_skill_scores, recommendations, import_jobs, import_errors.
+9. Giai đoạn 8 – 4 AI/Intelligent Features
+AI English Tutor
+React → POST /api/v1/ai/tutor/chat → Django AITutorService → LLM → validation → lưu conversation/message → React.
+AI sinh câu hỏi
+Input: topic, level, quantity, type, context → LLM JSON schema → backend validation → Teacher Preview/Edit/Approve → Database → Publish.
+Cá nhân hóa
+Learning data → Analytics → Skill Score → Weak Topic → Recommendation. Baseline: SkillScore = 0.6 × QuizScore + 0.2 × Completion + 0.2 × RecentPerformance.
+Upload Quiz
+XLSX/CSV → Parser → Mapping → Validation → Group Topic → Quiz/Question/Option → Preview → Teacher Approve → Publish. File chuẩn ưu tiên parser; AI chỉ hỗ trợ semantic mapping/format không chuẩn.
+10. AI Evaluation
+Tạo eval-set.csv/json tối thiểu 20 case. Mỗi case gồm ID, input/context, expected criteria, actual output, pass/fail, notes. Các nhóm nên có: grammar, correction, vocabulary, relevance, JSON validity, difficulty, duplicate/invalid output, fallback.
+Structured output validity
+Correctness
+Relevance
+Safety/guardrail
+Fallback khi LLM lỗi/timeout
+Teacher human validation
+11. Giai đoạn 9–11 – Review, QA, Security
+Feature branch → Pull Request → self-review checklist → test → merge.
+Backend: unit/service/serializer/API/permission tests.
+Frontend: component và critical-flow tests.
+E2E: Teacher upload → publish → Student làm Quiz → Result → Recommendation.
+Failure path: file sai format, thiếu cột, AI timeout, AI trả JSON lỗi, user không đủ permission.
+Security: JWT, authorization, input/file validation, secrets qua environment variables, dependency review, CORS.
+Observability: application logging, audit cho import/publish, centralized error handling.
+12. Giai đoạn 12 – Release
+Docker/Compose cho môi trường demo.
+Environment variables cho secrets.
+Seed demo data.
+CI chạy lint/test/build.
+Deploy demo và smoke test.
+Hoàn thiện README, RUNBOOK, RELEASE, CHANGELOG và TRACEABILITY.
+13. Traceability
+Ví dụ: FR-006 AI Tutor → US-005 → AC-005 → POST /api/v1/ai/tutor/chat → AITutorService → test_ai_tutor_chat → eval-set AI cases → screenshot/evidence. Áp dụng tương tự cho AI Quiz, Quiz Import và Recommendation.
+14. Thứ tự thực hiện thực tế
+Chốt đề tài + scope + out-of-scope.
+Tạo GitHub repo + board + vault.
+Viết Project Charter, Problem Statement, Objectives, Success Metrics.
+Làm Persona/JTBD, Requirements, Business Rules.
+Viết PRD và User Flow.
+Thiết kế Figma happy path.
+Viết User Stories + Acceptance Criteria.
+Thiết kế Architecture + Use Case + ERD + Class + Activity + Sequence + API.
+Khởi tạo Django + PostgreSQL + DRF + JWT.
+Xây Accounts/Permissions → Course/Lesson → Enrollment/Progress → Quiz.
+Xây React và tích hợp E-learning core.
+Tích hợp AI Tutor.
+Tích hợp AI Quiz + human approval.
+Tích hợp Analytics + Recommendation.
+Tích hợp XLSX/CSV → Quiz.
+Eval AI ≥20 cases.
+Code review + bug log.
+Testing → Security/NFR → Docker/CI → Deploy.
+Hoàn thiện report, traceability, screenshots và demo.
+15. Scope kiểm soát
+MVP bắt buộc
+Authentication + Role
+Course/Lesson
+Enrollment/Progress
+Quiz/Scoring
+AI Tutor
+AI Quiz Generator
+Personalized Recommendation cơ bản
+XLSX/CSV Quiz Import
+Teacher preview/approve
+Testing + deployment
+Không làm trong MVP
+Microservices
+Kubernetes
+API Gateway
+gRPC
+RabbitMQ/Kafka
+Payment
+Livestream
+Tự train LLM
+Multi-database architecture
+Nếu còn thời gian
+RAG + pgvector
+Speech-to-text
+Pronunciation evaluation
+ML recommendation nâng cao
+Celery + Redis
+Realtime notification

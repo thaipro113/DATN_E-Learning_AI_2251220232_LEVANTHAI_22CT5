@@ -121,6 +121,11 @@ class ChatSessionCreateSerializer(serializers.ModelSerializer):
     """
     Serializer tiếp nhận dữ liệu khi khởi tạo phiên chat AI mới.
     """
+    initial_message = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        write_only=True
+    )
     course_id = serializers.PrimaryKeyRelatedField(
         queryset=Course.objects.all(),
         source='course',
@@ -141,7 +146,8 @@ class ChatSessionCreateSerializer(serializers.ModelSerializer):
             'session_type',
             'target_level',
             'course_id',
-            'lesson_id'
+            'lesson_id',
+            'initial_message'
         ]
         extra_kwargs = {
             'title': {'required': False, 'default': 'Cuộc trò chuyện mới'},

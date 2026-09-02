@@ -44,6 +44,7 @@ export const courseAPI = {
   updateChapter: (chapterId, data) => apiClient.patch(`courses/chapters/${chapterId}/`, data),
   deleteChapter: (chapterId) => apiClient.delete(`courses/chapters/${chapterId}/`),
   createLesson: (chapterId, data) => apiClient.post(`courses/chapters/${chapterId}/lessons/`, data),
+  getLessonDetail: (lessonId) => apiClient.get(`courses/lessons/${lessonId}/`),
   updateLesson: (lessonId, data) => apiClient.patch(`courses/lessons/${lessonId}/`, data),
   deleteLesson: (lessonId) => apiClient.delete(`courses/lessons/${lessonId}/`),
   uploadMaterial: (lessonId, data) => apiClient.post(`courses/lessons/${lessonId}/materials/`, data),
@@ -77,6 +78,7 @@ export const assessmentAPI = {
 
 export const aiAPI = {
   getSessions: () => apiClient.get('ai/sessions/'),
+  getSessionDetail: (sessionId) => apiClient.get(`ai/sessions/${sessionId}/`),
   createSession: (data) => apiClient.post('ai/sessions/', data),
   deleteSession: (sessionId) => apiClient.delete(`ai/sessions/${sessionId}/`),
   sendMessage: (sessionId, content, targetLevel = 'B1') =>

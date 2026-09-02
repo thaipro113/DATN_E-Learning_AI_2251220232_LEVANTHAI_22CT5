@@ -124,7 +124,7 @@ class CourseService:
 
     @staticmethod
     def get_my_teaching_courses(teacher: CustomUser):
-        return Course.objects.filter(teacher=teacher).select_related('category').order_by('-created_at')
+        return Course.objects.filter(teacher=teacher).exclude(status=CourseStatus.ARCHIVED).select_related('category').order_by('-created_at')
 
     @staticmethod
     def get_course_detail(identifier: str, user=None):
@@ -162,9 +162,8 @@ class CourseService:
 
     @staticmethod
     def delete_course(course: Course) -> tuple[bool, str]:
-        course.status = CourseStatus.ARCHIVED
-        course.save()
-        return True, "Khóa học đã được lưu trữ (Archived) thành công."
+        course.delete()
+        return True, "Khóa học và toàn bộ giáo trình bên trong đã được xóa khỏi hệ thống thành công."
 
     @staticmethod
     def publish_course(course: Course) -> tuple[bool, str, Course]:

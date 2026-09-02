@@ -70,6 +70,25 @@ class RegisterSerializer(serializers.Serializer):
         default=EnglishLevel.A1,
         help_text="Trình độ tiếng Anh ban đầu (A1 - C2)"
     )
+    phone_number = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=20,
+        default="",
+        help_text="Số điện thoại liên hệ"
+    )
+    bio = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Mục tiêu học tập hoặc giới thiệu bản thân"
+    )
+    avatar_url = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Đường dẫn ảnh đại diện hoặc avatar base64"
+    )
 
     def validate_email(self, value):
         normalized_email = value.lower().strip()
