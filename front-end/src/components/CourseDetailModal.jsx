@@ -62,9 +62,9 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderRadius: 'var(--radius-lg)',
-          maxWidth: '1060px',
+          maxWidth: '820px',
           width: '100%',
-          maxHeight: '94vh',
+          maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
@@ -73,13 +73,13 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
       >
         {/* Banner Header OR Active Preview Player */}
         {activePreviewLesson && activePreviewLesson.video_url ? (
-          <div style={{ backgroundColor: '#0f172a', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 18px', backgroundColor: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#f8fafc' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <span style={{ backgroundColor: '#10b981', color: 'white', padding: '3px 10px', borderRadius: '4px', fontWeight: '800', fontSize: '0.75rem' }}>
+          <div style={{ backgroundColor: '#0f172a', padding: '10px 16px 14px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', color: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                <span style={{ backgroundColor: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: '800', fontSize: '0.72rem' }}>
                   🎬 Đang xem thử bài giảng
                 </span>
-                <strong style={{ color: '#f1f5f9', fontSize: '0.95rem' }}>{activePreviewLesson.title}</strong>
+                <strong style={{ color: '#f1f5f9', fontSize: '0.9rem' }}>{activePreviewLesson.title}</strong>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {currentData.slug && (
@@ -107,8 +107,8 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                 <button
                   onClick={onClose}
                   style={{
-                    width: '30px',
-                    height: '30px',
+                    width: '28px',
+                    height: '28px',
                     borderRadius: '50%',
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
                     color: '#ffffff',
@@ -117,7 +117,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                     justifyContent: 'center',
                     cursor: 'pointer',
                     border: 'none',
-                    fontSize: '1rem',
+                    fontSize: '0.95rem',
                   }}
                 >
                   <i className="fa-solid fa-xmark"></i>
@@ -125,12 +125,31 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
               </div>
             </div>
 
-            <div style={{ height: '460px', width: '100%', backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/* Compact Centered 16:9 Video Box */}
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '560px',
+                aspectRatio: '16 / 9',
+                position: 'relative',
+                backgroundColor: '#000',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.6)',
+              }}
+            >
               {isYouTubeUrl(activePreviewLesson.video_url) ? (
                 <iframe
                   src={getYouTubeEmbedUrl(activePreviewLesson.video_url)}
                   title={activePreviewLesson.title}
-                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                  }}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
@@ -138,7 +157,14 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                 <video
                   src={activePreviewLesson.video_url}
                   controls
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                  }}
                 />
               )}
             </div>
@@ -147,7 +173,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
           <div
             style={{
               position: 'relative',
-              height: '200px',
+              height: '180px',
               backgroundColor: '#0284c7',
               overflow: 'hidden',
             }}

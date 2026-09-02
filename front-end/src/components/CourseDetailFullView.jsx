@@ -176,12 +176,27 @@ export default function CourseDetailFullView({
                   </span>
                 </div>
 
-                <div style={{ height: '480px', width: '100%', backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    paddingBottom: '56.25%',
+                    backgroundColor: '#000',
+                    overflow: 'hidden',
+                  }}
+                >
                   {isYouTubeUrl(activePreviewLesson.video_url) ? (
                     <iframe
                       src={getYouTubeEmbedUrl(activePreviewLesson.video_url)}
                       title={activePreviewLesson.title}
-                      style={{ width: '100%', height: '100%', border: 'none' }}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        border: 'none',
+                      }}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     />
@@ -189,7 +204,14 @@ export default function CourseDetailFullView({
                     <video
                       src={activePreviewLesson.video_url}
                       controls
-                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                      }}
                     />
                   )}
                 </div>
