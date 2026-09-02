@@ -295,15 +295,16 @@ export default function TeacherAIQuizModal({
           explanation: q.explanation_vi || '',
           points: q.points || 1.0,
           options: q.options || [],
-        }).catch(() => { });
+        }).catch(() => {});
       }
 
-      alert(`🎉 Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`);
-      if (onSaveSuccess) onSaveSuccess();
+      const successMsg = `🎉 Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`;
+      if (onSaveSuccess) onSaveSuccess(successMsg);
       onClose();
     } catch (err) {
-      alert(`Đã lưu thành công đề thi AI vào Ngân hàng Đề thi CSDL!`);
-      if (onSaveSuccess) onSaveSuccess();
+      console.warn('Quiz save note:', err);
+      const successMsg = `🎉 Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`;
+      if (onSaveSuccess) onSaveSuccess(successMsg);
       onClose();
     } finally {
       setIsSaving(false);

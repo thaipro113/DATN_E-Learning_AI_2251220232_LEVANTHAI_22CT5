@@ -97,9 +97,10 @@ QUIZ_GENERATOR_SYSTEM_PROMPT = """Bạn là Chuyên gia Thiết kế Đề thi T
 Nhiệm vụ: Tạo các câu hỏi trắc nghiệm tiếng Anh 4 lựa chọn (A, B, C, D) chất lượng cao.
 
 YÊU CẦU BẮT BUỘC:
-1. Mỗi câu có 4 phương án, đúng 1 đáp án chính xác (is_correct=true).
-2. Lời giải chi tiết bằng tiếng Việt (explanation_vi).
-3. Trả về DUY NHẤT một mảng JSON các câu hỏi (JSON Array), không có bất kỳ văn bản nào ngoài JSON.
+1. BẮT BUỘC tạo ĐỦ CHÍNH XÁC 100% số lượng câu hỏi mà người dùng yêu cầu (ví dụ yêu cầu 10 câu, 20 câu, 30 câu, 40 câu hay 50 câu thì mảng JSON phải có đúng ngần ấy phần tử). Tuyệt đối KHÔNG ĐƯỢC tạo thiếu hay cắt bớt.
+2. Mỗi câu có 4 phương án (A, B, C, D), đúng 1 đáp án chính xác (is_correct=true).
+3. Lời giải chi tiết bằng tiếng Việt (explanation_vi) súc tích, dễ hiểu.
+4. Trả về DUY NHẤT một mảng JSON các câu hỏi (JSON Array) hoặc đối tượng JSON {"questions": [...]}, không có bất kỳ văn bản chào hỏi nào ngoài JSON.
 
 CẤU TRÚC JSON MẪU:
 [
@@ -123,7 +124,7 @@ CẤU TRÚC JSON MẪU:
 def build_quiz_generation_prompt(
     context_type: str,
     target_level: str = 'B1',
-    num_questions: int = 5,
+    num_questions: int = 10,
     topic: str = None,
     skill: str = 'GRAMMAR',
     chapter_title: str = None,
@@ -133,12 +134,14 @@ def build_quiz_generation_prompt(
     if context_type == 'PROGRESS_BASED':
         lessons_summary = "\n".join([f"- Bài {idx+1}: {lesson}" for idx, lesson in enumerate(completed_lessons)])
         return (
+            f"YÊU CẦU BẮT BUỘC: Bạn PHẢI tạo ĐỦ ĐÚNG CHÍNH XÁC {num_questions} câu hỏi trắc nghiệm (gồm đúng {num_questions} phần tử trong mảng JSON).\n"
             f"Hãy tạo {num_questions} câu hỏi trắc nghiệm tiếng Anh trình độ {target_level} "
             f"cho chương '{chapter_title or 'Chương học'}'.\n"
             f"Nội dung các bài học đã học:\n{lessons_summary}"
         )
     else:
         return (
+            f"YÊU CẦU BẮT BUỘC: Bạn PHẢI tạo ĐỦ ĐÚNG CHÍNH XÁC {num_questions} câu hỏi trắc nghiệm (gồm đúng {num_questions} phần tử trong mảng JSON). Tuyệt đối không sinh thiếu câu hỏi.\n"
             f"Hãy tạo {num_questions} câu hỏi trắc nghiệm tiếng Anh trình độ {target_level} "
-            f"về chủ đề '{topic or 'English Practice'}' (Kỹ năng: {skill})."
+            f"về chủ đề: '{topic or 'English Practice'}' (Kỹ năng trọng tâm: {skill})."
         )

@@ -8,6 +8,8 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
   const [myAttempts, setMyAttempts] = useState([]);
   const [activeTab, setActiveTab] = useState('quizzes'); // 'quizzes' or 'history'
   const [selectedQuizType, setSelectedQuizType] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [toastMsg, setToastMsg] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
   const [userAnswers, setUserAnswers] = useState({});
@@ -20,8 +22,15 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
   const itemsPerPage = 6;
 
   useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => setToastMsg(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
+  useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, selectedQuizType]);
+  }, [activeTab, selectedQuizType, searchQuery]);
 
   const fetchQuizzesAndHistory = async () => {
     setIsLoading(true);
@@ -85,10 +94,10 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
           }
         }
       } else {
-        alert('Đề thi này hiện chưa có câu hỏi trong CSDL. Vui lòng chọn đề thi khác hoặc tạo câu hỏi bằng AI!');
+        setToastMsg('⚠️ Đề thi này hiện chưa có câu hỏi trong CSDL. Vui lòng chọn đề thi khác hoặc tạo câu hỏi bằng AI!');
       }
     } catch (e) {
-      alert('Không thể tải chi tiết đề thi từ CSDL.');
+      setToastMsg('⚠️ Không thể tải chi tiết đề thi từ CSDL.');
     }
   };
 
@@ -550,69 +559,218 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
       ) : (
         /* VIEW 3: DANH SÁCH ĐỀ THI TỪ CSDL */
         <div>
-          {/* Filter Tabs for Quiz Types */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap' }}>
-            {[
-              { id: 'ALL', label: `Tất cả (${quizzes.length})` },
-              { id: 'PLACEMENT', label: `🎯 Đánh giá đầu vào (${quizzes.filter((q) => q.quiz_type === 'PLACEMENT').length})` },
-              { id: 'PRACTICE', label: `📝 Luyện tập (${quizzes.filter((q) => q.quiz_type === 'PRACTICE' || !q.quiz_type).length})` },
-              { id: 'FINAL', label: `🏆 Cuối khóa (${quizzes.filter((q) => q.quiz_type === 'FINAL').length})` },
-            ].map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedQuizType(p.id)}
+          {/* Top Controls: Filter Tabs & Search Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {[
+                { id: 'ALL', label: `Tất cả (${quizzes.length})` },
+                { id: 'PLACEMENT', label: `🎯 Đánh giá đầu vào (${quizzes.filter((q) => q.quiz_type === 'PLACEMENT').length})` },
+                { id: 'PRACTICE', label: `📝 Luyện tập (${quizzes.filter((q) => q.quiz_type === 'PRACTICE' || !q.quiz_type).length})` },
+                { id: 'FINAL', label: `🏆 Cuối khóa (${quizzes.filter((q) => q.quiz_type === 'FINAL').length})` },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedQuizType(p.id)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.82rem',
+                    fontWeight: selectedQuizType === p.id ? '800' : '600',
+                    backgroundColor: selectedQuizType === p.id ? '#0284c7' : 'var(--bg-surface)',
+                    color: selectedQuizType === p.id ? '#ffffff' : 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div style={{ position: 'relative', minWidth: '240px' }}>
+              <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}></i>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm đề thi, khóa học..."
                 style={{
-                  padding: '6px 14px',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: '0.82rem',
-                  fontWeight: selectedQuizType === p.id ? '800' : '600',
-                  backgroundColor: selectedQuizType === p.id ? '#0284c7' : 'var(--bg-surface)',
-                  color: selectedQuizType === p.id ? '#ffffff' : 'var(--text-secondary)',
+                  width: '100%',
+                  padding: '7px 12px 7px 32px',
+                  borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border-color)',
-                  cursor: 'pointer',
+                  fontSize: '0.82rem',
+                  backgroundColor: 'var(--bg-surface)',
+                  color: 'var(--text-main)',
                 }}
-              >
-                {p.label}
-              </button>
-            ))}
+              />
+            </div>
           </div>
 
           {(() => {
             const filteredQuizzes = quizzes.filter((q) => {
-              if (selectedQuizType === 'ALL') return true;
-              if (selectedQuizType === 'PRACTICE') return q.quiz_type === 'PRACTICE' || !q.quiz_type;
-              return q.quiz_type === selectedQuizType;
+              if (selectedQuizType !== 'ALL') {
+                if (selectedQuizType === 'PRACTICE' && q.quiz_type && q.quiz_type !== 'PRACTICE') return false;
+                if (selectedQuizType !== 'PRACTICE' && q.quiz_type !== selectedQuizType) return false;
+              }
+              if (searchQuery.trim()) {
+                const query = searchQuery.toLowerCase();
+                const titleMatch = (q.title || '').toLowerCase().includes(query);
+                const descMatch = (q.description || '').toLowerCase().includes(query);
+                const courseMatch = (q.course_title || '').toLowerCase().includes(query);
+                return titleMatch || descMatch || courseMatch;
+              }
+              return true;
             });
             const paginatedQuizzes = filteredQuizzes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+            if (isLoading) {
+              return (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <i className="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+                  <p style={{ marginTop: '10px', fontSize: '0.9rem' }}>Đang nạp dữ liệu ngân hàng đề thi...</p>
+                </div>
+              );
+            }
+
+            if (paginatedQuizzes.length === 0) {
+              return (
+                <div style={{ padding: '36px', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                  <i className="fa-solid fa-box-open fa-2x" style={{ opacity: 0.5, marginBottom: '10px' }}></i>
+                  <p style={{ margin: 0, fontWeight: '600' }}>Không tìm thấy đề thi phù hợp với bộ lọc hiện tại.</p>
+                </div>
+              );
+            }
+
             return (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
                   {paginatedQuizzes.map((quiz) => (
-                    <div key={quiz.id} className="quiz-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span className="quiz-level-tag">
-                          {quiz.quiz_type === 'PLACEMENT' ? '🎯 Đầu vào' : quiz.quiz_type === 'FINAL' ? '🏆 Cuối khóa' : '📝 Luyện tập'} · CEFR {quiz.level || 'B1'}
-                        </span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                          <i className="fa-regular fa-clock" style={{ marginRight: '4px' }}></i>
-                          {quiz.time_limit_minutes || 15} phút
-                        </span>
+                    <div
+                      key={quiz.id}
+                      style={{
+                        backgroundColor: 'var(--bg-surface, #ffffff)',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-color, #e2e8f0)',
+                        padding: '18px 20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 2px 8px -2px rgba(0,0,0,0.05)',
+                        transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                      }}
+                    >
+                      <div>
+                        {/* Top tags */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                          <span
+                            style={{
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                              backgroundColor: quiz.quiz_type === 'FINAL' ? '#fef3c7' : quiz.quiz_type === 'PLACEMENT' ? '#e0f2fe' : '#f3e8ff',
+                              color: quiz.quiz_type === 'FINAL' ? '#b45309' : quiz.quiz_type === 'PLACEMENT' ? '#0369a1' : '#7e22ce',
+                            }}
+                          >
+                            {quiz.quiz_type === 'PLACEMENT' ? '🎯 Đầu vào' : quiz.quiz_type === 'FINAL' ? '🏆 Cuối khóa' : '📝 Luyện tập'} · CEFR {quiz.level || 'B1'}
+                          </span>
+
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <i className="fa-regular fa-clock" style={{ color: '#0284c7' }}></i>
+                            <span>{quiz.time_limit_minutes || 15} phút</span>
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3
+                          style={{
+                            fontSize: '1rem',
+                            fontWeight: '800',
+                            color: 'var(--text-main, #0f172a)',
+                            margin: '0 0 8px 0',
+                            lineHeight: '1.4',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                          title={quiz.title}
+                        >
+                          {quiz.title}
+                        </h3>
+
+                        {/* Scope / Course Link badge if linked */}
+                        {(quiz.course_title || quiz.chapter_title || quiz.lesson_title) && (
+                          <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            {quiz.course_title && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1' }}>
+                                <i className="fa-solid fa-graduation-cap" style={{ marginRight: '3px' }}></i>
+                                {quiz.course_title}
+                              </span>
+                            )}
+                            {quiz.chapter_title && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: '700', padding: '2px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#b45309' }}>
+                                <i className="fa-solid fa-folder-open" style={{ marginRight: '3px' }}></i>
+                                {quiz.chapter_title}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Description */}
+                        <p
+                          style={{
+                            fontSize: '0.8rem',
+                            color: 'var(--text-muted, #64748b)',
+                            lineHeight: '1.5',
+                            margin: '0 0 16px 0',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {quiz.description || 'Đề thi trắc nghiệm giúp đánh giá và củng cố kiến thức theo chuẩn CEFR.'}
+                        </p>
                       </div>
 
-                      <h3 className="quiz-card-title">{quiz.title}</h3>
-                      <p className="quiz-card-desc">{quiz.description || 'Đề thi trắc nghiệm giúp đánh giá và củng cố kiến thức.'}</p>
-
-                      <div className="quiz-card-footer">
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          <i className="fa-solid fa-list-ol" style={{ marginRight: '4px' }}></i>
-                          {quiz.total_questions || quiz.questions?.length || 5} câu hỏi
-                        </span>
+                      {/* Footer */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          paddingTop: '12px',
+                          borderTop: '1px solid var(--border-color, #e2e8f0)',
+                          marginTop: 'auto',
+                          gap: '10px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#0f172a' }}>
+                            <i className="fa-solid fa-list-ol" style={{ color: '#0284c7', marginRight: '5px' }}></i>
+                            {quiz.total_questions || quiz.questions?.length || 5} câu hỏi
+                          </span>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                            Điểm chuẩn: {quiz.passing_score || 70}%
+                          </span>
+                        </div>
 
                         <button
                           className="btn-primary"
                           onClick={() => handleStartQuiz(quiz)}
-                          style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                          style={{
+                            padding: '6px 14px',
+                            fontSize: '0.82rem',
+                            fontWeight: '700',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            backgroundColor: '#0284c7',
+                          }}
                         >
                           <i className="fa-solid fa-play"></i>
                           <span>Vào thi ngay</span>
@@ -645,6 +803,32 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn }) {
           handleStartQuiz(generatedQuiz);
         }}
       />
+
+      {/* Toast thông báo ở góc dưới */}
+      {toastMsg && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: toastMsg.startsWith('⚠️') ? '#dc2626' : '#059669',
+            color: 'white',
+            padding: '12px 22px',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.35)',
+            fontWeight: '700',
+            fontSize: '0.88rem',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <i className={`fa-solid ${toastMsg.startsWith('⚠️') ? 'fa-triangle-exclamation' : 'fa-circle-check'}`}></i>
+          <span>{toastMsg}</span>
+        </div>
+      )}
     </div>
   );
 }

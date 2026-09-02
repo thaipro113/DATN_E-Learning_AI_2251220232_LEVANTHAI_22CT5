@@ -181,6 +181,7 @@ class GeminiLLMProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     system_instruction=QUIZ_GENERATOR_SYSTEM_PROMPT,
                     temperature=0.7,
+                    max_output_tokens=8192,
                     response_mime_type="application/json"
                 )
 
@@ -395,6 +396,7 @@ class GroqLLMProvider(BaseLLMProvider):
                 {'role': 'user', 'content': prompt}
             ],
             'temperature': 0.7,
+            'max_tokens': 6000,
             'response_format': {'type': 'json_object'}
         }
 
@@ -408,7 +410,7 @@ class GroqLLMProvider(BaseLLMProvider):
                     'User-Agent': 'Mozilla/5.0'
                 }
             )
-            with urllib.request.urlopen(req, timeout=15) as response:
+            with urllib.request.urlopen(req, timeout=60) as response:
                 result = json.loads(response.read().decode('utf-8'))
                 raw_json = result['choices'][0]['message']['content']
                 data = json.loads(raw_json)

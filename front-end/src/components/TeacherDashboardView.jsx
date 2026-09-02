@@ -565,7 +565,10 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
           setShowAIQuizModal(false);
           setSelectedCourseForAIQuiz(null);
         }}
-        onSaveSuccess={fetchTeacherCourses}
+        onSaveSuccess={(msg) => {
+          fetchTeacherCourses();
+          setToastMsg(typeof msg === 'string' ? msg : '🎉 Đã tạo và lưu đề thi AI vào CSDL Ngân Hàng Đề Thi thành công!');
+        }}
         courses={courses}
         initialCourse={selectedCourseForAIQuiz}
       />
