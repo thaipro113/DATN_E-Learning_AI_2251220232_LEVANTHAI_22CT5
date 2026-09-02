@@ -138,18 +138,19 @@ export default function GuestUdemyHomeView({
 
       {/* 3. Featured & Trending Courses Grid (Live Database Data) */}
       <section className="udemy-courses-section">
-        <div className="section-header-row">
-          <div>
-            <h2 className="section-main-title">
-              <i className="fa-solid fa-fire" style={{ color: '#ea580c', marginRight: '8px' }}></i>
-              Các khóa học thịnh hành & nổi bật nhất
-            </h2>
-            <p className="section-sub-title">Được xây dựng bởi các giảng viên xuất sắc và tối ưu hóa bởi AI</p>
+        <div style={{ marginBottom: '16px' }}>
+          <h2 className="section-main-title">
+            <i className="fa-solid fa-fire" style={{ color: '#ea580c', marginRight: '8px' }}></i>
+            Các khóa học thịnh hành & nổi bật nhất
+          </h2>
+          <p className="section-sub-title">Được xây dựng bởi các giảng viên xuất sắc và tối ưu hóa bởi AI</p>
+          <div style={{ marginTop: '10px' }}>
+            <button className="btn-text-link" onClick={onExploreClick}>
+              <i className="fa-solid fa-layer-group"></i>
+              <span>Xem tất cả ({courses.length})</span>
+              <i className="fa-solid fa-arrow-right"></i>
+            </button>
           </div>
-          <button className="btn-text-link" onClick={onExploreClick}>
-            <span>Xem tất cả ({courses.length})</span>
-            <i className="fa-solid fa-arrow-right"></i>
-          </button>
         </div>
 
         <div className="udemy-course-grid">

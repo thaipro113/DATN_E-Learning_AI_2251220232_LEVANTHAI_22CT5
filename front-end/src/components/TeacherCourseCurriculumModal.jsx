@@ -31,6 +31,9 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editLevel, setEditLevel] = useState('B1');
+  const [editStatus, setEditStatus] = useState('PUBLISHED');
+  const [editCategoryId, setEditCategoryId] = useState('');
+  const [categories, setCategories] = useState([]);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState('');
   const [editPrice, setEditPrice] = useState(0);
 
@@ -39,6 +42,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [editingChapterId, setEditingChapterId] = useState(null);
   const [chapterTitle, setChapterTitle] = useState('');
   const [chapterDesc, setChapterDesc] = useState('');
+  const [chapterOrderIndex, setChapterOrderIndex] = useState(1);
 
   // Lesson State
   const [addingLessonChapterId, setAddingLessonChapterId] = useState(null);
@@ -46,6 +50,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonVideoUrl, setLessonVideoUrl] = useState('');
   const [lessonDuration, setLessonDuration] = useState(15);
+  const [lessonOrderIndex, setLessonOrderIndex] = useState(1);
   const [lessonContent, setLessonContent] = useState('');
   const [lessonIsPreview, setLessonIsPreview] = useState(false);
 
@@ -64,15 +69,28 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
     if (!course) return;
     setIsLoading(true);
     try {
-      const res = await courseAPI.getCourseDetail(course.slug || course.id);
-      const data = res.data?.data || res.data;
-      if (data) {
-        setCourseDetail(data);
-        setEditTitle(data.title || '');
-        setEditDescription(data.description || '');
-        setEditLevel(data.level || 'B1');
-        setEditThumbnailUrl(data.thumbnail_url || '');
-        setEditPrice(Number(data.price || 0));
+      const [res, catsRes] = await Promise.allSettled([
+        courseAPI.getCourseDetail(course.slug || course.id),
+        courseAPI.getCategories(),
+      ]);
+
+      if (catsRes.status === 'fulfilled' && catsRes.value.data) {
+        const cList = catsRes.value.data.data || catsRes.value.data.results || catsRes.value.data;
+        if (Array.isArray(cList)) setCategories(cList);
+      }
+
+      if (res.status === 'fulfilled') {
+        const data = res.value.data?.data || res.value.data;
+        if (data) {
+          setCourseDetail(data);
+          setEditTitle(data.title || '');
+          setEditDescription(data.description || '');
+          setEditLevel(data.level || 'B1');
+          setEditStatus(data.status || 'PUBLISHED');
+          setEditCategoryId(data.category?.id || data.category || '');
+          setEditThumbnailUrl(data.thumbnail_url || '');
+          setEditPrice(Number(data.price || 0));
+        }
       }
     } catch (e) {
       console.warn('Could not fetch detail:', e);
@@ -97,6 +115,8 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       title: editTitle.trim(),
       description: editDescription.trim(),
       level: editLevel,
+      status: editStatus,
+      category_id: editCategoryId || null,
       thumbnail_url: editThumbnailUrl.trim(),
       price: Number(editPrice),
     };
@@ -146,21 +166,22 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
     if (!chapterTitle.trim()) return;
 
     try {
+      const payload = {
+        title: chapterTitle.trim(),
+        description: chapterDesc.trim(),
+        order_index: Number(chapterOrderIndex) || 1,
+      };
+
       if (editingChapterId) {
-        await courseAPI.updateChapter(editingChapterId, {
-          title: chapterTitle.trim(),
-          description: chapterDesc.trim(),
-        });
+        await courseAPI.updateChapter(editingChapterId, payload);
       } else {
-        await courseAPI.createChapter(courseDetail.id, {
-          title: chapterTitle.trim(),
-          description: chapterDesc.trim(),
-        });
+        await courseAPI.createChapter(courseDetail.id, payload);
       }
       setShowAddChapter(false);
       setEditingChapterId(null);
       setChapterTitle('');
       setChapterDesc('');
+      setChapterOrderIndex(1);
       fetchDetail();
       if (onCourseUpdated) onCourseUpdated();
     } catch (err) {
@@ -201,6 +222,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
         title: lessonTitle.trim(),
         video_url: lessonVideoUrl.trim(),
         duration_minutes: Number(lessonDuration) || 15,
+        order_index: Number(lessonOrderIndex) || 1,
         content: lessonContent.trim(),
         is_preview: lessonIsPreview,
       };
@@ -216,6 +238,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       setLessonTitle('');
       setLessonVideoUrl('');
       setLessonDuration(15);
+      setLessonOrderIndex(1);
       setLessonContent('');
       setLessonIsPreview(false);
       setToastMsg(editingLessonId ? '✓ Đã cập nhật bài giảng video thành công!' : '✓ Đã tạo bài giảng video mới thành công!');
@@ -513,6 +536,33 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                 </div>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Danh mục khóa học:</label>
+                  <select
+                    value={editCategoryId}
+                    onChange={(e) => setEditCategoryId(e.target.value)}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Trạng thái xuất bản:</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  >
+                    <option value="PUBLISHED">✓ Đã xuất bản (PUBLISHED)</option>
+                    <option value="DRAFT">📝 Bản nháp (DRAFT)</option>
+                    <option value="ARCHIVED">📦 Đã lưu trữ (ARCHIVED)</option>
+                  </select>
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
@@ -641,14 +691,24 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                 <strong style={{ fontSize: '0.85rem', color: '#15803d' }}>
                   {editingChapterId ? 'Sửa tên chương học' : 'Thêm chương học mới vào khóa'}
                 </strong>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Chương 1: Cấu trúc câu và Thì hiện tại..."
-                  value={chapterTitle}
-                  onChange={(e) => setChapterTitle(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                  required
-                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Chương 1: Cấu trúc câu và Thì hiện tại..."
+                    value={chapterTitle}
+                    onChange={(e) => setChapterTitle(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                    required
+                  />
+                  <input
+                    type="number"
+                    placeholder="Thứ tự (1, 2...)"
+                    value={chapterOrderIndex}
+                    onChange={(e) => setChapterOrderIndex(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                    title="Số thứ tự chương"
+                  />
+                </div>
                 <input
                   type="text"
                   placeholder="Mô tả mục tiêu của chương học..."
@@ -753,7 +813,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                           {editingLessonId ? 'Sửa bài giảng video' : `Thêm bài học mới vào: ${ch.title}`}
                         </strong>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px' }}>
                           <div>
                             <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Tên bài học:</label>
                             <input
@@ -771,6 +831,15 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                               type="number"
                               value={lessonDuration}
                               onChange={(e) => setLessonDuration(e.target.value)}
+                              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.75rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Thứ tự (Order):</label>
+                            <input
+                              type="number"
+                              value={lessonOrderIndex}
+                              onChange={(e) => setLessonOrderIndex(e.target.value)}
                               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                             />
                           </div>

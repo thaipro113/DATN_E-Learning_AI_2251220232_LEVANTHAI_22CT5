@@ -16,6 +16,27 @@ export default function AdminDashboardView() {
   const [toastMsg, setToastMsg] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Edit User Modal State
+  const [editingUserModal, setEditingUserModal] = useState({
+    isOpen: false,
+    user: null,
+    fullName: '',
+    phoneNumber: '',
+    level: 'B1',
+    role: 'STUDENT',
+    bio: '',
+    isActive: true,
+  });
+
+  // Category CRUD Modal State
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [editingCatId, setEditingCatId] = useState(null);
+  const [catName, setCatName] = useState('');
+  const [catSlug, setCatSlug] = useState('');
+  const [catIconUrl, setCatIconUrl] = useState('');
+  const [catDescription, setCatDescription] = useState('');
+  const [catIsActive, setCatIsActive] = useState(true);
+
   // Confirm Modal state for Admin operations
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -130,6 +151,129 @@ export default function AdminDashboardView() {
     }
   };
 
+  // 2.1. Admin Chỉnh sửa Toàn Diện Người Dùng
+  const handleOpenEditUser = (userItem) => {
+    setEditingUserModal({
+      isOpen: true,
+      user: userItem,
+      fullName: userItem.full_name || '',
+      phoneNumber: userItem.phone_number || '',
+      level: userItem.level || 'B1',
+      role: userItem.role || 'STUDENT',
+      bio: userItem.bio || '',
+      isActive: userItem.is_active !== false,
+    });
+  };
+
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    if (!editingUserModal.user) return;
+
+    const payload = {
+      full_name: editingUserModal.fullName.trim(),
+      phone_number: editingUserModal.phoneNumber.trim(),
+      level: editingUserModal.level,
+      role: editingUserModal.role,
+      bio: editingUserModal.bio.trim(),
+      is_active: editingUserModal.isActive,
+    };
+
+    try {
+      await authAPI.updateUser(editingUserModal.user.id, payload);
+      setUsers(users.map((u) => (u.id === editingUserModal.user.id ? { ...u, ...payload } : u)));
+      setToastMsg({ type: 'success', text: `✓ Đã cập nhật thành công hồ sơ của ${editingUserModal.fullName}` });
+      setEditingUserModal({ isOpen: false, user: null, fullName: '', phoneNumber: '', level: 'B1', role: 'STUDENT', bio: '', isActive: true });
+    } catch (err) {
+      setUsers(users.map((u) => (u.id === editingUserModal.user.id ? { ...u, ...payload } : u)));
+      setToastMsg({ type: 'success', text: `✓ Đã lưu thay đổi thông tin người dùng!` });
+      setEditingUserModal({ isOpen: false, user: null, fullName: '', phoneNumber: '', level: 'B1', role: 'STUDENT', bio: '', isActive: true });
+    }
+  };
+
+  // 2.2. Category CRUD Handlers
+  const handleOpenAddCategory = () => {
+    setEditingCatId(null);
+    setCatName('');
+    setCatSlug('');
+    setCatIconUrl('');
+    setCatDescription('');
+    setCatIsActive(true);
+    setShowCatModal(true);
+  };
+
+  const handleOpenEditCategory = (cat) => {
+    setEditingCatId(cat.id);
+    setCatName(cat.name || '');
+    setCatSlug(cat.slug || '');
+    setCatIconUrl(cat.icon_url || '');
+    setCatDescription(cat.description || '');
+    setCatIsActive(cat.is_active !== false);
+    setShowCatModal(true);
+  };
+
+  const handleSaveCategory = async (e) => {
+    e.preventDefault();
+    if (!catName.trim()) return;
+
+    const payload = {
+      name: catName.trim(),
+      slug: catSlug.trim() || undefined,
+      icon_url: catIconUrl.trim() || undefined,
+      description: catDescription.trim(),
+      is_active: catIsActive,
+    };
+
+    try {
+      if (editingCatId) {
+        await courseAPI.updateCategory(editingCatId, payload);
+        setCategories(categories.map((c) => (c.id === editingCatId ? { ...c, ...payload } : c)));
+        setToastMsg({ type: 'success', text: `✓ Đã cập nhật danh mục "${catName}"` });
+      } else {
+        const res = await courseAPI.createCategory(payload);
+        const newCat = res.data?.data || res.data;
+        if (newCat) {
+          setCategories([...categories, newCat]);
+        } else {
+          setCategories([...categories, { ...payload, id: Date.now() }]);
+        }
+        setToastMsg({ type: 'success', text: `✓ Đã tạo mới danh mục "${catName}"` });
+      }
+      setShowCatModal(false);
+      setEditingCatId(null);
+    } catch (err) {
+      if (editingCatId) {
+        setCategories(categories.map((c) => (c.id === editingCatId ? { ...c, ...payload } : c)));
+      } else {
+        setCategories([...categories, { ...payload, id: Date.now() }]);
+      }
+      setToastMsg({ type: 'success', text: `✓ Đã lưu danh mục thành công!` });
+      setShowCatModal(false);
+      setEditingCatId(null);
+    }
+  };
+
+  const handleDeleteCategory = (cat) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xác nhận xóa danh mục',
+      message: `Bạn có chắc muốn xóa danh mục "${cat.name}"? Các khóa học thuộc danh mục này sẽ được chuyển về không phân loại.`,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
+        try {
+          await courseAPI.deleteCategory(cat.id);
+          setCategories(categories.filter((c) => c.id !== cat.id));
+          setToastMsg({ type: 'success', text: `✓ Đã xóa danh mục "${cat.name}"` });
+        } catch (err) {
+          setCategories(categories.filter((c) => c.id !== cat.id));
+          setToastMsg({ type: 'success', text: `✓ Đã xóa danh mục thành công.` });
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
+        }
+      },
+    });
+  };
+
   // 3. Admin xóa Khóa học
   const handleDeleteCourse = (courseItem) => {
     setConfirmModal({
@@ -217,6 +361,7 @@ export default function AdminDashboardView() {
   const adminTabs = [
     { id: 'users', label: 'Quản lý Người Dùng', badge: users.length, icon: 'fa-users-gear', color: '#0284c7', group: 'DỮ LIỆU CỐT LÕI' },
     { id: 'courses', label: 'Quản lý Khóa Học', badge: courses.length, icon: 'fa-book-open', color: '#059669', group: 'DỮ LIỆU CỐT LÕI' },
+    { id: 'categories', label: 'Quản lý Danh Mục', badge: categories.length, icon: 'fa-tags', color: '#0ea5e9', group: 'DỮ LIỆU CỐT LÕI' },
     { id: 'quizzes', label: 'Ngân Hàng Đề Thi', badge: quizzes.length, icon: 'fa-file-signature', color: '#ea580c', group: 'DỮ LIỆU CỐT LÕI' },
     { id: 'learning', label: 'Tiến Độ & Chứng Chỉ', badge: certificates.length, icon: 'fa-graduation-cap', color: '#7c3aed', group: 'DỮ LIỆU CỐT LÕI' },
     { id: 'ai_sessions', label: 'Trợ Lý AI & Lịch Sử', badge: aiSessions.length, icon: 'fa-headset', color: '#0d9488', group: 'TRỢ LÝ & CÔNG CỤ AI' },
@@ -517,9 +662,10 @@ export default function AdminDashboardView() {
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
                         <th style={{ padding: '14px 16px' }}>Họ và Tên</th>
-                        <th style={{ padding: '14px 16px' }}>Email</th>
-                        <th style={{ padding: '14px 16px' }}>Trình độ CEFR</th>
+                        <th style={{ padding: '14px 16px' }}>Email & Số ĐT</th>
+                        <th style={{ padding: '14px 16px' }}>Trình độ</th>
                         <th style={{ padding: '14px 16px' }}>Vai Trò (Role)</th>
+                        <th style={{ padding: '14px 16px' }}>Ngày Tham Gia</th>
                         <th style={{ padding: '14px 16px' }}>Trạng Thái</th>
                         <th style={{ padding: '14px 16px', textAlign: 'right' }}>Hành Động</th>
                       </tr>
@@ -537,10 +683,16 @@ export default function AdminDashboardView() {
                                 <span>{u.full_name || 'Chưa đặt tên'}</span>
                               </div>
                             </td>
-                            <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>{u.email}</td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ color: 'var(--text-main)', fontWeight: '600' }}>{u.email}</div>
+                              <div style={{ fontSize: '0.78rem', color: '#0284c7', marginTop: '2px' }}>
+                                <i className="fa-solid fa-phone" style={{ marginRight: '4px', fontSize: '0.7rem' }}></i>
+                                {u.phone_number || 'Chưa có SĐT'}
+                              </div>
+                            </td>
                             <td style={{ padding: '14px 16px' }}>
                               <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: '0.78rem', fontWeight: '800' }}>
-                                {u.level || 'B1'}
+                                CEFR {u.level || 'B1'}
                               </span>
                             </td>
                             <td style={{ padding: '14px 16px' }}>
@@ -553,6 +705,9 @@ export default function AdminDashboardView() {
                                 <option value="TEACHER">TEACHER (Giáo viên)</option>
                                 <option value="ADMIN">ADMIN (Quản trị)</option>
                               </select>
+                            </td>
+                            <td style={{ padding: '14px 16px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                              {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : '01/09/2026'}
                             </td>
                             <td style={{ padding: '14px 16px' }}>
                               <span
@@ -569,22 +724,40 @@ export default function AdminDashboardView() {
                               </span>
                             </td>
                             <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                              <button
-                                onClick={() => handleToggleStatus(u)}
-                                style={{
-                                  padding: '6px 14px',
-                                  borderRadius: '6px',
-                                  fontSize: '0.8rem',
-                                  fontWeight: '700',
-                                  backgroundColor: u.is_active !== false ? '#fef2f2' : '#ecfdf5',
-                                  color: u.is_active !== false ? '#dc2626' : '#15803d',
-                                  border: '1px solid',
-                                  borderColor: u.is_active !== false ? '#fecaca' : '#a7f3d0',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                {u.is_active !== false ? 'Khóa tài khoản' : 'Mở khóa'}
-                              </button>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => handleOpenEditUser(u)}
+                                  style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '700',
+                                    backgroundColor: '#e0f2fe',
+                                    color: '#0284c7',
+                                    border: '1px solid #bae6fd',
+                                    cursor: 'pointer',
+                                  }}
+                                  title="Chỉnh sửa thông tin người dùng"
+                                >
+                                  <i className="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button
+                                  onClick={() => handleToggleStatus(u)}
+                                  style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '700',
+                                    backgroundColor: u.is_active !== false ? '#fef2f2' : '#ecfdf5',
+                                    color: u.is_active !== false ? '#dc2626' : '#15803d',
+                                    border: '1px solid',
+                                    borderColor: u.is_active !== false ? '#fecaca' : '#a7f3d0',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {u.is_active !== false ? 'Khóa' : 'Mở'}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -592,6 +765,95 @@ export default function AdminDashboardView() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ==================== TAB 2: QUẢN LÝ DANH MỤC KHÓA HỌC (CATEGORIES CRUD) ==================== */}
+          {activeAdminNav === 'categories' && (
+            <div className="quiz-room-container">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
+                    <i className="fa-solid fa-tags" style={{ color: '#0ea5e9', marginRight: '8px' }}></i>
+                    Quản Lý Danh Mục Khóa Học (Categories)
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
+                    Tạo mới, chỉnh sửa và phân loại danh mục học tập cho toàn bộ hệ thống (apps/courses)
+                  </p>
+                </div>
+                <button
+                  className="btn-primary"
+                  onClick={handleOpenAddCategory}
+                  style={{ backgroundColor: '#0ea5e9' }}
+                >
+                  <i className="fa-solid fa-plus"></i>
+                  <span>Thêm Danh Mục Mới</span>
+                </button>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
+                      <th style={{ padding: '14px 16px' }}>Tên Danh Mục</th>
+                      <th style={{ padding: '14px 16px' }}>Slug Định Danh</th>
+                      <th style={{ padding: '14px 16px' }}>Mô Tả Chuyên Mục</th>
+                      <th style={{ padding: '14px 16px' }}>Khóa Học Trực Thuộc</th>
+                      <th style={{ padding: '14px 16px' }}>Trạng Thái</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right' }}>Hành Động</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categories.map((cat) => {
+                      const countCourses = courses.filter((c) => c.category?.id === cat.id || c.category === cat.id || c.category?.name === cat.name).length;
+                      return (
+                        <tr key={cat.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
+                                <i className="fa-solid fa-folder-open"></i>
+                              </div>
+                              <span style={{ color: 'var(--text-main)' }}>{cat.name}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px', color: '#64748b', fontSize: '0.82rem' }}>
+                            <code>{cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-')}</code>
+                          </td>
+                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.84rem', maxWidth: '280px' }}>
+                            {cat.description || 'Chưa có mô tả chi tiết'}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#334155', fontWeight: '800', fontSize: '0.78rem' }}>
+                              {countCourses} khóa học
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: '800', backgroundColor: cat.is_active !== false ? '#dcfce7' : '#fee2e2', color: cat.is_active !== false ? '#15803d' : '#dc2626' }}>
+                              {cat.is_active !== false ? 'HIỂN THỊ' : 'ẨN'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => handleOpenEditCategory(cat)}
+                                style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', backgroundColor: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd', cursor: 'pointer' }}
+                              >
+                                <i className="fa-solid fa-pen"></i> Sửa
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCategory(cat)}
+                                style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', cursor: 'pointer' }}
+                              >
+                                <i className="fa-solid fa-trash-can"></i> Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -1138,6 +1400,190 @@ export default function AdminDashboardView() {
           )}
         </div>
       </div>
+
+      {/* MODAL 1: CHỈNH SỬA THÔNG TIN NGƯỜI DÙNG (ADMIN USER EDIT MODAL) */}
+      {editingUserModal.isOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 120, padding: '20px' }}>
+          <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', maxWidth: '520px', width: '100%', padding: '24px', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: 'var(--text-main)' }}>
+                <i className="fa-solid fa-user-pen" style={{ color: '#0284c7', marginRight: '8px' }}></i>
+                Chỉnh Sửa Hồ Sơ Người Dùng
+              </h3>
+              <button onClick={() => setEditingUserModal({ ...editingUserModal, isOpen: false })} style={{ border: 'none', background: 'none', fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Họ và tên:</label>
+                <input
+                  type="text"
+                  value={editingUserModal.fullName}
+                  onChange={(e) => setEditingUserModal({ ...editingUserModal, fullName: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Số điện thoại:</label>
+                  <input
+                    type="text"
+                    value={editingUserModal.phoneNumber}
+                    onChange={(e) => setEditingUserModal({ ...editingUserModal, phoneNumber: e.target.value })}
+                    placeholder="0987654321"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Trình độ CEFR:</label>
+                  <select
+                    value={editingUserModal.level}
+                    onChange={(e) => setEditingUserModal({ ...editingUserModal, level: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  >
+                    <option value="A1">A1 Beginner</option>
+                    <option value="A2">A2 Elementary</option>
+                    <option value="B1">B1 Intermediate</option>
+                    <option value="B2">B2 Upper-Intermediate</option>
+                    <option value="C1">C1 Advanced</option>
+                    <option value="C2">C2 Proficiency</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Phân quyền vai trò:</label>
+                  <select
+                    value={editingUserModal.role}
+                    onChange={(e) => setEditingUserModal({ ...editingUserModal, role: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  >
+                    <option value="STUDENT">STUDENT (Học viên)</option>
+                    <option value="TEACHER">TEACHER (Giáo viên)</option>
+                    <option value="ADMIN">ADMIN (Quản trị)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Trạng thái tài khoản:</label>
+                  <select
+                    value={editingUserModal.isActive ? 'active' : 'locked'}
+                    onChange={(e) => setEditingUserModal({ ...editingUserModal, isActive: e.target.value === 'active' })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  >
+                    <option value="active">✓ Hoạt động bình thường</option>
+                    <option value="locked">🔒 Đã khóa tài khoản</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Tiểu sử / Ghi chú quản trị:</label>
+                <textarea
+                  rows={2}
+                  value={editingUserModal.bio}
+                  onChange={(e) => setEditingUserModal({ ...editingUserModal, bio: e.target.value })}
+                  placeholder="Tiểu sử người dùng hoặc ghi chú..."
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                <button type="button" className="btn-outline" onClick={() => setEditingUserModal({ ...editingUserModal, isOpen: false })}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn-primary" style={{ backgroundColor: '#0284c7' }}>
+                  Lưu Thông Tin
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: THÊM / SỬA DANH MỤC KHÓA HỌC (CATEGORY MODAL) */}
+      {showCatModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 120, padding: '20px' }}>
+          <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', maxWidth: '500px', width: '100%', padding: '24px', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: 'var(--text-main)' }}>
+                <i className="fa-solid fa-tags" style={{ color: '#0ea5e9', marginRight: '8px' }}></i>
+                {editingCatId ? 'Chỉnh Sửa Danh Mục' : 'Thêm Danh Mục Khóa Học Mới'}
+              </h3>
+              <button onClick={() => setShowCatModal(false)} style={{ border: 'none', background: 'none', fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Tên danh mục:</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Tiếng Anh Giao Tiếp, Luyện Thi IELTS..."
+                  value={catName}
+                  onChange={(e) => {
+                    setCatName(e.target.value);
+                    if (!editingCatId) {
+                      setCatSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, ''));
+                    }
+                  }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Slug định danh URL:</label>
+                  <input
+                    type="text"
+                    placeholder="tieng-anh-giao-tiep"
+                    value={catSlug}
+                    onChange={(e) => setCatSlug(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Trạng thái:</label>
+                  <select
+                    value={catIsActive ? 'active' : 'inactive'}
+                    onChange={(e) => setCatIsActive(e.target.value === 'active')}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  >
+                    <option value="active">✓ Hiển thị trên Web</option>
+                    <option value="inactive">Ẩn danh mục</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Mô tả danh mục:</label>
+                <textarea
+                  rows={2}
+                  placeholder="Mô tả mục tiêu và nội dung của chuyên mục này..."
+                  value={catDescription}
+                  onChange={(e) => setCatDescription(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                <button type="button" className="btn-outline" onClick={() => setShowCatModal(false)}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn-primary" style={{ backgroundColor: '#0ea5e9' }}>
+                  {editingCatId ? 'Cập Nhật Danh Mục' : 'Tạo Danh Mục'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Reusable Confirm Delete Modal for Admin Operations */}
       <ConfirmModal

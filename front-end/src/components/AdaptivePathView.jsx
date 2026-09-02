@@ -128,41 +128,54 @@ export default function AdaptivePathView({ learningPath: initialPath }) {
             key={step.id || idx}
             className={`path-step-card ${step.is_completed ? 'completed' : ''}`}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div className={`step-index-badge ${step.is_completed ? 'done' : ''}`}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+              <div className={`step-index-badge ${step.is_completed ? 'done' : ''}`} style={{ marginTop: '2px' }}>
                 {step.is_completed ? <i className="fa-solid fa-check"></i> : step.step_index || idx + 1}
               </div>
 
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
                     {step.title}
                   </h3>
-                  <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-muted)', color: 'var(--text-muted)', fontWeight: '600' }}>
-                    {step.step_type || 'LESSON'}
+                  <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: step.step_type === 'QUIZ' ? '#ffedd5' : step.step_type === 'AI_PRACTICE' ? '#f3e8ff' : '#e0f2fe', color: step.step_type === 'QUIZ' ? '#c2410c' : step.step_type === 'AI_PRACTICE' ? '#7e22ce' : '#0369a1', fontWeight: '800' }}>
+                    {step.step_type === 'QUIZ' ? '📝 BÀI THI' : step.step_type === 'AI_PRACTICE' ? '✨ AI COACH' : '📖 BÀI HỌC'}
                   </span>
+                  {step.target_skill_display && (
+                    <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: '700' }}>
+                      🎯 {step.target_skill_display}
+                    </span>
+                  )}
+                  {step.estimated_minutes && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      ⏱️ {step.estimated_minutes} phút
+                    </span>
+                  )}
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
                   {step.description}
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={() => handleToggleComplete(step)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-                backgroundColor: step.is_completed ? '#dcfce7' : '#e0f2fe',
-                color: step.is_completed ? '#15803d' : '#0284c7',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {step.is_completed ? '✓ Đã hoàn thành' : 'Đánh dấu hoàn thành'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <button
+                onClick={() => handleToggleComplete(step)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  backgroundColor: step.is_completed ? '#dcfce7' : '#f1f5f9',
+                  color: step.is_completed ? '#15803d' : 'var(--text-secondary)',
+                  border: '1px solid',
+                  borderColor: step.is_completed ? '#86efac' : 'var(--border-color)',
+                  cursor: 'pointer',
+                }}
+              >
+                {step.is_completed ? '✓ Đã hoàn thành' : 'Đánh dấu xong'}
+              </button>
+            </div>
           </div>
         ))}
       </div>

@@ -37,7 +37,7 @@ export default function FloatingContactWidget({ onOpenAITutor }) {
 
       {/* 2. Nút Facebook Messenger */}
       <a
-        href="https://facebook.com"
+        href="https://www.facebook.com/thai.le.101702/"
         target="_blank"
         rel="noopener noreferrer"
         className="floating-btn fb-btn"
@@ -49,19 +49,33 @@ export default function FloatingContactWidget({ onOpenAITutor }) {
         </div>
       </a>
 
-      {/* 3. Nút Gọi Hotline Nhanh */}
+      {/* 3. Nút Trang chủ Facebook */}
+      <a
+        href="https://www.facebook.com/thai.le.101702/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="floating-btn fb-btn"
+        title="Nhắn tin qua Facebook Messenger"
+      >
+        <div className="floating-tooltip">Trang chủ Facebook</div>
+        <div className="floating-icon-inner">
+          <i className="fa-brands fa-facebook"></i>
+        </div>
+      </a>
+
+      {/* 4. Nút Gọi Hotline Nhanh */}
       <a
         href="tel:0987654321"
         className="floating-btn phone-btn"
         title="Gọi Hotline tư vấn 0987.654.321"
       >
-        <div className="floating-tooltip">Hotline: 0987.654.321</div>
+        <div className="floating-tooltip">Hotline: 0789006794</div>
         <div className="floating-icon-inner">
           <i className="fa-solid fa-phone-volume"></i>
         </div>
       </a>
 
-      {/* 4. Nút Cuộn Lên Đầu Trang */}
+      {/* 5. Nút Cuộn Lên Đầu Trang */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}

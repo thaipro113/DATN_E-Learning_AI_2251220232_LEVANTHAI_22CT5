@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CertificateModal from './CertificateModal';
 import StudentProgressQuizModal from './StudentProgressQuizModal';
+import AIProgressExamScreen from './AIProgressExamScreen';
 import { learningAPI, courseAPI } from '../services/api';
 import { isYouTubeUrl, getYouTubeEmbedUrl, cleanCourseTitle } from '../utils/media';
 
@@ -58,17 +59,16 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
         setSelectedCourse(target);
         await loadCourseDetail(target.slug || target.id);
       } else {
-        // Fallback: nếu chưa ghi danh thì lấy khóa học đầu tiên từ CSDL để trải nghiệm
-        const allRes = await courseAPI.getCourses();
-        const allList = allRes.data?.results || allRes.data?.data?.results || allRes.data?.data || [];
-        if (allList.length > 0) {
-          const target = currentCourse || allList[0];
-          setSelectedCourse(target);
-          await loadCourseDetail(target.slug || target.id);
-        }
+        // Học viên CHƯA ghi danh khóa nào: Không lấy tất cả khóa học trong database!
+        setEnrolledCourses([]);
+        setSelectedCourse(null);
+        setCourseDetail(null);
       }
     } catch (e) {
       console.warn('Could not load enrolled courses:', e);
+      setEnrolledCourses([]);
+      setSelectedCourse(null);
+      setCourseDetail(null);
     } finally {
       setIsLoading(false);
     }
@@ -296,6 +296,49 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
   };
 
   const embedVideoUrl = getYouTubeEmbedUrl(activeLesson?.video_url);
+
+  // 1. NẾU ĐANG LÀM ĐỀ THI ÔN TẬP AI -> HIỂN THỊ MÀN HÌNH THI & KẾT QUẢ CHUYÊN BIỆT
+  if (activeTakingQuiz) {
+    return (
+      <AIProgressExamScreen
+        quiz={activeTakingQuiz}
+        onBackToLearning={() => setActiveTakingQuiz(null)}
+      />
+    );
+  }
+
+  // 2. NẾU CHƯA GHI DANH KHÓA HỌC NÀO
+  if (!isLoading && enrolledCourses.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)', margin: '20px 0', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ width: '70px', height: '70px', borderRadius: '50%', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto 16px' }}>
+          <i className="fa-solid fa-graduation-cap"></i>
+        </div>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
+          Bạn chưa ghi danh khóa học nào
+        </h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '480px', margin: '0 auto 20px' }}>
+          Hãy khám phá danh mục khóa học tiếng Anh chuẩn CEFR (A1 – C2) và ghi danh khóa học để bắt đầu học tập cùng Trợ lý AI!
+        </p>
+        <button
+          className="btn-primary"
+          onClick={() => {
+            window.location.hash = '#/courses';
+          }}
+          style={{ padding: '10px 24px', fontSize: '0.9rem' }}
+        >
+          <i className="fa-solid fa-book-open"></i>
+          <span>Khám phá danh mục khóa học</span>
+        </button>
+      </div>
+    );
+  }
+
+  const completedLessonsList = (courseDetail?.chapters || []).flatMap((ch) =>
+    (ch.lessons || [])
+      .filter((l) => completedLessonIds.includes(l.id))
+      .map((l) => ({ ...l, chapterTitle: ch.title, isCompleted: true }))
+  );
 
   return (
     <div>
@@ -895,6 +938,8 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
         onClose={() => setShowProgressQuizModal(false)}
         chapterId={activeChapter?.id || courseDetail?.chapters?.[0]?.id}
         chapterTitle={activeChapter?.title || courseDetail?.chapters?.[0]?.title || 'Chương 1'}
+        completedLessons={completedLessonsList}
+        activeLesson={activeLesson}
         onStartQuiz={handleStartGeneratedQuiz}
       />
     </div>

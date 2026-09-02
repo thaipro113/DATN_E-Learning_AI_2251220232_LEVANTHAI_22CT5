@@ -218,12 +218,20 @@ class AIQuizService:
         ).select_related('lesson')
 
         if not completed_progresses.exists():
-            return False, f"Bạn chưa hoàn thành bài học nào trong chương '{chapter.title}' để tạo đề ôn tập. Hãy học xong ít nhất 1 bài nhé!", None
-
-        completed_lessons_info = [
-            f"{p.lesson.title} ({p.lesson.content[:100] if p.lesson.content else 'Nội dung bài học trọng tâm'})"
-            for p in completed_progresses
-        ]
+            # Nếu chưa đánh dấu hoàn thành, lấy các bài học trong chương để học viên có thể ôn tập ngay
+            chapter_lessons = Lesson.objects.filter(chapter=chapter).order_by('order_index')
+            if chapter_lessons.exists():
+                completed_lessons_info = [
+                    f"{l.title} ({l.content[:120] if l.content else 'Kiến thức trọng tâm bài học'})"
+                    for l in chapter_lessons
+                ]
+            else:
+                return False, f"Chương '{chapter.title}' chưa có bài học nào để tạo đề ôn tập.", None
+        else:
+            completed_lessons_info = [
+                f"{p.lesson.title} ({p.lesson.content[:120] if p.lesson.content else 'Kiến thức trọng tâm bài học'})"
+                for p in completed_progresses
+            ]
 
         # 3. Tạo Prompt bám sát ngữ cảnh các bài đã học
         prompt = build_quiz_generation_prompt(

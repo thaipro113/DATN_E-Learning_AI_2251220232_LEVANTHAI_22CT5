@@ -15,6 +15,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess }) {
   const [targetQuizId, setTargetQuizId] = useState('');
   const [newQuizTitle, setNewQuizTitle] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [errorLog, setErrorLog] = useState(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -36,6 +37,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess }) {
   const handleParse = async () => {
     setIsLoading(true);
     setStatusMessage('');
+    setErrorLog(null);
     try {
       const formData = new FormData();
       formData.append('title', 'Phiên nhập đề thi nhanh');
@@ -47,9 +49,15 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess }) {
       const batch = res.data?.data || res.data;
       setCurrentBatchId(batch?.id);
       setPreviewData(batch?.parsed_data || []);
+      if (batch?.error_log) {
+        setErrorLog(batch.error_log);
+      }
       setStatusMessage(`✓ Đã bóc tách thành công ${batch?.total_parsed || (batch?.parsed_data || []).length} câu hỏi! Hãy chọn Đề thi đích để lưu vào CSDL.`);
     } catch (err) {
       console.error('Parse error:', err);
+      if (err.response?.data?.error_log || err.response?.data?.error) {
+        setErrorLog(err.response?.data?.error_log || err.response?.data?.error);
+      }
       // Fallback parser demo for quick test
       const fallbackParsed = [
         {
@@ -279,6 +287,18 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess }) {
           {statusMessage && (
             <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', fontSize: '0.82rem', fontWeight: '700' }}>
               {statusMessage}
+            </div>
+          )}
+
+          {errorLog && (
+            <div style={{ padding: '10px 14px', borderRadius: '6px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', fontSize: '0.8rem' }}>
+              <div style={{ fontWeight: '800', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <i className="fa-solid fa-triangle-exclamation" style={{ color: '#dc2626' }}></i>
+                <span>Chi tiết lỗi bóc tách (Error Log):</span>
+              </div>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                {typeof errorLog === 'object' ? JSON.stringify(errorLog, null, 2) : String(errorLog)}
+              </pre>
             </div>
           )}
 

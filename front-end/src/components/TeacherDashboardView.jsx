@@ -20,6 +20,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [newDescription, setNewDescription] = useState('');
   const [newCategoryId, setNewCategoryId] = useState('');
   const [newLevel, setNewLevel] = useState('B1');
+  const [newStatus, setNewStatus] = useState('PUBLISHED');
   const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80');
   const [newPrice, setNewPrice] = useState(0);
   const [isFree, setIsFree] = useState(true);
@@ -116,13 +117,15 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         category_id: newCategoryId || null,
         thumbnail_url: newThumbnailUrl.trim(),
         price: isFree ? 0 : Number(newPrice),
-        status: 'PUBLISHED',
+        is_free: isFree,
+        status: newStatus,
       };
 
       await courseAPI.createCourse(payload);
       setToastMsg(`✓ Đã tạo thành công khóa học "${newTitle}"!`);
       setNewTitle('');
       setNewDescription('');
+      setNewStatus('PUBLISHED');
       setShowCreateModal(false);
       fetchTeacherCourses();
     } catch (err) {
@@ -372,21 +375,30 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                       </div>
                     )}
 
-                    <span
-                      style={{
-                        position: 'absolute',
-                        top: '10px',
-                        left: '10px',
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: 'rgba(15, 23, 42, 0.75)',
-                        color: 'white',
-                        fontSize: '0.72rem',
-                        fontWeight: '800',
-                      }}
-                    >
-                      CEFR {course.level || 'B1'}
-                    </span>
+                    <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '5px' }}>
+                      <span
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                          color: 'white',
+                          fontSize: '0.72rem',
+                          fontWeight: '800',
+                        }}
+                      >
+                        CEFR {course.level || 'B1'}
+                      </span>
+                      {course.status === 'DRAFT' && (
+                        <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f59e0b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
+                          📝 Bản nháp
+                        </span>
+                      )}
+                      {course.status === 'ARCHIVED' && (
+                        <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#64748b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
+                          📦 Lưu trữ
+                        </span>
+                      )}
+                    </div>
 
                     <span
                       style={{
@@ -395,7 +407,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                         right: '10px',
                         padding: '3px 8px',
                         borderRadius: '4px',
-                        backgroundColor: course.is_free ? '#10b981' : '#f59e0b',
+                        backgroundColor: course.is_free ? '#10b981' : '#0284c7',
                         color: 'white',
                         fontSize: '0.72rem',
                         fontWeight: '800',
@@ -658,7 +670,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
                     Danh mục:
@@ -704,6 +716,28 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                     <option value="B1">CEFR B1 Intermediate</option>
                     <option value="B2">CEFR B2 Upper-Intermediate</option>
                     <option value="C1">CEFR C1 Advanced</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
+                    Trạng thái:
+                  </label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 10px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                    }}
+                  >
+                    <option value="PUBLISHED">✓ Đã xuất bản</option>
+                    <option value="DRAFT">📝 Bản nháp</option>
+                    <option value="ARCHIVED">📦 Lưu trữ</option>
                   </select>
                 </div>
               </div>
