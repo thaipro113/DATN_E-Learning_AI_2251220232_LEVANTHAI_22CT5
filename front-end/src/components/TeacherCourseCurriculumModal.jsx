@@ -387,10 +387,12 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       setMaterialUrl('');
       setMaterialSizeBytes(2048000);
       setMaterialFileName('');
-      fetchDetail();
+      setToastMsg('✓ Đã lưu tài liệu đính kèm cho bài học thành công!');
+      await fetchDetail();
+      if (onCourseUpdated) onCourseUpdated();
     } catch (err) {
-      setAddingMaterialLessonId(null);
-      fetchDetail();
+      console.error('Lỗi khi lưu tài liệu:', err);
+      setToastMsg('⚠️ Có lỗi xảy ra khi lưu tài liệu. Vui lòng thử lại.');
     }
   };
 
@@ -1207,6 +1209,8 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                                 onClick={() => {
                                   setAddingMaterialLessonId(les.id);
                                   setMaterialTitle('');
+                                  setMaterialUrl('');
+                                  setMaterialFileName('');
                                 }}
                                 style={{ fontSize: '0.75rem', padding: '4px 8px', backgroundColor: '#fef3c7', color: '#d97706' }}
                                 title="Thêm tài liệu PDF/Word"
@@ -1241,6 +1245,46 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                                 <i className="fa-solid fa-trash-can"></i>
                               </button>
                             </div>
+
+                            {/* Attached Materials List under Lesson */}
+                            {les.materials && les.materials.length > 0 && (
+                              <div style={{ width: '100%', marginTop: '6px', paddingLeft: '28px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {les.materials.map((mat) => (
+                                  <div
+                                    key={mat.id}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '4px 10px',
+                                      backgroundColor: '#f8fafc',
+                                      borderRadius: '4px',
+                                      border: '1px solid #e2e8f0',
+                                      fontSize: '0.75rem',
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <i className={`fa-solid ${(mat.file_type || mat.file_type_display) === 'PDF' ? 'fa-file-pdf' : 'fa-file-word'}`} style={{ color: (mat.file_type || mat.file_type_display) === 'PDF' ? '#dc2626' : '#0284c7' }}></i>
+                                      <span style={{ fontWeight: '600', color: '#334155' }}>{mat.title}</span>
+                                      <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>
+                                        ({mat.file_size_bytes ? (mat.file_size_bytes > 1048576 ? `${(mat.file_size_bytes / 1048576).toFixed(1)} MB` : `${Math.round(mat.file_size_bytes / 1024)} KB`) : '2 MB'})
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteMaterial(mat.id);
+                                      }}
+                                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px 4px' }}
+                                      title="Xóa tài liệu này"
+                                    >
+                                      <i className="fa-solid fa-xmark"></i>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
@@ -1262,9 +1306,9 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h5 style={{ fontSize: '0.9rem', fontWeight: '800', color: '#92400e', margin: 0 }}>
+                <h5 style={{ fontSize: '0.92rem', fontWeight: '800', color: '#92400e', margin: 0 }}>
                   <i className="fa-solid fa-paperclip" style={{ marginRight: '6px' }}></i>
-                  Thêm Tài Liệu Đính Kèm Cho Bài Học
+                  Thêm Tài Liệu Đính Kèm Cho Bài Học: <span style={{ color: '#b45309', textDecoration: 'underline' }}>"{chapters.flatMap(ch => ch.lessons || []).find(l => l.id === addingMaterialLessonId)?.title || 'Bài giảng'}"</span>
                 </h5>
 
                 <label

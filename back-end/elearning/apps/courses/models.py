@@ -193,7 +193,12 @@ class Material(BaseModel):
         verbose_name=_('Bài học')
     )
     title = models.CharField(_('Tên tài liệu'), max_length=255)
-    file_url = models.URLField(_('Đường dẫn tệp tài liệu'), max_length=500)
+    file_url = models.TextField(
+        _('Đường dẫn tệp tài liệu hoặc dữ liệu Base64'),
+        blank=True,
+        null=True,
+        help_text=_('Đường dẫn tệp hoặc dữ liệu Base64 đính kèm')
+    )
     file_type = models.CharField(
         _('Loại tệp'),
         max_length=20,

@@ -253,12 +253,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
     setShowCertificate(true);
   };
 
-  const currentMaterials = (activeLesson?.materials || []).length > 0
-    ? activeLesson.materials
-    : [
-        { id: 1, title: `Slide bài giảng chi tiết - ${activeLesson?.title || 'Ngữ pháp'}`, file_type_display: 'PDF', file_size_bytes: 2450000, file_url: '#' },
-        { id: 2, title: `Tài liệu bài tập tự luyện & Đáp án giải thích`, file_type_display: 'DOCX', file_size_bytes: 1120000, file_url: '#' },
-      ];
+  const currentMaterials = activeLesson?.materials || [];
 
   const progressPercent = allLessons.length > 0
     ? Math.round((completedLessonIds.length / allLessons.length) * 100)
@@ -612,67 +607,92 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                   </h4>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {currentMaterials.map((mat) => (
-                    <div
-                      key={mat.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '14px 18px',
-                        backgroundColor: 'var(--bg-subtle)',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-color)',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div
-                          style={{
-                            width: '42px',
-                            height: '42px',
-                            borderRadius: '8px',
-                            backgroundColor: mat.file_type_display === 'PDF' ? '#fee2e2' : '#e0f2fe',
-                            color: mat.file_type_display === 'PDF' ? '#dc2626' : '#0284c7',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '1.3rem',
-                            flexShrink: 0,
-                          }}
-                        >
-                          <i className={`fa-solid ${mat.file_type_display === 'PDF' ? 'fa-file-pdf' : 'fa-file-word'}`}></i>
+                {currentMaterials.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '36px 20px',
+                      textAlign: 'center',
+                      backgroundColor: 'var(--bg-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px dashed var(--border-color)',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <i className="fa-solid fa-paperclip" style={{ fontSize: '2rem', color: '#94a3b8', marginBottom: '10px', display: 'block' }}></i>
+                    <p style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>
+                      Bài học này chưa có tài liệu đính kèm
+                    </p>
+                    <span style={{ fontSize: '0.78rem' }}>Giảng viên chưa tải lên tài liệu PDF hoặc Slide cho bài giảng này.</span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {currentMaterials.map((mat) => (
+                      <div
+                        key={mat.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '14px 18px',
+                          backgroundColor: 'var(--bg-subtle)',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-color)',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div
+                            style={{
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '8px',
+                              backgroundColor: (mat.file_type || mat.file_type_display) === 'PDF' ? '#fee2e2' : '#e0f2fe',
+                              color: (mat.file_type || mat.file_type_display) === 'PDF' ? '#dc2626' : '#0284c7',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '1.3rem',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <i className={`fa-solid ${(mat.file_type || mat.file_type_display) === 'PDF' ? 'fa-file-pdf' : 'fa-file-word'}`}></i>
+                          </div>
+                          <div>
+                            <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)', display: 'block' }}>
+                              {mat.title}
+                            </strong>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              Định dạng: {mat.file_type_display || mat.file_type || 'PDF'} · Kích thước: {mat.file_size_bytes ? (mat.file_size_bytes > 1048576 ? `${(mat.file_size_bytes / 1048576).toFixed(1)} MB` : `${Math.round(mat.file_size_bytes / 1024)} KB`) : '2 MB'}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)', display: 'block' }}>
-                            {mat.title}
-                          </strong>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            Định dạng: {mat.file_type_display || 'PDF'} · Kích thước: {Math.round((mat.file_size_bytes || 2000000) / 1024 / 1024)} MB
-                          </span>
-                        </div>
-                      </div>
 
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          className="btn-primary"
-                          onClick={() => {
-                            if (mat.file_url && mat.file_url !== '#') {
-                              window.open(mat.file_url, '_blank');
-                            } else {
-                              setToastMsg({ type: 'success', text: `✓ Đang tải tài liệu: "${mat.title}"` });
-                            }
-                          }}
-                          style={{ padding: '6px 14px', fontSize: '0.8rem', backgroundColor: '#0284c7' }}
-                        >
-                          <i className="fa-solid fa-download"></i>
-                          <span>Tải về máy</span>
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            className="btn-primary"
+                            onClick={() => {
+                              if (mat.file_url && mat.file_url !== '#') {
+                                const link = document.createElement('a');
+                                link.href = mat.file_url;
+                                link.download = mat.title || 'tai-lieu';
+                                link.target = '_blank';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              } else {
+                                setToastMsg({ type: 'success', text: `✓ Đang tải tài liệu: "${mat.title}"` });
+                              }
+                            }}
+                            style={{ padding: '6px 14px', fontSize: '0.8rem', backgroundColor: '#0284c7' }}
+                          >
+                            <i className="fa-solid fa-download"></i>
+                            <span>Tải về máy</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

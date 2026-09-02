@@ -93,6 +93,13 @@ class MaterialCreateSerializer(serializers.ModelSerializer):
     """
     Serializer tiếp nhận dữ liệu khi thêm tài liệu cho bài học.
     """
+    file_url = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default='https://example.com/tai-lieu.pdf',
+        help_text="URL tài liệu hoặc dữ liệu tệp Base64"
+    )
+
     class Meta:
         model = Material
         fields = ['title', 'file_url', 'file_type', 'file_size_bytes']
@@ -108,6 +115,7 @@ class LessonSimpleSerializer(serializers.ModelSerializer):
     """
     Serializer bài học lồng trong chương học (mục lục rút gọn).
     """
+    materials = MaterialSimpleSerializer(many=True, read_only=True)
     materials_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -119,6 +127,7 @@ class LessonSimpleSerializer(serializers.ModelSerializer):
             'order_index',
             'is_preview',
             'video_url',
+            'materials',
             'materials_count'
         ]
 
