@@ -3,6 +3,7 @@ import TeacherGradebookView from './TeacherGradebookView';
 import TeacherAIQuizModal from './TeacherAIQuizModal';
 import TeacherCourseCurriculumModal from './TeacherCourseCurriculumModal';
 import { courseAPI } from '../services/api';
+import { cleanCourseTitle } from '../utils/media';
 
 export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToDashboard }) {
   const [activeTab, setActiveTab] = useState('courses');
@@ -422,7 +423,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                         setShowCurriculumModal(true);
                       }}
                     >
-                      {course.title}
+                      {cleanCourseTitle(course.title)}
                     </h3>
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {course.description}

@@ -125,7 +125,7 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
                       <i className="fa-solid fa-graduation-cap"></i>
                     </div>
                   )}
-                  <span className="course-level-tag" style={{ position: 'absolute', top: '10px', left: '10px' }}>
+                  <span className="course-level-tag">
                     CEFR {course.level || 'B1'}
                   </span>
                   <span

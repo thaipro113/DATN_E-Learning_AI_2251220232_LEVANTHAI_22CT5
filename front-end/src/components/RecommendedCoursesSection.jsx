@@ -1,4 +1,5 @@
 import React from 'react';
+import { cleanCourseTitle } from '../utils/media';
 
 export default function RecommendedCoursesSection({
   courses = [],
@@ -82,7 +83,7 @@ export default function RecommendedCoursesSection({
                     <i className="fa-solid fa-graduation-cap"></i>
                   </div>
                 )}
-                <span className="course-level-tag" style={{ position: 'absolute', top: '10px', left: '10px' }}>
+                <span className="course-level-tag">
                   CEFR {course.level || 'B1'}
                 </span>
 
@@ -109,7 +110,7 @@ export default function RecommendedCoursesSection({
                   <span className="course-cat-tag">
                     {course.category?.name || 'Ngữ pháp Tiếng Anh'}
                   </span>
-                  <h3 className="course-card-title">{course.title}</h3>
+                  <h3 className="course-card-title">{cleanCourseTitle(course.title)}</h3>
                   <p className="course-card-desc">{course.description}</p>
 
                   {/* AI Recommendation Reason Tag */}
