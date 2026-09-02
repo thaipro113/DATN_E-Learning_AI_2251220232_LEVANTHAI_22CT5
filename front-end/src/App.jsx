@@ -19,13 +19,15 @@ import CertificateVerifyView from './components/CertificateVerifyView';
 import GuestUdemyHomeView from './components/GuestUdemyHomeView';
 import CourseDetailModal from './components/CourseDetailModal';
 import PaymentCheckoutModal from './components/PaymentCheckoutModal';
+import AdminDashboardView from './components/AdminDashboardView';
+import AICommunicationView from './components/AICommunicationView';
 import { authAPI, recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
 
 export default function App() {
   // Lấy tab ban đầu từ URL hash nếu có
   const getTabFromHash = () => {
     const hash = window.location.hash.replace('#/', '').replace('#', '');
-    const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'teacher_dashboard', 'cert_verify'];
+    const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'ai_coach', 'teacher_dashboard', 'admin_dashboard', 'cert_verify'];
     return validTabs.includes(hash) ? hash : 'dashboard';
   };
 
@@ -47,6 +49,7 @@ export default function App() {
   // Modal Chi tiết khóa học
   const [selectedCourseForDetail, setSelectedCourseForDetail] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isAICoachOpen, setIsAICoachOpen] = useState(false);
 
   // Trạng thái Đăng nhập từ localStorage Token
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -225,7 +228,9 @@ export default function App() {
         setCurrentTab('learning');
       }
     } else {
-      if (loggedInUser.role === 'TEACHER') {
+      if (loggedInUser.role === 'ADMIN') {
+        setCurrentTab('admin_dashboard');
+      } else if (loggedInUser.role === 'TEACHER') {
         setCurrentTab('teacher_dashboard');
       } else {
         setCurrentTab('dashboard');
@@ -249,7 +254,9 @@ export default function App() {
     setUser(updatedUser);
     localStorage.setItem('user_info', JSON.stringify(updatedUser));
 
-    if (newRole === 'TEACHER') {
+    if (newRole === 'ADMIN') {
+      setCurrentTab('admin_dashboard');
+    } else if (newRole === 'TEACHER') {
       setCurrentTab('teacher_dashboard');
     } else {
       setCurrentTab('dashboard');
@@ -278,7 +285,9 @@ export default function App() {
     quizzes: 'Luyện Đề Thi',
     path: 'Lộ trình AI',
     skills: 'Lỗ hổng Kỹ năng',
+    ai_coach: 'Phòng Luyện Giao Tiếp AI',
     teacher_dashboard: 'Studio Giảng dạy',
+    admin_dashboard: 'Quản trị Hệ thống',
     cert_verify: 'Tra cứu Chứng chỉ số',
   };
 
@@ -292,6 +301,7 @@ export default function App() {
           setIsQuizImportOpen(true);
           setIsMobileDrawerOpen(false);
         }}
+        onOpenAICoach={() => setIsAICoachOpen(true)}
         onOpenProfileModal={() => setIsProfileModalOpen(true)}
         onToggleMobileDrawer={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
         user={user}
@@ -537,6 +547,14 @@ export default function App() {
                 onNavigateToQuiz={() => setCurrentTab('quizzes')}
               />
             )}
+
+            {currentTab === 'ai_coach' && (
+              <AICommunicationView
+                user={user}
+                isLoggedIn={isLoggedIn}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              />
+            )}
           </>
         )}
 
@@ -563,16 +581,57 @@ export default function App() {
             {currentTab === 'quizzes' && (
               <QuizExamView isLoggedIn={isLoggedIn} onOpenAuthModal={() => setIsAuthModalOpen(true)} />
             )}
+
+            {currentTab === 'ai_coach' && (
+              <AICommunicationView
+                user={user}
+                isLoggedIn={isLoggedIn}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              />
+            )}
+          </>
+        )}
+
+        {/* ==================== C. ADMIN VIEWS ==================== */}
+        {isLoggedIn && user.role === 'ADMIN' && (
+          <>
+            {currentTab === 'admin_dashboard' && (
+              <AdminDashboardView onBackToDashboard={() => handleSelectTab('admin_dashboard')} />
+            )}
+
+            {currentTab === 'teacher_dashboard' && (
+              <TeacherDashboardView
+                user={user}
+                onOpenQuizImport={() => setIsQuizImportOpen(true)}
+                onBackToDashboard={() => handleSelectTab('admin_dashboard')}
+              />
+            )}
+
+            {currentTab === 'courses' && (
+              <CourseCatalogView
+                courses={courses}
+                myCourses={myCourses}
+                onEnroll={handleEnrollCourse}
+                onNavigateToLearning={handleNavigateToLearning}
+              />
+            )}
+
+            {currentTab === 'quizzes' && (
+              <QuizExamView isLoggedIn={isLoggedIn} onOpenAuthModal={() => setIsAuthModalOpen(true)} />
+            )}
+
+            {currentTab === 'ai_coach' && (
+              <AICommunicationView
+                user={user}
+                isLoggedIn={isLoggedIn}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              />
+            )}
           </>
         )}
       </main>
 
-      {/* 3. Floating Interactive AI English Tutor Widget with History */}
-      <FloatingAITutor
-        user={user}
-        isLoggedIn={isLoggedIn}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
-      />
+      {/* Quiz Import Tool Modal for Teachers with CSDL Confirm */}
 
       {/* 4. Quiz Import Tool Modal for Teachers with CSDL Confirm */}
       <QuizImportModal

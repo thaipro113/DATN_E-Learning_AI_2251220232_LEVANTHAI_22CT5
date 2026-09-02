@@ -4,6 +4,7 @@ export default function Header({
   currentTab,
   onSelectTab,
   onOpenQuizImport,
+  onOpenAICoach,
   onOpenProfileModal,
   onToggleMobileDrawer,
   user,
@@ -134,6 +135,17 @@ export default function Header({
                         <span>Lỗ hổng Kỹ năng</span>
                       </button>
                     </li>
+                    <li>
+                      <button
+                        className={`nav-link ${currentTab === 'ai_coach' ? 'active' : ''}`}
+                        onClick={() => onSelectTab('ai_coach')}
+                        style={{ position: 'relative' }}
+                      >
+                        <i className="fa-solid fa-headset nav-icon-emerald"></i>
+                        <span>Giao tiếp AI</span>
+                        <span style={{ fontSize: '0.62rem', backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '2px' }}>LIVE</span>
+                      </button>
+                    </li>
                   </>
                 ) : (
                   <li>
@@ -159,6 +171,58 @@ export default function Header({
                   >
                     <i className="fa-solid fa-chalkboard-user nav-icon-sky"></i>
                     <span>Studio Giảng dạy</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('courses')}
+                  >
+                    <i className="fa-solid fa-book-open nav-icon-emerald"></i>
+                    <span>Tất cả Khóa học</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('quizzes')}
+                  >
+                    <i className="fa-solid fa-file-signature nav-icon-orange"></i>
+                    <span>Ngân hàng Đề thi</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className="nav-link"
+                    onClick={onOpenQuizImport}
+                    style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}
+                  >
+                    <i className="fa-solid fa-file-import nav-icon-rose"></i>
+                    <span>Import Đề thi</span>
+                  </button>
+                </li>
+              </>
+            )}
+
+            {/* 3. TABS DÀNH CHO ADMIN */}
+            {role === 'ADMIN' && (
+              <>
+                <li>
+                  <button
+                    className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('admin_dashboard')}
+                  >
+                    <i className="fa-solid fa-shield-halved nav-icon-rose"></i>
+                    <span>Admin Control</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`nav-link ${currentTab === 'teacher_dashboard' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('teacher_dashboard')}
+                  >
+                    <i className="fa-solid fa-chalkboard-user nav-icon-sky"></i>
+                    <span>Studio Khóa Học</span>
                   </button>
                 </li>
                 <li>
@@ -217,21 +281,8 @@ export default function Header({
               <span>Đăng nhập</span>
             </button>
           ) : (
-            /* Khi ĐÃ ĐĂNG NHẬP: Hiển thị Streak + Avatar & Dropdown */
+            /* Khi ĐÃ ĐĂNG NHẬP: Hiển thị Avatar & Dropdown */
             <>
-              {role === 'STUDENT' && (
-                <>
-                  <div className="badge-stat orange" title="Chuỗi ngày học liên tục tính từ CSDL">
-                    <i className="fa-solid fa-fire"></i>
-                    <span>{streakDays}</span>
-                  </div>
-                  <div className="badge-stat blue" title="Tổng thời gian học video thực tế">
-                    <i className="fa-regular fa-clock"></i>
-                    <span>{displayMinutes}</span>
-                  </div>
-                </>
-              )}
-
               {/* User Profile Dropdown */}
               <div ref={profileRef} style={{ position: 'relative' }}>
                 <div
@@ -245,9 +296,21 @@ export default function Header({
                     style={{
                       backgroundColor: role === 'TEACHER' ? '#e0f2fe' : '#dbeafe',
                       color: role === 'TEACHER' ? '#0284c7' : '#1d4ed8',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'T'}
+                    {user?.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt="Avatar"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'T'
+                    )}
                   </div>
                   <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>
                     {user?.full_name || 'Lê Văn Thái'}
@@ -265,23 +328,52 @@ export default function Header({
                       border: '1px solid var(--border-color)',
                       borderRadius: 'var(--radius-md)',
                       boxShadow: 'var(--shadow-lg)',
-                      minWidth: '220px',
-                      padding: '10px',
+                      minWidth: '240px',
+                      padding: '12px',
                       zIndex: 60,
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '6px',
+                      gap: '8px',
                     }}
                   >
-                    <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-color)' }}>
-                      <strong style={{ fontSize: '0.88rem', color: 'var(--text-main)', display: 'block' }}>
-                        {user?.full_name || 'Lê Văn Thái'}
-                      </strong>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {user?.email || 'thaipro1132004@gmail.com'}
-                      </span>
+                    <div style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            backgroundColor: '#0284c7',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: '800',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {user?.avatar_url ? (
+                            <img
+                              src={user.avatar_url}
+                              alt="Avatar"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            user?.full_name?.charAt(0)?.toUpperCase() || 'T'
+                          )}
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: '0.88rem', color: 'var(--text-main)', display: 'block' }}>
+                            {user?.full_name || 'Lê Văn Thái'}
+                          </strong>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {user?.email || 'thaipro1132004@gmail.com'}
+                          </span>
+                        </div>
+                      </div>
                       <div style={{ marginTop: '4px', fontSize: '0.78rem', fontWeight: '800', color: '#0284c7' }}>
-                        Vai trò: {role === 'TEACHER' ? 'Giảng viên' : `Học viên (${user?.level || 'B1'})`}
+                        Vai trò: {role === 'TEACHER' ? 'Giảng viên' : role === 'ADMIN' ? 'Quản trị viên' : `Học viên (${user?.level || 'B1'})`}
                       </div>
                     </div>
 

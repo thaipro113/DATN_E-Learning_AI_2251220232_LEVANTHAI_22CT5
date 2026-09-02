@@ -39,10 +39,17 @@ class IsStudentUserRole(BasePermission):
 
 class IsOwnerOrReadOnly(BasePermission):
     """
-    Object-level permission to only allow owners of an object to edit it.
+    Chỉ cho phép Chủ sở hữu (Chính giảng viên tạo ra khóa học) hoặc Quản trị viên (Admin) sửa / xóa.
+    Giảng viên khác tuyệt đối không có quyền sửa hay xóa khóa học của người khác.
     """
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
             return True
+        if not request.user or not request.user.is_authenticated:
+            return False
+        # Admin có toàn quyền quản trị
+        if request.user.role == 'ADMIN' or request.user.is_staff or request.user.is_superuser:
+            return True
+        # Chỉ đúng Giảng viên là chủ sở hữu (Owner) mới có quyền sửa/xóa
         owner = getattr(obj, 'teacher', None) or getattr(obj, 'user', None) or getattr(obj, 'author', None)
-        return owner == request.user or request.user.is_superuser
+        return owner == request.user

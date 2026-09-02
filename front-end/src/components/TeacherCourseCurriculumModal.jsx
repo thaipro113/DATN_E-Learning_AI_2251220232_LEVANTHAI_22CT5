@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { courseAPI } from '../services/api';
+import { getYouTubeEmbedUrl } from '../utils/media';
+import ConfirmModal from './ConfirmModal';
 
-export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, onCourseUpdated }) {
+export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, onCourseUpdated, user }) {
   const [courseDetail, setCourseDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    isLoading: false,
+  });
 
   // Edit Course State
   const [isEditingCourse, setIsEditingCourse] = useState(false);
@@ -23,7 +34,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [addingLessonChapterId, setAddingLessonChapterId] = useState(null);
   const [editingLessonId, setEditingLessonId] = useState(null);
   const [lessonTitle, setLessonTitle] = useState('');
-  const [lessonVideoUrl, setLessonVideoUrl] = useState('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  const [lessonVideoUrl, setLessonVideoUrl] = useState('');
   const [lessonDuration, setLessonDuration] = useState(15);
   const [lessonContent, setLessonContent] = useState('');
   const [lessonIsPreview, setLessonIsPreview] = useState(false);
@@ -33,6 +44,8 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [materialTitle, setMaterialTitle] = useState('');
   const [materialUrl, setMaterialUrl] = useState('');
   const [materialType, setMaterialType] = useState('PDF');
+  const [materialSizeBytes, setMaterialSizeBytes] = useState(2048000);
+  const [materialFileName, setMaterialFileName] = useState('');
 
   // Preview Video Player
   const [previewingVideoUrl, setPreviewingVideoUrl] = useState(null);
@@ -90,20 +103,27 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
     }
   };
 
-  const handleDeleteCourse = async () => {
-    const confirm = window.confirm(`⚠️ Bạn có chắc chắn muốn xóa khóa học "${courseDetail?.title}"?\nToàn bộ chương và bài học bên trong sẽ bị xóa khỏi CSDL!`);
-    if (!confirm) return;
-
-    try {
-      await courseAPI.deleteCourse(course.slug || course.id);
-      alert('✓ Đã xóa khóa học thành công!');
-      if (onCourseUpdated) onCourseUpdated();
-      onClose();
-    } catch (err) {
-      alert('✓ Đã xóa khóa học!');
-      if (onCourseUpdated) onCourseUpdated();
-      onClose();
-    }
+  const handleDeleteCourse = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xác nhận xóa khóa học',
+      message: `Bạn có chắc chắn muốn xóa khóa học "${courseDetail?.title}"? Toàn bộ chương và bài học bên trong sẽ bị xóa khỏi cơ sở dữ liệu.`,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
+        const targetId = course.id;
+        try {
+          await courseAPI.deleteCourse(course.slug || course.id);
+          if (onCourseUpdated) onCourseUpdated(targetId);
+          onClose();
+        } catch (err) {
+          if (onCourseUpdated) onCourseUpdated(targetId);
+          onClose();
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
+        }
+      },
+    });
   };
 
   // ==================== 2. CHAPTER ACTIONS ====================
@@ -117,13 +137,11 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
           title: chapterTitle.trim(),
           description: chapterDesc.trim(),
         });
-        alert('✓ Đã cập nhật chương học!');
       } else {
         await courseAPI.createChapter(courseDetail.id, {
           title: chapterTitle.trim(),
           description: chapterDesc.trim(),
         });
-        alert('✓ Đã thêm chương học mới thành công!');
       }
       setShowAddChapter(false);
       setEditingChapterId(null);
@@ -132,26 +150,31 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       fetchDetail();
       if (onCourseUpdated) onCourseUpdated();
     } catch (err) {
-      alert('✓ Đã ghi nhận lưu chương học!');
       setShowAddChapter(false);
       setEditingChapterId(null);
       fetchDetail();
     }
   };
 
-  const handleDeleteChapter = async (chapterId, title) => {
-    const confirm = window.confirm(`Xóa chương "${title}" cùng toàn bộ bài học con bên trong?`);
-    if (!confirm) return;
-
-    try {
-      await courseAPI.deleteChapter(chapterId);
-      alert('✓ Đã xóa chương học!');
-      fetchDetail();
-      if (onCourseUpdated) onCourseUpdated();
-    } catch (err) {
-      alert('✓ Đã xóa chương học!');
-      fetchDetail();
-    }
+  const handleDeleteChapter = (chapterId, title) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xác nhận xóa chương học',
+      message: `Bạn có chắc muốn xóa chương "${title}" cùng toàn bộ bài học con bên trong không?`,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
+        try {
+          await courseAPI.deleteChapter(chapterId);
+          fetchDetail();
+          if (onCourseUpdated) onCourseUpdated();
+        } catch (err) {
+          fetchDetail();
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
+        }
+      },
+    });
   };
 
   // ==================== 3. LESSON ACTIONS ====================
@@ -170,42 +193,45 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
 
       if (editingLessonId) {
         await courseAPI.updateLesson(editingLessonId, payload);
-        alert('✓ Đã cập nhật bài học video!');
       } else if (addingLessonChapterId) {
         await courseAPI.createLesson(addingLessonChapterId, payload);
-        alert('✓ Đã thêm bài học video mới vào chương!');
       }
 
       setAddingLessonChapterId(null);
       setEditingLessonId(null);
       setLessonTitle('');
-      setLessonVideoUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+      setLessonVideoUrl('');
       setLessonDuration(15);
       setLessonContent('');
       setLessonIsPreview(false);
       fetchDetail();
       if (onCourseUpdated) onCourseUpdated();
     } catch (err) {
-      alert('✓ Đã lưu bài học!');
       setAddingLessonChapterId(null);
       setEditingLessonId(null);
       fetchDetail();
     }
   };
 
-  const handleDeleteLesson = async (lessonId, title) => {
-    const confirm = window.confirm(`Xóa bài học "${title}"?`);
-    if (!confirm) return;
-
-    try {
-      await courseAPI.deleteLesson(lessonId);
-      alert('✓ Đã xóa bài học!');
-      fetchDetail();
-      if (onCourseUpdated) onCourseUpdated();
-    } catch (err) {
-      alert('✓ Đã xóa bài học!');
-      fetchDetail();
-    }
+  const handleDeleteLesson = (lessonId, title) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xác nhận xóa bài học',
+      message: `Bạn có chắc muốn xóa bài học "${title}" khỏi chương này không?`,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
+        try {
+          await courseAPI.deleteLesson(lessonId);
+          fetchDetail();
+          if (onCourseUpdated) onCourseUpdated();
+        } catch (err) {
+          fetchDetail();
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
+        }
+      },
+    });
   };
 
   // ==================== 4. MATERIAL ACTIONS ====================
@@ -218,30 +244,38 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
         title: materialTitle.trim(),
         file_url: materialUrl.trim() || 'https://example.com/tai-lieu.pdf',
         file_type: materialType,
-        file_size_bytes: 2048000,
+        file_size_bytes: materialSizeBytes || 2048000,
       });
-      alert('✓ Đã thêm tài liệu đính kèm!');
       setAddingMaterialLessonId(null);
       setMaterialTitle('');
       setMaterialUrl('');
+      setMaterialSizeBytes(2048000);
+      setMaterialFileName('');
       fetchDetail();
     } catch (err) {
-      alert('✓ Đã lưu tài liệu đính kèm!');
       setAddingMaterialLessonId(null);
       fetchDetail();
     }
   };
 
-  const handleDeleteMaterial = async (materialId) => {
-    if (!window.confirm('Xóa tài liệu đính kèm này?')) return;
-    try {
-      await courseAPI.deleteMaterial(materialId);
-      alert('✓ Đã xóa tài liệu!');
-      fetchDetail();
-    } catch (err) {
-      alert('✓ Đã xóa tài liệu!');
-      fetchDetail();
-    }
+  const handleDeleteMaterial = (materialId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xác nhận xóa tài liệu',
+      message: 'Bạn có chắc chắn muốn xóa file tài liệu đính kèm này?',
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
+        try {
+          await courseAPI.deleteMaterial(materialId);
+          fetchDetail();
+        } catch (err) {
+          fetchDetail();
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
+        }
+      },
+    });
   };
 
   const chapters = courseDetail?.chapters || [];
@@ -295,7 +329,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                 Quản Trị Giáo Trình: {courseDetail?.title || course.title}
               </h3>
               <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                Thêm, Sửa, Xóa từ Khóa học (Cha) $\rightarrow$ Chương (Con) $\rightarrow$ Bài học Video $\rightarrow$ Tài liệu
+                Thêm, Sửa, Xóa từ Khóa học (Cha) → Chương (Con) → Bài học Video → Tài liệu
               </span>
             </div>
           </div>
@@ -355,24 +389,66 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
             </div>
 
             {/* Course Buttons */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button
-                className="btn-outline"
-                onClick={() => setIsEditingCourse(!isEditingCourse)}
-                style={{ fontSize: '0.8rem', padding: '6px 12px' }}
-              >
-                <i className="fa-solid fa-pen"></i>
-                <span>Sửa khóa học</span>
-              </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* Kiểm tra quyền: Chỉ đúng Chủ sở hữu (Creator) hoặc Admin mới được sửa / xóa */}
+              {(() => {
+                const isOwner = Boolean(
+                  user?.id && (
+                    courseDetail?.teacher?.id === user?.id || 
+                    courseDetail?.teacher?.email === user?.email ||
+                    course?.teacher?.id === user?.id ||
+                    course?.teacher?.email === user?.email
+                  )
+                );
+                const isAdmin = user?.role === 'ADMIN' || user?.is_superuser;
+                const canEditOrDelete = isOwner || isAdmin;
 
-              <button
-                className="btn-outline"
-                onClick={handleDeleteCourse}
-                style={{ fontSize: '0.8rem', padding: '6px 12px', color: '#dc2626', borderColor: '#fca5a5' }}
-              >
-                <i className="fa-solid fa-trash-can"></i>
-                <span>Xóa khóa học</span>
-              </button>
+                if (!canEditOrDelete) {
+                  return (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '5px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: '#f1f5f9',
+                        color: '#64748b',
+                        border: '1px solid #e2e8f0',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontWeight: '600',
+                      }}
+                      title="Chỉ Giảng viên tạo khóa học này hoặc Admin mới có quyền sửa/xóa"
+                    >
+                      <i className="fa-solid fa-lock" style={{ color: '#94a3b8' }}></i>
+                      <span>Khóa học của: {courseDetail?.teacher?.full_name || course?.teacher?.full_name || 'Giảng viên khác'}</span>
+                    </span>
+                  );
+                }
+
+                return (
+                  <>
+                    <button
+                      className="btn-outline"
+                      onClick={() => setIsEditingCourse(!isEditingCourse)}
+                      style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                    >
+                      <i className="fa-solid fa-pen"></i>
+                      <span>Sửa khóa học</span>
+                    </button>
+
+                    <button
+                      className="btn-outline"
+                      onClick={handleDeleteCourse}
+                      style={{ fontSize: '0.8rem', padding: '6px 12px', color: '#dc2626', borderColor: '#fca5a5' }}
+                      title="Xóa khóa học khỏi CSDL"
+                    >
+                      <i className="fa-solid fa-trash-can"></i>
+                      <span>Xóa khóa học</span>
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -423,9 +499,46 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
 
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Thumbnail URL:</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>Thumbnail (Ảnh đại diện):</label>
+                    <label
+                      htmlFor="edit-course-thumb-file"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '0.72rem',
+                        fontWeight: '700',
+                        color: '#0284c7',
+                        backgroundColor: '#e0f2fe',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <i className="fa-solid fa-cloud-arrow-up"></i>
+                      <span>Chọn ảnh từ máy</span>
+                    </label>
+                    <input
+                      id="edit-course-thumb-file"
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setEditThumbnailUrl(event.target.result);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
                   <input
-                    type="url"
+                    type="text"
+                    placeholder="URL ảnh hoặc bấm nút 'Chọn ảnh từ máy'..."
                     value={editThumbnailUrl}
                     onChange={(e) => setEditThumbnailUrl(e.target.value)}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
@@ -786,15 +899,72 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
           {addingMaterialLessonId && (
             <div
               style={{
-                padding: '14px',
+                padding: '16px',
                 borderRadius: '8px',
                 backgroundColor: '#fef3c7',
                 border: '1px solid #fde68a',
               }}
             >
-              <h5 style={{ fontSize: '0.85rem', fontWeight: '800', color: '#92400e', margin: '0 0 8px' }}>
-                Thêm Tài Liệu Đính Kèm Cho Bài Học
-              </h5>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h5 style={{ fontSize: '0.9rem', fontWeight: '800', color: '#92400e', margin: 0 }}>
+                  <i className="fa-solid fa-paperclip" style={{ marginRight: '6px' }}></i>
+                  Thêm Tài Liệu Đính Kèm Cho Bài Học
+                </h5>
+
+                <label
+                  htmlFor="lesson-material-file-upload"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    backgroundColor: '#d97706',
+                    color: 'white',
+                    borderRadius: '4px',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <i className="fa-solid fa-folder-open"></i>
+                  <span>Tải tệp từ máy tính</span>
+                </label>
+                <input
+                  id="lesson-material-file-upload"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.mp3,.mp4,.zip"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setMaterialFileName(file.name);
+                      if (!materialTitle.trim()) {
+                        setMaterialTitle(file.name.replace(/\.[^/.]+$/, ''));
+                      }
+                      const ext = file.name.split('.').pop().toUpperCase();
+                      if (ext === 'PDF') setMaterialType('PDF');
+                      else if (['DOC', 'DOCX'].includes(ext)) setMaterialType('DOCX');
+                      else if (['MP3', 'WAV', 'M4A'].includes(ext)) setMaterialType('MP3');
+                      
+                      setMaterialSizeBytes(file.size);
+
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setMaterialUrl(event.target.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </div>
+
+              {materialFileName && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', backgroundColor: '#fffbeb', borderRadius: '4px', border: '1px solid #fcd34d', marginBottom: '8px', fontSize: '0.8rem', color: '#92400e' }}>
+                  <i className="fa-solid fa-file-circle-check"></i>
+                  <span>Đã chọn tệp: <strong>{materialFileName}</strong> ({Math.round(materialSizeBytes / 1024)} KB)</span>
+                </div>
+              )}
+
               <form onSubmit={handleSaveMaterial} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
                   <input
@@ -816,14 +986,17 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                   </select>
                 </div>
                 <input
-                  type="url"
-                  placeholder="Đường dẫn file (URL tải về)..."
-                  value={materialUrl}
+                  type="text"
+                  placeholder="URL tệp hoặc bấm 'Tải tệp từ máy tính' ở trên..."
+                  value={materialUrl.startsWith('data:') ? `[Dữ liệu tệp cục bộ từ máy: ${materialFileName || 'Tệp tải lên'}]` : materialUrl}
                   onChange={(e) => setMaterialUrl(e.target.value)}
                   style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
                 />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                  <button type="button" className="btn-outline" onClick={() => setAddingMaterialLessonId(null)}>Hủy</button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                  <button type="button" className="btn-outline" onClick={() => {
+                    setAddingMaterialLessonId(null);
+                    setMaterialFileName('');
+                  }}>Hủy</button>
                   <button type="submit" className="btn-primary" style={{ backgroundColor: '#d97706' }}>Lưu Tài Liệu</button>
                 </div>
               </form>
@@ -847,9 +1020,10 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                 </button>
               </div>
               <iframe
-                src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0"
+                src={getYouTubeEmbedUrl(previewingVideoUrl)}
                 title="Preview"
                 style={{ width: '100%', height: '300px', border: 'none', borderRadius: '6px' }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
             </div>
@@ -871,6 +1045,19 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
           </button>
         </div>
       </div>
+
+      {/* Reusable Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Xác nhận xóa"
+        cancelText="Hủy bỏ"
+        type="danger"
+        isLoading={confirmModal.isLoading}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false })}
+      />
     </div>
   );
 }

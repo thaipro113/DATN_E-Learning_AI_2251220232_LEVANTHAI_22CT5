@@ -50,12 +50,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin, BaseModel):
         default=EnglishLevel.A1,
         help_text=_('Trình độ hiện tại theo khung CEFR')
     )
-    avatar_url = models.URLField(
+    avatar_url = models.TextField(
         _('Ảnh đại diện'),
-        max_length=500,
         blank=True,
         null=True,
-        help_text=_('Đường dẫn ảnh đại diện')
+        help_text=_('Đường dẫn ảnh đại diện hoặc dữ liệu Base64')
     )
     phone_number = models.CharField(
         _('Số điện thoại'),

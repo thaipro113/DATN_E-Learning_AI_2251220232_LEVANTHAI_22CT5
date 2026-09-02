@@ -209,11 +209,17 @@ class GroqLLMProvider(BaseLLMProvider):
     ) -> Tuple[str, Dict[str, Any], int, str]:
         import urllib.request
         formatted_messages = [{'role': 'system', 'content': system_prompt}]
+        last_user_text = ""
         for msg in messages:
+            role = msg.get('role', 'user')
+            if role == 'model':
+                role = 'assistant'
             formatted_messages.append({
-                'role': msg.get('role', 'user'),
+                'role': role,
                 'content': msg.get('content', '')
             })
+            if role == 'user':
+                last_user_text = msg.get('content', '')
 
         payload = {
             'model': self.model,
@@ -236,7 +242,16 @@ class GroqLLMProvider(BaseLLMProvider):
                 result = json.loads(response.read().decode('utf-8'))
                 reply = result['choices'][0]['message']['content']
                 tokens = result.get('usage', {}).get('total_tokens', 120)
-                return reply, {}, tokens, self.model
+
+                # Phân tích ngữ pháp câu hỏi học viên nếu cần
+                grammar_analysis = {}
+                if last_user_text and len(last_user_text.split()) >= 3:
+                    try:
+                        grammar_analysis = self.analyze_grammar(last_user_text)
+                    except Exception:
+                        grammar_analysis = {}
+
+                return reply, grammar_analysis, tokens, f"Groq {self.model}"
         except Exception as e:
             logger.warning(f"Groq API call failed: {e}. Falling back to Mock Provider.")
 
@@ -471,14 +486,15 @@ class FallbackMockLLMProvider(BaseLLMProvider):
 def get_llm_provider() -> BaseLLMProvider:
     """
     Factory function chọn LLM Provider phù hợp dựa trên cấu hình môi trường.
+    Ưu tiên Groq Cloud tốc độ cao (Qwen 3.8 / Llama 3) và Gemini Studio.
     """
-    gemini_key = os.getenv('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', '')
-    if gemini_key:
-        return GeminiLLMProvider(api_key=gemini_key, model='gemini-3.6-flash')
-
     groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
-    if groq_key:
-        return GroqLLMProvider(api_key=groq_key)
+    if groq_key and groq_key.startswith('gsk_'):
+        return GroqLLMProvider(api_key=groq_key, model='qwen/qwen3.8-27b')
+
+    gemini_key = os.getenv('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', '')
+    if gemini_key and gemini_key.startswith('AIza'):
+        return GeminiLLMProvider(api_key=gemini_key, model='gemini-2.0-flash')
 
     return FallbackMockLLMProvider()
 

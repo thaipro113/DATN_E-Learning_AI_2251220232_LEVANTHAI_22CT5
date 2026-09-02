@@ -1606,3 +1606,93 @@ input, select, textarea {
   }
 }
 
+/* ==========================================================================
+   MY LEARNING ROOM - 2-COLUMN EDTECH LAYOUT & INTERACTIVE TABS
+   ========================================================================== */
+
+.learning-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  align-items: flex-start;
+  margin-top: 16px;
+}
+
+@media (max-width: 1080px) {
+  .learning-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.video-player-box {
+  background-color: #090d16;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25);
+  border: 1px solid #1e293b;
+}
+
+/* Modern Tab Pill Bar matching Header Aesthetics */
+.tab-control-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 4px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.tab-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+  white-space: nowrap;
+}
+
+.tab-pill-btn:hover {
+  color: var(--text-main);
+  background-color: var(--bg-subtle);
+}
+
+.tab-pill-btn.active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+}
+
+.tab-pill-btn.active i {
+  color: #ffffff;
+}
+
+/* Tab Content Box */
+.learning-tab-content {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Curriculum Sidebar */
+.curriculum-sidebar-box {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 80px;
+}
+
