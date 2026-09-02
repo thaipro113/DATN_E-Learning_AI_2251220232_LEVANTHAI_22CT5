@@ -19,12 +19,12 @@ export default function TeacherAIQuizModal({
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [lessons, setLessons] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState('');
-  
+
   const [quizTitle, setQuizTitle] = useState('');
   const [topic, setTopic] = useState('');
   const [level, setLevel] = useState('B1');
   const [skill, setSkill] = useState('GRAMMAR');
-  const [count, setCount] = useState(5);
+  const [count, setCount] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -277,7 +277,7 @@ export default function TeacherAIQuizModal({
           explanation: q.explanation_vi || '',
           points: q.points || 1.0,
           options: q.options || [],
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       alert(`🎉 Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`);
@@ -561,10 +561,12 @@ export default function TeacherAIQuizModal({
                   onChange={(e) => setCount(Number(e.target.value))}
                   style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                 >
-                  <option value={3}>3 câu (Rút gọn)</option>
-                  <option value={5}>5 câu (Chuẩn)</option>
-                  <option value={10}>10 câu (Đầy đủ)</option>
-                  <option value={15}>15 câu (Nâng cao)</option>
+                  <option value={5}>5 câu (Ôn tập nhanh)</option>
+                  <option value={10}>10 câu (Tiêu chuẩn)</option>
+                  <option value={20}>20 câu (Kiểm tra định kỳ)</option>
+                  <option value={30}>30 câu (Đề thi thử 30p)</option>
+                  <option value={40}>40 câu (Đề luyện thi TOEIC/IELTS)</option>
+                  <option value={50}>50 câu (Đề thi thử toàn diện)</option>
                 </select>
               </div>
             </div>

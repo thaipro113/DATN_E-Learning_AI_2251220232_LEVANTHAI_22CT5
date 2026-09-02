@@ -235,10 +235,10 @@ class GenerateTeacherQuizRequestSerializer(serializers.Serializer):
     )
     count = serializers.IntegerField(
         required=False,
-        default=5,
+        default=10,
         min_value=1,
-        max_value=20,
-        help_text="Số lượng câu hỏi (1 - 20 câu)"
+        max_value=50,
+        help_text="Số lượng câu hỏi (1 - 50 câu)"
     )
     skill = serializers.CharField(
         required=False,

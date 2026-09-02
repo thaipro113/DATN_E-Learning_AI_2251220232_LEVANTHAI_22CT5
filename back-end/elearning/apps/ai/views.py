@@ -243,7 +243,7 @@ class GenerateTeacherQuizAPIView(APIView):
 
         topic = serializer.validated_data.get('topic')
         level = serializer.validated_data.get('level', 'B1')
-        count = serializer.validated_data.get('count', 5)
+        count = serializer.validated_data.get('count', 10)
         skill = serializer.validated_data.get('skill', 'GRAMMAR')
 
         success, message, questions = AIQuizService.generate_quiz_for_teacher(

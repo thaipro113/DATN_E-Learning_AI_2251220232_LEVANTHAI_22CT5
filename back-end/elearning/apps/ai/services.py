@@ -309,13 +309,13 @@ class AIQuizService:
         teacher: CustomUser,
         topic: str,
         level: str = 'B1',
-        count: int = 5,
+        count: int = 10,
         skill: str = 'GRAMMAR'
     ) -> Tuple[bool, str, List[Dict[str, Any]]]:
         """
         Sinh danh sách câu hỏi trắc nghiệm theo chủ đề để Giáo viên xem trước và chỉnh sửa trên Form.
         """
-        count = min(max(count, 1), 20)
+        count = min(max(count, 1), 50)
         prompt = build_quiz_generation_prompt(
             context_type='TOPIC_BASED',
             target_level=level,
