@@ -384,34 +384,31 @@ export default function App() {
             </button>
           </div>
 
-          {/* Mobile Links */}
+          {/* Mobile Links - Clean Text Only */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button className={`nav-link ${currentTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleSelectTab('dashboard')}>
-              <i className="fa-solid fa-house nav-icon-sky"></i>
               <span>Tổng quan</span>
             </button>
             <button className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`} onClick={() => handleSelectTab('courses')}>
-              <i className="fa-solid fa-book-open nav-icon-emerald"></i>
               <span>Khóa học</span>
             </button>
 
             {isLoggedIn && user.role === 'STUDENT' && (
               <>
                 <button className={`nav-link ${currentTab === 'learning' ? 'active' : ''}`} onClick={() => handleSelectTab('learning')}>
-                  <i className="fa-solid fa-circle-play nav-icon-purple"></i>
                   <span>Đang học</span>
                 </button>
                 <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
-                  <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-                  <span>Luyện Đề</span>
+                  <span>Luyện đề</span>
                 </button>
                 <button className={`nav-link ${currentTab === 'path' ? 'active' : ''}`} onClick={() => handleSelectTab('path')}>
-                  <i className="fa-solid fa-compass nav-icon-indigo"></i>
                   <span>Lộ trình AI</span>
                 </button>
                 <button className={`nav-link ${currentTab === 'skills' ? 'active' : ''}`} onClick={() => handleSelectTab('skills')}>
-                  <i className="fa-solid fa-chart-pie nav-icon-amber"></i>
-                  <span>Lỗ hổng Kỹ năng</span>
+                  <span>Lỗ hổng kỹ năng</span>
+                </button>
+                <button className={`nav-link ${currentTab === 'ai_coach' ? 'active' : ''}`} onClick={() => handleSelectTab('ai_coach')}>
+                  <span>Giao tiếp AI</span>
                 </button>
               </>
             )}
@@ -419,23 +416,19 @@ export default function App() {
             {isLoggedIn && user.role === 'TEACHER' && (
               <>
                 <button className={`nav-link ${currentTab === 'teacher_dashboard' ? 'active' : ''}`} onClick={() => handleSelectTab('teacher_dashboard')}>
-                  <i className="fa-solid fa-chalkboard-user nav-icon-sky"></i>
                   <span>Studio Giảng dạy</span>
                 </button>
                 <button className={`nav-link ${currentTab === 'teacher_quizzes' || currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('teacher_quizzes')}>
-                  <i className="fa-solid fa-file-pen nav-icon-orange"></i>
                   <span>Quản lý Đề thi</span>
                 </button>
                 <button className="nav-link" onClick={() => { setIsQuizImportOpen(true); setIsMobileDrawerOpen(false); }}>
-                  <i className="fa-solid fa-file-import nav-icon-rose"></i>
                   <span>Import Đề thi</span>
                 </button>
               </>
             )}
 
             <button className={`nav-link ${currentTab === 'cert_verify' ? 'active' : ''}`} onClick={() => handleSelectTab('cert_verify')}>
-              <i className="fa-solid fa-award nav-icon-orange"></i>
-              <span>Tra cứu Chứng chỉ số</span>
+              <span>Tra cứu Chứng chỉ</span>
             </button>
           </div>
         </div>

@@ -73,7 +73,7 @@ export default function Header({
           </a>
         </div>
 
-        {/* Dynamic Navigation Tabs */}
+        {/* Dynamic Navigation Tabs - Clean Text Only */}
         <nav style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
           <ul className="nav-links">
             {/* 1. TABS DÀNH CHO HỌC VIÊN HOẶC KHÁCH CHƯA ĐĂNG NHẬP */}
@@ -84,7 +84,6 @@ export default function Header({
                     className={`nav-link ${currentTab === 'dashboard' ? 'active' : ''}`}
                     onClick={() => onSelectTab('dashboard')}
                   >
-                    <i className="fa-solid fa-house nav-icon-sky"></i>
                     <span>Tổng quan</span>
                   </button>
                 </li>
@@ -93,7 +92,6 @@ export default function Header({
                     className={`nav-link ${currentTab === 'courses' || currentTab === 'course_detail' ? 'active' : ''}`}
                     onClick={() => onSelectTab('courses')}
                   >
-                    <i className="fa-solid fa-book-open nav-icon-emerald"></i>
                     <span>Khóa học</span>
                   </button>
                 </li>
@@ -104,7 +102,6 @@ export default function Header({
                         className={`nav-link ${currentTab === 'learning' ? 'active' : ''}`}
                         onClick={() => onSelectTab('learning')}
                       >
-                        <i className="fa-solid fa-circle-play nav-icon-purple"></i>
                         <span>Đang học</span>
                       </button>
                     </li>
@@ -113,8 +110,7 @@ export default function Header({
                         className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`}
                         onClick={() => onSelectTab('quizzes')}
                       >
-                        <i className="fa-solid fa-file-signature nav-icon-orange"></i>
-                        <span>Luyện Đề</span>
+                        <span>Luyện đề</span>
                       </button>
                     </li>
                     <li>
@@ -122,7 +118,6 @@ export default function Header({
                         className={`nav-link ${currentTab === 'path' ? 'active' : ''}`}
                         onClick={() => onSelectTab('path')}
                       >
-                        <i className="fa-solid fa-compass nav-icon-indigo"></i>
                         <span>Lộ trình AI</span>
                       </button>
                     </li>
@@ -131,8 +126,7 @@ export default function Header({
                         className={`nav-link ${currentTab === 'skills' ? 'active' : ''}`}
                         onClick={() => onSelectTab('skills')}
                       >
-                        <i className="fa-solid fa-chart-pie nav-icon-amber"></i>
-                        <span>Lỗ hổng Kỹ năng</span>
+                        <span>Lỗ hổng kỹ năng</span>
                       </button>
                     </li>
                     <li>
@@ -141,9 +135,8 @@ export default function Header({
                         onClick={() => onSelectTab('ai_coach')}
                         style={{ position: 'relative' }}
                       >
-                        <i className="fa-solid fa-headset nav-icon-emerald"></i>
                         <span>Giao tiếp AI</span>
-                        <span style={{ fontSize: '0.62rem', backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '2px' }}>LIVE</span>
+                        <span style={{ fontSize: '0.62rem', backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>LIVE</span>
                       </button>
                     </li>
                   </>
@@ -153,7 +146,6 @@ export default function Header({
                       className={`nav-link ${currentTab === 'cert_verify' ? 'active' : ''}`}
                       onClick={() => onSelectTab('cert_verify')}
                     >
-                      <i className="fa-solid fa-award nav-icon-orange"></i>
                       <span>Tra cứu Chứng chỉ</span>
                     </button>
                   </li>
@@ -169,7 +161,6 @@ export default function Header({
                     className={`nav-link ${currentTab === 'teacher_dashboard' ? 'active' : ''}`}
                     onClick={() => onSelectTab('teacher_dashboard')}
                   >
-                    <i className="fa-solid fa-chalkboard-user nav-icon-sky"></i>
                     <span>Studio Giảng dạy</span>
                   </button>
                 </li>
@@ -178,7 +169,6 @@ export default function Header({
                     className={`nav-link ${currentTab === 'teacher_quizzes' || currentTab === 'quizzes' ? 'active' : ''}`}
                     onClick={() => onSelectTab('teacher_quizzes')}
                   >
-                    <i className="fa-solid fa-file-pen nav-icon-orange"></i>
                     <span>Quản lý Đề thi</span>
                   </button>
                 </li>
@@ -188,7 +178,6 @@ export default function Header({
                     onClick={onOpenQuizImport}
                     style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}
                   >
-                    <i className="fa-solid fa-file-import nav-icon-rose"></i>
                     <span>Import Đề thi</span>
                   </button>
                 </li>
@@ -202,7 +191,6 @@ export default function Header({
                   className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`}
                   onClick={() => onSelectTab('admin_dashboard')}
                 >
-                  <i className="fa-solid fa-shield-halved nav-icon-rose"></i>
                   <span>Bảng Quản Trị Hệ Thống</span>
                 </button>
               </li>
