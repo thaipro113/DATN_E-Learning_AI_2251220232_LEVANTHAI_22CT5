@@ -47,7 +47,18 @@ export default function App() {
   };
 
   const initialRoute = parseHash();
-  const [currentTab, setCurrentTab] = useState(initialRoute.tab);
+  const [currentTab, setCurrentTab] = useState(() => {
+    const savedUser = localStorage.getItem('user_info');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (u.role === 'ADMIN' && (initialRoute.tab === 'dashboard' || !initialRoute.tab)) {
+          return 'admin_dashboard';
+        }
+      } catch (e) {}
+    }
+    return initialRoute.tab;
+  });
   const [courseSlug, setCourseSlug] = useState(initialRoute.slug);
   const [isQuizImportOpen, setIsQuizImportOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -101,6 +112,9 @@ export default function App() {
             setUser(liveUser);
             setIsLoggedIn(true);
             localStorage.setItem('user_info', JSON.stringify(liveUser));
+            if (liveUser.role === 'ADMIN' && (window.location.hash === '#/dashboard' || window.location.hash === '#dashboard' || !window.location.hash)) {
+              setCurrentTab('admin_dashboard');
+            }
           }
         } catch (err) {
           if (err.response?.status === 401) {
@@ -309,7 +323,8 @@ export default function App() {
       setIsAuthModalOpen(true);
       return;
     }
-    setCurrentTab(tab);
+    const targetTab = (user?.role === 'ADMIN' && tab === 'dashboard') ? 'admin_dashboard' : tab;
+    setCurrentTab(targetTab);
     setIsMobileDrawerOpen(false);
   };
 
@@ -494,9 +509,9 @@ export default function App() {
       </div>
 
       {/* 2. Main Content Area */}
-      <main className={`main-content ${currentTab === 'admin_dashboard' ? 'full-width-admin' : ''}`}>
+      <main className={`main-content ${currentTab === 'admin_dashboard' || (user?.role === 'ADMIN' && currentTab === 'dashboard') ? 'full-width-admin' : ''}`}>
         {/* Breadcrumb Bar with Back Button when in Subviews */}
-        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && (
+        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && !(user?.role === 'ADMIN' && currentTab === 'dashboard') && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
             {/* Nút Quay lại thông minh theo ngữ cảnh */}
             {currentTab === 'learning' ? (
@@ -769,7 +784,7 @@ export default function App() {
         {/* ==================== C. ADMIN VIEWS ==================== */}
         {isLoggedIn && user.role === 'ADMIN' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
-            {currentTab === 'admin_dashboard' && (
+            {(currentTab === 'admin_dashboard' || currentTab === 'dashboard') && (
               <AdminDashboardView onBackToDashboard={() => handleSelectTab('admin_dashboard')} />
             )}
 

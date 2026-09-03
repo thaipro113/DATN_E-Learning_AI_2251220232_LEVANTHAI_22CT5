@@ -57,7 +57,7 @@ export default function Header({
             href="#dashboard"
             onClick={(e) => {
               e.preventDefault();
-              onSelectTab(role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard');
+              onSelectTab(role === 'TEACHER' ? 'teacher_dashboard' : role === 'ADMIN' ? 'admin_dashboard' : 'dashboard');
             }}
             className="brand-logo"
             title="TL-ENGLISH: Learn Smarter - Speak Confidently"
@@ -182,7 +182,7 @@ export default function Header({
             {isLoggedIn && role === 'ADMIN' && (
               <li>
                 <button
-                  className={`nav-link ${currentTab === 'admin_dashboard' ? 'active' : ''}`}
+                  className={`nav-link ${currentTab === 'admin_dashboard' || currentTab === 'dashboard' ? 'active' : ''}`}
                   onClick={() => onSelectTab('admin_dashboard')}
                 >
                   <span>Bảng Quản Trị Hệ Thống</span>
