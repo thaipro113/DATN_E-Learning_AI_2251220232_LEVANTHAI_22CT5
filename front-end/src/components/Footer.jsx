@@ -1,4 +1,5 @@
 import React from 'react';
+import logoImg from '../assets/Logo_TL_English.png';
 
 export default function Footer({ onSelectTab, currentTab }) {
   return (
@@ -9,11 +10,29 @@ export default function Footer({ onSelectTab, currentTab }) {
             {/* Column 1: Brand & Slogan */}
             <div className="footer-col brand-col">
               <div className="footer-logo">
-                <div className="logo-icon-box">
-                  <i className="fa-solid fa-graduation-cap"></i>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '10px',
+                    backgroundColor: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    padding: '2px',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <img
+                    src={logoImg}
+                    alt="TL-ENGLISH Logo"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  />
                 </div>
                 <span className="logo-text">
-                  E-Learning <span className="logo-ai-gradient">AI</span>
+                  TL-<span className="logo-ai-gradient">ENGLISH</span>
                 </span>
               </div>
               <p className="footer-desc">

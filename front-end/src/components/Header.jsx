@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import logoImg from '../assets/Logo_TL_English.png';
 
 export default function Header({
   currentTab,
@@ -59,17 +60,27 @@ export default function Header({
               onSelectTab(role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard');
             }}
             className="brand-logo"
+            title="TL-ENGLISH: Learn Smarter - Speak Confidently"
           >
-            <div
-              className="brand-logo-icon"
+            <img
+              src={logoImg}
+              alt="TL-ENGLISH Logo"
               style={{
-                backgroundColor: role === 'TEACHER' ? '#e0f2fe' : '#ffedd5',
-                color: role === 'TEACHER' ? '#0284c7' : '#ea580c',
+                height: '46px',
+                width: 'auto',
+                objectFit: 'contain',
+                flexShrink: 0,
+                borderRadius: '6px',
               }}
-            >
-              <i className="fa-solid fa-graduation-cap"></i>
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+              <span style={{ fontSize: '1.22rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.02em' }}>
+                TL-<span style={{ color: '#0284c7' }}>ENGLISH</span>
+              </span>
+              <span style={{ fontSize: '0.62rem', fontWeight: '800', color: '#64748b', letterSpacing: '0.6px' }}>
+                LEARN SMARTER
+              </span>
             </div>
-            <span>E-Learning AI</span>
           </a>
         </div>
 

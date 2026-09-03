@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import logoImg from '../assets/Logo_TL_English.png';
 import { authAPI, courseAPI, assessmentAPI, aiAPI, learningAPI, quizImportAPI, recommendationAPI } from '../services/api';
 import ConfirmModal from './ConfirmModal';
 import Pagination from './Pagination';
@@ -452,26 +453,15 @@ export default function AdminDashboardView() {
           }}
         >
           {/* Logo / Admin Badge Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px 16px', borderBottom: '1px solid var(--border-color)', marginBottom: '14px' }}>
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: '#0284c7',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1rem',
-                fontWeight: '800',
-              }}
-            >
-              <i className="fa-solid fa-graduation-cap"></i>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 10px 16px', borderBottom: '1px solid var(--border-color)', marginBottom: '14px' }}>
+            <img
+              src={logoImg}
+              alt="TL-ENGLISH Logo"
+              style={{ width: '38px', height: '38px', objectFit: 'contain', flexShrink: 0, borderRadius: '6px' }}
+            />
             <div>
-              <div style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', lineHeight: 1.1 }}>
-                E-Learning AI
+              <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--text-main)', lineHeight: 1.1 }}>
+                TL-<span style={{ color: '#0284c7' }}>ENGLISH</span>
               </div>
               <span
                 style={{
