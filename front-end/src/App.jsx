@@ -873,13 +873,15 @@ export default function App() {
         }}
       />
 
-      {/* 9. Site Footer */}
-      {currentTab !== 'admin_dashboard' && (
+      {/* 9. Site Footer (Ẩn trong giao diện Quản trị Admin) */}
+      {user?.role !== 'ADMIN' && currentTab !== 'admin_dashboard' && (
         <Footer onSelectTab={handleSelectTab} currentTab={currentTab} />
       )}
 
-      {/* 10. Floating Quick Contact Stack (Zalo, FB Messenger, Hotline, Scroll Top) */}
-      <FloatingContactWidget onOpenAITutor={() => setIsAITutorModalOpen(true)} />
+      {/* 10. Floating Quick Contact Stack (Zalo, FB Messenger, Hotline, Scroll Top) - Ẩn hoàn toàn trong Admin */}
+      {user?.role !== 'ADMIN' && currentTab !== 'admin_dashboard' && (
+        <FloatingContactWidget onOpenAITutor={() => setIsAITutorModalOpen(true)} />
+      )}
 
       {/* 11. Mobile Bottom Navigation Bar */}
       <MobileBottomNav
