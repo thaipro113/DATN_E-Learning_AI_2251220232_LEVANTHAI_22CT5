@@ -3,8 +3,8 @@ import Pagination from './Pagination';
 import { cleanCourseTitle } from '../utils/media';
 
 export default function GuestUdemyHomeView({
-  courses,
-  categories,
+  courses = [],
+  categories = [],
   onExploreClick,
   onOpenAuthModal,
   onSelectCourse,
@@ -23,218 +23,271 @@ export default function GuestUdemyHomeView({
   });
 
   return (
-    <div className="guest-udemy-container">
-      {/* 1. Udemy-Style Hero Promotion Banner */}
-      <section className="udemy-hero-card">
-        <div className="udemy-hero-content">
-          <div className="udemy-hero-badge">
-            <i className="fa-solid fa-sparkles"></i>
-            <span>NỀN TẢNG E-LEARNING AI THẾ HỆ MỚI</span>
-          </div>
-          <h1 className="udemy-hero-title">
-            Làm chủ Tiếng Anh Vượt bậc với Trí tuệ Nhân tạo 24/7
-          </h1>
-          <p className="udemy-hero-subtitle">
-            Học thông minh hơn cùng <strong>Lộ trình học tập thích ứng cá nhân hóa</strong> chuẩn CEFR (A1 – C2) và <strong>Trợ lý Gia sư AI</strong> chỉnh sửa phát âm, ngữ pháp thời gian thực.
-          </p>
+    <div className="landing-page-wrapper">
+      {/* ==================== 1. HERO SECTION (NAVY BLUE STYLE WITH BIRD STUDENT) ==================== */}
+      <section className="landing-hero-card">
+        <div className="landing-hero-body">
+          {/* CỘT TRÁI (~55%): TEXT & ACTIONS */}
+          <div className="landing-hero-content">
+            {/* Top Badge */}
+            <div className="landing-hero-badge">
+              <span className="badge-pulsing-dot"></span>
+              <span>🚀 NỀN TẢNG E-LEARNING AI THẾ HỆ MỚI</span>
+            </div>
 
-          <div className="udemy-hero-actions">
-            <button className="btn-primary" onClick={onOpenAuthModal} style={{ padding: '12px 28px', fontSize: '0.98rem' }}>
-              <i className="fa-solid fa-user-plus"></i>
-              <span>Bắt đầu học thử miễn phí</span>
-            </button>
-            <button className="btn-outline" onClick={onExploreClick} style={{ padding: '12px 24px', fontSize: '0.98rem' }}>
-              <i className="fa-solid fa-book-open"></i>
-              <span>Khám phá các khóa học</span>
-            </button>
+            {/* Headline Lớn Nổi Bật */}
+            <h1 className="landing-hero-title">
+              HỌC TIẾNG ANH<br />
+              <span className="title-highlight">THÔNG MINH HƠN</span><br />
+              CÙNG AI
+            </h1>
+
+            {/* Description */}
+            <p className="landing-hero-desc">
+              Học tập cá nhân hóa cùng AI, cải thiện tiếng Anh theo trình độ và mục tiêu của riêng bạn.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="landing-hero-actions">
+              <button
+                className="btn-hero-primary"
+                onClick={onOpenAuthModal}
+              >
+                <span>BẮT ĐẦU HỌC MIỄN PHÍ</span>
+                <i className="fa-solid fa-arrow-right"></i>
+              </button>
+              <button
+                className="btn-hero-secondary"
+                onClick={onExploreClick}
+              >
+                <i className="fa-solid fa-compass"></i>
+                <span>KHÁM PHÁ KHÓA HỌC</span>
+              </button>
+            </div>
+
+            {/* Feature Check Points */}
+            <div className="landing-hero-features">
+              <div className="hero-feature-item">
+                <i className="fa-solid fa-circle-check"></i>
+                <span>Miễn phí kiểm tra năng lực</span>
+              </div>
+              <div className="hero-feature-item">
+                <i className="fa-solid fa-circle-check"></i>
+                <span>Lộ trình thích ứng CEFR A1 - C2</span>
+              </div>
+            </div>
           </div>
 
-          <div className="udemy-hero-stats">
-            <div className="udemy-stat-item">
-              <strong>10.000+</strong>
-              <span>Học viên tham gia</span>
-            </div>
-            <div className="udemy-stat-item">
-              <strong>50+</strong>
-              <span>Khóa học chuẩn CEFR</span>
-            </div>
-            <div className="udemy-stat-item">
-              <strong>24/7</strong>
-              <span>Gia sư AI đồng hành</span>
-            </div>
-            <div className="udemy-stat-item">
-              <strong>98%</strong>
-              <span>Đạt mục tiêu đầu ra</span>
+          {/* CỘT PHẢI (~45%): BIRD STUDENT MASCOT */}
+          <div className="landing-hero-visual">
+            <div className="bird-hero-stage">
+              {/* Hiệu ứng ánh sáng nền dịu (Ambient Radial Lighting) */}
+              <div className="bird-ambient-light"></div>
+
+              {/* Phần tử UI nhỏ 1: AI Tutor 24/7 */}
+              <div className="bird-floating-badge badge-tutor">
+                <div className="floating-badge-icon bg-sky-soft">
+                  <i className="fa-solid fa-robot"></i>
+                </div>
+                <div>
+                  <strong>AI Tutor 24/7</strong>
+                  <span>Sửa phát âm & ngữ pháp</span>
+                </div>
+              </div>
+
+              {/* Phần tử UI nhỏ 2: 85% Tiến độ */}
+              <div className="bird-floating-badge badge-progress">
+                <div className="floating-badge-icon bg-emerald-soft">
+                  <i className="fa-solid fa-chart-line"></i>
+                </div>
+                <div>
+                  <strong>85% Tiến độ</strong>
+                  <span>Nâng chuẩn B1 → B2</span>
+                </div>
+              </div>
+
+              {/* Phần tử UI nhỏ 3: Lộ trình cá nhân hóa */}
+              <div className="bird-floating-badge badge-path">
+                <div className="floating-badge-icon bg-purple-soft">
+                  <i className="fa-solid fa-route"></i>
+                </div>
+                <div>
+                  <strong>Lộ trình cá nhân hóa</strong>
+                  <span>Theo năng lực thực tế</span>
+                </div>
+              </div>
+
+              {/* Nhân vật Bird_Student */}
+              <div className="bird-image-container">
+                <img
+                  src="/Bird_Student.png"
+                  alt="E-Learning AI Bird Mascot"
+                  className="bird-character-image"
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="udemy-hero-illustration">
-          <div className="udemy-hero-floating-card top-card">
-            <div className="avatar-icon-ai">
-              <i className="fa-solid fa-robot"></i>
-            </div>
-            <div>
-              <strong>Gia sư AI Tutor</strong>
-              <span>"Đã phát hiện & sửa 3 lỗi thì quá khứ!"</span>
-            </div>
+        {/* 4. THỐNG KÊ (KPI BAR ĐỒNG BỘ Ở CHÂN HERO) */}
+        <div className="landing-hero-stats-bar">
+          <div className="hero-stat-box">
+            <div className="hero-stat-value">10.000+</div>
+            <div className="hero-stat-title">Học viên</div>
           </div>
-
-          <div className="udemy-hero-floating-card bottom-card">
-            <div className="avatar-icon-streak">
-              <i className="fa-solid fa-fire"></i>
-            </div>
-            <div>
-              <strong>Lộ trình thích ứng</strong>
-              <span>Tiến độ cá nhân hóa 85%</span>
-            </div>
+          <div className="hero-stat-sep"></div>
+          <div className="hero-stat-box">
+            <div className="hero-stat-value">50+</div>
+            <div className="hero-stat-title">Khóa học</div>
+          </div>
+          <div className="hero-stat-sep"></div>
+          <div className="hero-stat-box">
+            <div className="hero-stat-value">24/7</div>
+            <div className="hero-stat-title">AI Tutor</div>
+          </div>
+          <div className="hero-stat-sep"></div>
+          <div className="hero-stat-box">
+            <div className="hero-stat-value">98%</div>
+            <div className="hero-stat-title">Hoàn thành mục tiêu</div>
           </div>
         </div>
       </section>
 
-      {/* 2. Udemy Category Selection Tabs */}
-      <section className="udemy-category-section">
-        <div className="section-header-row">
+      {/* ==================== 2. COURSE SECTION (REDESIGNED TÔNG XANH / TRẮNG) ==================== */}
+      <section className="landing-courses-section">
+        <div className="landing-section-header">
           <div>
-            <h2 className="section-main-title">
-              <i className="fa-solid fa-layer-group" style={{ color: '#0284c7', marginRight: '8px' }}></i>
-              Khám phá các chủ đề học tiếng Anh
-            </h2>
-            <p className="section-sub-title">Chọn danh mục bạn muốn nâng cao trình độ ngay hôm nay</p>
+            <span className="landing-section-pill">KHO HỌC LIỆU CHẤT LƯỢNG CAO</span>
+            <h2 className="landing-section-title">Khám Phá Các Khóa Học Tiếng Anh</h2>
+            <p className="landing-section-desc">Học theo chuẩn khung tham chiếu Châu Âu (CEFR) kết hợp trợ lý AI thông minh</p>
           </div>
+          <button className="btn-view-all-courses" onClick={onExploreClick}>
+            <span>Xem tất cả ({courses.length})</span>
+            <i className="fa-solid fa-arrow-right"></i>
+          </button>
         </div>
 
-        <div className="category-pill-bar">
+        {/* Category dạng Pill Button */}
+        <div className="landing-category-pills">
           <button
-            className={`cat-pill-btn ${selectedCat === 'ALL' ? 'active' : ''}`}
+            className={`landing-pill ${selectedCat === 'ALL' ? 'active' : ''}`}
             onClick={() => setSelectedCat('ALL')}
           >
             <i className="fa-solid fa-grid-2"></i>
             <span>Tất cả khóa học</span>
           </button>
           <button
-            className={`cat-pill-btn ${selectedCat === 'ngu-phap' ? 'active' : ''}`}
+            className={`landing-pill ${selectedCat === 'ngu-phap' ? 'active' : ''}`}
             onClick={() => setSelectedCat('ngu-phap')}
           >
             <i className="fa-solid fa-spell-check"></i>
             <span>Ngữ pháp chuẩn CEFR</span>
           </button>
           <button
-            className={`cat-pill-btn ${selectedCat === 'tu-vung-doc-hieu' ? 'active' : ''}`}
+            className={`landing-pill ${selectedCat === 'tu-vung-doc-hieu' ? 'active' : ''}`}
             onClick={() => setSelectedCat('tu-vung-doc-hieu')}
           >
-            <i className="fa-solid fa-book"></i>
+            <i className="fa-solid fa-book-bookmark"></i>
             <span>Từ vựng & Đọc hiểu</span>
           </button>
           <button
-            className={`cat-pill-btn ${selectedCat === 'giao-tiep-phat-am' ? 'active' : ''}`}
+            className={`landing-pill ${selectedCat === 'giao-tiep-phat-am' ? 'active' : ''}`}
             onClick={() => setSelectedCat('giao-tiep-phat-am')}
           >
             <i className="fa-solid fa-comments"></i>
-            <span>Giao tiếp & Phản xạ</span>
+            <span>Giao tiếp & Phản xạ AI</span>
           </button>
           <button
-            className={`cat-pill-btn ${selectedCat === 'luyen-thi-tong-hop' ? 'active' : ''}`}
+            className={`landing-pill ${selectedCat === 'luyen-thi-tong-hop' ? 'active' : ''}`}
             onClick={() => setSelectedCat('luyen-thi-tong-hop')}
           >
             <i className="fa-solid fa-award"></i>
             <span>Luyện thi TOEIC / IELTS</span>
           </button>
         </div>
-      </section>
 
-      {/* 3. Featured & Trending Courses Grid (Live Database Data) */}
-      <section className="udemy-courses-section">
-        <div style={{ marginBottom: '16px' }}>
-          <h2 className="section-main-title">
-            <i className="fa-solid fa-fire" style={{ color: '#ea580c', marginRight: '8px' }}></i>
-            Các khóa học thịnh hành & nổi bật nhất
-          </h2>
-          <p className="section-sub-title">Được xây dựng bởi các giảng viên xuất sắc và tối ưu hóa bởi AI</p>
-          <div style={{ marginTop: '10px' }}>
-            <button className="btn-text-link" onClick={onExploreClick}>
-              <i className="fa-solid fa-layer-group"></i>
-              <span>Xem tất cả ({courses.length})</span>
-              <i className="fa-solid fa-arrow-right"></i>
-            </button>
-          </div>
-        </div>
-
-        <div className="udemy-course-grid">
+        {/* Course Cards Grid */}
+        <div className="landing-courses-grid">
           {filteredCourses
             .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
             .map((course) => (
-              <div key={course.id} className="udemy-course-card" onClick={() => onSelectCourse(course)}>
-                {/* Thumbnail Header */}
-                <div className="udemy-card-thumb" style={{ overflow: 'hidden' }}>
+              <div
+                key={course.id}
+                className="landing-course-card"
+                onClick={() => onSelectCourse(course)}
+              >
+                {/* Thumbnail */}
+                <div className="course-card-thumb">
                   {course.thumbnail_url ? (
                     <img
                       src={course.thumbnail_url}
                       alt={course.title}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       onError={(e) => {
                         e.target.style.display = 'none';
                       }}
                     />
                   ) : (
-                    <div className="udemy-thumb-placeholder">
+                    <div className="course-thumb-empty">
                       <i className="fa-solid fa-graduation-cap"></i>
                     </div>
                   )}
-                  <span className={`udemy-level-badge level-${course.level?.toLowerCase() || 'b1'}`}>
+                  <span className={`course-level-pill level-${course.level?.toLowerCase() || 'b1'}`}>
                     CEFR {course.level || 'B1'}
                   </span>
                   {course.is_free && (
-                    <span className="udemy-free-badge">Miễn phí</span>
+                    <span className="course-free-pill">Miễn phí 100%</span>
                   )}
                 </div>
 
-                {/* Card Body */}
-                <div className="udemy-card-body">
-                  <span className="udemy-card-category">
+                {/* Body */}
+                <div className="course-card-content">
+                  <div className="course-card-tag">
                     {course.category?.name || 'Ngữ pháp Tiếng Anh'}
-                  </span>
-                  <h3 className="udemy-card-title">{cleanCourseTitle(course.title)}</h3>
-                  <p className="udemy-card-instructor">
+                  </div>
+                  <h3 className="course-card-heading" title={course.title}>
+                    {cleanCourseTitle(course.title)}
+                  </h3>
+                  <div className="course-card-author">
                     <i className="fa-solid fa-chalkboard-user"></i>
                     <span>{course.teacher?.full_name || 'Thầy Nguyễn Văn An'}</span>
-                  </p>
+                  </div>
 
-                  {/* Rating & Stats */}
-                  <div className="udemy-card-rating">
-                    <span className="rating-num">4.9</span>
-                    <div className="rating-stars">
+                  {/* Rating & Lessons */}
+                  <div className="course-card-meta">
+                    <div className="course-stars">
                       <i className="fa-solid fa-star"></i>
                       <i className="fa-solid fa-star"></i>
                       <i className="fa-solid fa-star"></i>
                       <i className="fa-solid fa-star"></i>
                       <i className="fa-solid fa-star-half-stroke"></i>
+                      <span className="rating-text">4.9</span>
                     </div>
-                    <span className="rating-count">({course.total_lessons != null ? course.total_lessons : 0} bài học)</span>
+                    <span className="course-lessons-count">
+                      <i className="fa-solid fa-video"></i>
+                      {course.total_lessons != null ? course.total_lessons : (course.lessons_count || 3)} bài học
+                    </span>
                   </div>
 
-                  {/* Pricing & CTA */}
-                  <div className="udemy-card-footer">
-                    <div className="price-box">
+                  {/* Footer & CTA */}
+                  <div className="course-card-footer">
+                    <div className="course-price-area">
                       {course.is_free ? (
-                        <span className="price-free">Miễn phí 100%</span>
+                        <span className="price-tag-free">Miễn phí</span>
                       ) : (
-                        <>
-                          <span className="price-current">
-                            {Number(course.price || 299000).toLocaleString('vi-VN')} đ
-                          </span>
-                          <span className="price-original">599.000 đ</span>
-                        </>
+                        <span className="price-tag-amount">
+                          {Number(course.price || 299000).toLocaleString('vi-VN')} đ
+                        </span>
                       )}
                     </div>
                     <button
-                      className="btn-enroll-sm"
+                      className="btn-course-enroll"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectCourse(course);
                       }}
                     >
-                      Xem khóa học
+                      <span>Xem khóa học</span>
+                      <i className="fa-solid fa-arrow-right"></i>
                     </button>
                   </div>
                 </div>
@@ -242,7 +295,7 @@ export default function GuestUdemyHomeView({
             ))}
         </div>
 
-        {/* Phân trang Khóa học Trang chủ */}
+        {/* Phân trang */}
         <Pagination
           currentPage={currentPage}
           totalPages={Math.ceil(filteredCourses.length / itemsPerPage)}
@@ -252,82 +305,67 @@ export default function GuestUdemyHomeView({
         />
       </section>
 
-      {/* 4. Why Choose Us / Features Showcase Section */}
-      <section className="udemy-features-section">
+      {/* ==================== 3. FEATURES HIGHLIGHT (E-LEARNING + AI) ==================== */}
+      <section className="landing-features-section">
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <span className="section-badge-pill">CÔNG NGHỆ ĐỘT PHÁ</span>
-          <h2 className="section-main-title" style={{ marginTop: '8px', fontSize: '1.75rem' }}>
-            Tại sao hơn 10.000+ học viên chọn E-Learning AI?
+          <span className="landing-section-pill">GIÁ TRỊ VƯỢT TRỘI</span>
+          <h2 className="landing-section-title" style={{ marginTop: '8px' }}>
+            Phương Pháp Học Tiếng Anh Cùng AI
           </h2>
-          <p className="section-sub-title" style={{ maxWidth: '650px', margin: '8px auto 0' }}>
-            Giải pháp học tiếng Anh toàn diện kết hợp giữa sư phạm chuẩn quốc tế và sức mạnh của Mô hình Ngôn ngữ Lớn (LLM).
+          <p className="landing-section-desc" style={{ maxWidth: '640px', margin: '8px auto 0' }}>
+            Kết hợp trí tuệ nhân tạo và phương pháp giảng dạy sư phạm quốc tế để tối ưu hóa thời gian học tập.
           </p>
         </div>
 
-        <div className="udemy-features-grid">
-          <div className="udemy-feature-card">
-            <div className="feature-icon-box bg-indigo-subtle">
-              <i className="fa-solid fa-compass" style={{ color: '#6366f1' }}></i>
+        <div className="landing-features-grid">
+          <div className="landing-feature-box">
+            <div className="feature-icon bg-sky-soft">
+              <i className="fa-solid fa-compass" style={{ color: '#0284c7' }}></i>
             </div>
-            <h3>Lộ trình Thích ứng Thông minh</h3>
-            <p>
-              Hệ thống AI tự động chẩn đoán ma trận 6 kỹ năng (Nghe, Nói, Đọc, Viết, Ngữ pháp, Từ vựng) để thiết kế lộ trình học tập cá nhân hóa riêng biệt.
-            </p>
+            <h3>Lộ Trình Thích Ứng</h3>
+            <p>Hệ thống tự động phát hiện lỗ hổng ngữ pháp và từ vựng để điều chỉnh bài học phù hợp với từng học viên.</p>
           </div>
 
-          <div className="udemy-feature-card">
-            <div className="feature-icon-box bg-sky-subtle">
-              <i className="fa-solid fa-robot" style={{ color: '#0284c7' }}></i>
+          <div className="landing-feature-box">
+            <div className="feature-icon bg-emerald-soft">
+              <i className="fa-solid fa-robot" style={{ color: '#059669' }}></i>
             </div>
-            <h3>Trợ lý Gia sư AI 24/7</h3>
-            <p>
-              Tương tác hội thoại bằng tiếng Anh theo thời gian thực (Google Gemini & Groq), nhận phản hồi và sửa lỗi ngữ pháp chi tiết từng câu.
-            </p>
+            <h3>Gia Sư AI 24/7</h3>
+            <p>Luyện tập giao tiếp phản xạ giọng nói, phân tích cấu trúc câu và đề xuất cách diễn đạt tự nhiên hơn.</p>
           </div>
 
-          <div className="udemy-feature-card">
-            <div className="feature-icon-box bg-rose-subtle">
-              <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#e11d48' }}></i>
+          <div className="landing-feature-box">
+            <div className="feature-icon bg-purple-soft">
+              <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#7c3aed' }}></i>
             </div>
-            <h3>AI Sinh Đề Ôn Tập Tức Thời</h3>
-            <p>
-              Tự động quét các bài học bạn đã hoàn thành trong chương để AI tạo đề thi trắc nghiệm bám sát kiến thức thực tế giúp nhớ bài sâu sắc.
-            </p>
+            <h3>AI Sinh Đề Tức Thời</h3>
+            <p>Tự động tạo câu hỏi trắc nghiệm bám sát nội dung bài học vừa xem giúp ôn tập và ghi nhớ kiến thức sâu sắc.</p>
           </div>
 
-          <div className="udemy-feature-card">
-            <div className="feature-icon-box bg-emerald-subtle">
-              <i className="fa-solid fa-shield-check" style={{ color: '#059669' }}></i>
+          <div className="landing-feature-box">
+            <div className="feature-icon bg-orange-soft">
+              <i className="fa-solid fa-award" style={{ color: '#ea580c' }}></i>
             </div>
-            <h3>Chống Gian lận & Cấp Chứng chỉ</h3>
-            <p>
-              Hệ thống phòng thi trực tuyến tự động chấm điểm với cơ chế bảo mật cao, tự động cấp Chứng chỉ hoàn thành khóa học có mã xác thực số.
-            </p>
+            <h3>Chứng Chỉ Điện Tử CEFR</h3>
+            <p>Hệ thống kiểm tra trực tuyến nghiêm ngặt, cấp chứng chỉ số có mã xác thực QR ngay sau khi hoàn thành khóa học.</p>
           </div>
         </div>
       </section>
 
-      {/* 5. Free Placement Test Callout Banner */}
-      <section className="udemy-cta-banner">
-        <div className="cta-banner-inner">
+      {/* ==================== 4. CTA BANNER KIỂM TRA TRÌNH ĐỘ ==================== */}
+      <section className="landing-cta-banner">
+        <div className="cta-banner-content">
           <div>
-            <span style={{ fontSize: '0.85rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#38bdf8' }}>
-              KIỂM TRA TRÌNH ĐỘ MIỄN PHÍ
-            </span>
-            <h2 style={{ fontSize: '1.75rem', fontWeight: '900', color: '#ffffff', margin: '8px 0' }}>
-              Bạn chưa biết trình độ Tiếng Anh của mình đang ở đâu?
-            </h2>
-            <p style={{ color: '#cbd5e1', fontSize: '0.95rem', maxWidth: '560px' }}>
-              Hãy làm bài kiểm tra năng lực đầu vào 15 phút để AI chẩn đoán ngay điểm mạnh, điểm yếu và gợi ý lộ trình chinh phục chuẩn CEFR.
+            <span className="cta-subtitle">KIỂM TRA NĂNG LỰC MIỄN PHÍ</span>
+            <h2 className="cta-heading">Sẵn Sàng Chinh Phục Tiếng Anh Cùng AI?</h2>
+            <p className="cta-text">
+              Làm bài kiểm tra đầu vào 15 phút để nhận ngay chẩn đoán trình độ CEFR và lộ trình học tập cá nhân hóa.
             </p>
           </div>
-
-          <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
-            <button className="btn-primary" onClick={onOpenAuthModal} style={{ padding: '12px 28px', backgroundColor: '#38bdf8', color: '#0f172a', fontWeight: '800' }}>
-              <i className="fa-solid fa-play"></i>
-              <span>Làm bài Test ngay</span>
-            </button>
-          </div>
+          <button className="btn-cta-action" onClick={onOpenAuthModal}>
+            <i className="fa-solid fa-bolt"></i>
+            <span>Bắt Đầu Kiểm Tra Ngay</span>
+          </button>
         </div>
       </section>
     </div>
