@@ -16,6 +16,8 @@ import QuizImportModal from './components/QuizImportModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import AuthModal from './components/AuthModal';
 import UserProfileModal from './components/UserProfileModal';
+import AuthPageView from './components/AuthPageView';
+import UserProfileView from './components/UserProfileView';
 import CertificateVerifyView from './components/CertificateVerifyView';
 import GuestUdemyHomeView from './components/GuestUdemyHomeView';
 import CourseDetailModal from './components/CourseDetailModal';
@@ -35,7 +37,11 @@ export default function App() {
       const slug = rawHash.replace(/^(courses|course)\//, '');
       return { tab: 'course_detail', slug };
     }
-    const validTabs = ['dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 'ai_coach', 'teacher_dashboard', 'teacher_quizzes', 'admin_dashboard', 'cert_verify'];
+    const validTabs = [
+      'dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 
+      'ai_coach', 'teacher_dashboard', 'teacher_quizzes', 'admin_dashboard', 
+      'cert_verify', 'login', 'register', 'profile'
+    ];
     return { tab: validTabs.includes(rawHash) ? rawHash : 'dashboard', slug: null };
   };
 
@@ -324,7 +330,24 @@ export default function App() {
     teacher_quizzes: 'Quản lý Đề thi',
     admin_dashboard: 'Quản trị Hệ thống',
     cert_verify: 'Tra cứu Chứng chỉ số',
+    login: 'Đăng nhập',
+    register: 'Đăng ký tài khoản',
+    profile: 'Hồ sơ cá nhân',
   };
+
+  // Tự động chuyển hướng nếu vào #/login hoặc #/register khi ĐÃ ĐĂNG NHẬP
+  useEffect(() => {
+    if (isLoggedIn && (currentTab === 'login' || currentTab === 'register')) {
+      handleSelectTab(user?.role === 'TEACHER' ? 'teacher_dashboard' : user?.role === 'ADMIN' ? 'admin_dashboard' : 'dashboard');
+    }
+  }, [isLoggedIn, currentTab, user?.role]);
+
+  // Tự động chuyển hướng đến #/login nếu vào #/profile khi CHƯA ĐĂNG NHẬP
+  useEffect(() => {
+    if (!isLoggedIn && currentTab === 'profile') {
+      handleSelectTab('login');
+    }
+  }, [isLoggedIn, currentTab]);
 
   return (
     <div className="app-container">
@@ -337,12 +360,12 @@ export default function App() {
           setIsMobileDrawerOpen(false);
         }}
         onOpenAICoach={() => setIsAICoachOpen(true)}
-        onOpenProfileModal={() => setIsProfileModalOpen(true)}
+        onOpenProfileModal={() => handleSelectTab('profile')}
         onToggleMobileDrawer={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
         user={user}
         isLoggedIn={isLoggedIn}
         onSwitchRole={handleSwitchRole}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenAuthModal={(mode = 'login') => handleSelectTab(mode === 'register' ? 'register' : 'login')}
         onLogout={handleLogout}
         myCourses={myCourses}
         myAttempts={myAttempts}
@@ -438,7 +461,7 @@ export default function App() {
           {!isLoggedIn ? (
             <button
               onClick={() => {
-                setIsAuthModalOpen(true);
+                handleSelectTab('login');
                 setIsMobileDrawerOpen(false);
               }}
               className="btn-primary"
@@ -448,17 +471,30 @@ export default function App() {
               <span>Đăng nhập hệ thống</span>
             </button>
           ) : (
-            <button
-              onClick={() => {
-                handleLogout();
-                setIsMobileDrawerOpen(false);
-              }}
-              className="btn-outline"
-              style={{ width: '100%', justifyContent: 'center', fontSize: '0.88rem', color: '#dc2626' }}
-            >
-              <i className="fa-solid fa-right-from-bracket"></i>
-              <span>Đăng xuất ({user.full_name})</span>
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  handleSelectTab('profile');
+                  setIsMobileDrawerOpen(false);
+                }}
+                className="btn-outline"
+                style={{ width: '100%', justifyContent: 'center', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <i className="fa-regular fa-user"></i>
+                <span>Hồ sơ cá nhân</span>
+              </button>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setIsMobileDrawerOpen(false);
+                }}
+                className="btn-outline"
+                style={{ width: '100%', justifyContent: 'center', fontSize: '0.88rem', color: '#dc2626' }}
+              >
+                <i className="fa-solid fa-arrow-right-from-bracket"></i>
+                <span>Đăng xuất ({user.full_name})</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -466,7 +502,7 @@ export default function App() {
       {/* 2. Main Content Area */}
       <main className={`main-content ${currentTab === 'admin_dashboard' ? 'full-width-admin' : ''}`}>
         {/* Breadcrumb Bar with Back Button when in Subviews */}
-        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'course_detail' && (
+        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <button
               onClick={() => handleSelectTab(user.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')}
@@ -495,6 +531,30 @@ export default function App() {
           </div>
         )}
 
+        {/* ==================== DEDICATED AUTH PAGE (LOGIN & REGISTER #/login, #/register) ==================== */}
+        {(currentTab === 'login' || currentTab === 'register') && (
+          <AuthPageView
+            initialMode={currentTab}
+            onLoginSuccess={handleLoginSuccess}
+            onNavigate={handleSelectTab}
+          />
+        )}
+
+        {/* ==================== DEDICATED USER PROFILE VIEW (#/profile) ==================== */}
+        {currentTab === 'profile' && (
+          <UserProfileView
+            user={user}
+            onUpdateUserSuccess={(updated) => {
+              setUser(updated);
+              fetchAllLiveData();
+            }}
+            onNavigate={handleSelectTab}
+            myCourses={myCourses}
+            myAttempts={myAttempts}
+            skillGaps={skillGaps}
+          />
+        )}
+
         {/* ==================== DIRECT COURSE DETAIL ROUTE (/#/courses/:slug) ==================== */}
         {currentTab === 'course_detail' && (
           <CourseDetailFullView
@@ -514,7 +574,7 @@ export default function App() {
           <CertificateVerifyView onBackToDashboard={() => handleSelectTab(user.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')} />
         )}
 
-        {(!isLoggedIn || user.role === 'STUDENT') && currentTab !== 'course_detail' && (
+        {(!isLoggedIn || user.role === 'STUDENT') && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
             {currentTab === 'dashboard' && (
               <>
@@ -606,7 +666,7 @@ export default function App() {
         )}
 
         {/* ==================== B. TEACHER VIEWS ==================== */}
-        {isLoggedIn && user.role === 'TEACHER' && currentTab !== 'course_detail' && (
+        {isLoggedIn && user.role === 'TEACHER' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
             {(currentTab === 'teacher_dashboard' || currentTab === 'dashboard') && (
               <TeacherDashboardView
@@ -634,7 +694,7 @@ export default function App() {
         )}
 
         {/* ==================== C. ADMIN VIEWS ==================== */}
-        {isLoggedIn && user.role === 'ADMIN' && currentTab !== 'course_detail' && (
+        {isLoggedIn && user.role === 'ADMIN' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
             {currentTab === 'admin_dashboard' && (
               <AdminDashboardView onBackToDashboard={() => handleSelectTab('admin_dashboard')} />
