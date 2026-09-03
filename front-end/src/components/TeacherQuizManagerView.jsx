@@ -388,7 +388,7 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
             style={{ backgroundColor: '#7c3aed' }}
           >
             <i className="fa-solid fa-wand-magic-sparkles"></i>
-            <span>✨ AI Sinh Đề Thi (UC_T4)</span>
+            <span>AI Sinh Đề Thi (UC_T4)</span>
           </button>
 
           <button
@@ -398,7 +398,7 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
             style={{ backgroundColor: '#e11d48' }}
           >
             <i className="fa-solid fa-file-import"></i>
-            <span>📥 Import Đề Thi</span>
+            <span>Import Đề Thi</span>
           </button>
         </div>
       </div>
@@ -408,9 +408,9 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {[
             { id: 'ALL', label: `Tất cả (${quizzes.length})` },
-            { id: 'PRACTICE', label: `📝 Luyện tập` },
-            { id: 'FINAL', label: `🏆 Cuối khóa` },
-            { id: 'PLACEMENT', label: `🎯 Đánh giá đầu vào` },
+            { id: 'PRACTICE', label: `Luyện tập` },
+            { id: 'FINAL', label: `Cuối khóa` },
+            { id: 'PLACEMENT', label: `Đánh giá đầu vào` },
           ].map((p) => (
             <button
               key={p.id}

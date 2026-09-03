@@ -254,7 +254,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             style={{ backgroundColor: '#7c3aed' }}
           >
             <i className="fa-solid fa-wand-magic-sparkles"></i>
-            <span>⚡ AI Sinh Đề Thi (UC_T4)</span>
+            <span>AI Sinh Đề Thi (UC_T4)</span>
           </button>
 
           <button

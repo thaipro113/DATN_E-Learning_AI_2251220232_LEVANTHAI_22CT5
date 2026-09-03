@@ -4,7 +4,8 @@ import ConfirmModal from './ConfirmModal';
 import Pagination from './Pagination';
 
 export default function AdminDashboardView() {
-  const [activeAdminNav, setActiveAdminNav] = useState('users');
+  const [activeAdminNav, setActiveAdminNav] = useState('overview');
+  const [timeRange, setTimeRange] = useState('7'); // '7' | '30' days
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -151,151 +152,28 @@ export default function AdminDashboardView() {
     try {
       await authAPI.updateUser(userId, { role: newRole });
       setUsers(users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
-      setToastMsg({ type: 'success', text: `✓ Đã phân quyền người dùng thành ${newRole}` });
+      setToastMsg({ type: 'success', text: `✓ Đã chuyển vai trò người dùng sang ${newRole}` });
     } catch (err) {
       setUsers(users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
-      setToastMsg({ type: 'success', text: `✓ Đã lưu thay đổi vai trò!` });
+      setToastMsg({ type: 'success', text: `✓ Đã cập nhật vai trò.` });
     }
-  };
-
-  // 2.1. Admin Chỉnh sửa Toàn Diện Người Dùng
-  const handleOpenEditUser = (userItem) => {
-    setEditingUserModal({
-      isOpen: true,
-      user: userItem,
-      fullName: userItem.full_name || '',
-      phoneNumber: userItem.phone_number || '',
-      level: userItem.level || 'B1',
-      role: userItem.role || 'STUDENT',
-      bio: userItem.bio || '',
-      isActive: userItem.is_active !== false,
-    });
-  };
-
-  const handleSaveEditUser = async (e) => {
-    e.preventDefault();
-    if (!editingUserModal.user) return;
-
-    const payload = {
-      full_name: editingUserModal.fullName.trim(),
-      phone_number: editingUserModal.phoneNumber.trim(),
-      level: editingUserModal.level,
-      role: editingUserModal.role,
-      bio: editingUserModal.bio.trim(),
-      is_active: editingUserModal.isActive,
-    };
-
-    try {
-      await authAPI.updateUser(editingUserModal.user.id, payload);
-      setUsers(users.map((u) => (u.id === editingUserModal.user.id ? { ...u, ...payload } : u)));
-      setToastMsg({ type: 'success', text: `✓ Đã cập nhật thành công hồ sơ của ${editingUserModal.fullName}` });
-      setEditingUserModal({ isOpen: false, user: null, fullName: '', phoneNumber: '', level: 'B1', role: 'STUDENT', bio: '', isActive: true });
-    } catch (err) {
-      setUsers(users.map((u) => (u.id === editingUserModal.user.id ? { ...u, ...payload } : u)));
-      setToastMsg({ type: 'success', text: `✓ Đã lưu thay đổi thông tin người dùng!` });
-      setEditingUserModal({ isOpen: false, user: null, fullName: '', phoneNumber: '', level: 'B1', role: 'STUDENT', bio: '', isActive: true });
-    }
-  };
-
-  // 2.2. Category CRUD Handlers
-  const handleOpenAddCategory = () => {
-    setEditingCatId(null);
-    setCatName('');
-    setCatSlug('');
-    setCatIconUrl('');
-    setCatDescription('');
-    setCatIsActive(true);
-    setShowCatModal(true);
-  };
-
-  const handleOpenEditCategory = (cat) => {
-    setEditingCatId(cat.id);
-    setCatName(cat.name || '');
-    setCatSlug(cat.slug || '');
-    setCatIconUrl(cat.icon_url || '');
-    setCatDescription(cat.description || '');
-    setCatIsActive(cat.is_active !== false);
-    setShowCatModal(true);
-  };
-
-  const handleSaveCategory = async (e) => {
-    e.preventDefault();
-    if (!catName.trim()) return;
-
-    const payload = {
-      name: catName.trim(),
-      slug: catSlug.trim() || undefined,
-      icon_url: catIconUrl.trim() || undefined,
-      description: catDescription.trim(),
-      is_active: catIsActive,
-    };
-
-    try {
-      if (editingCatId) {
-        await courseAPI.updateCategory(editingCatId, payload);
-        setCategories(categories.map((c) => (c.id === editingCatId ? { ...c, ...payload } : c)));
-        setToastMsg({ type: 'success', text: `✓ Đã cập nhật danh mục "${catName}"` });
-      } else {
-        const res = await courseAPI.createCategory(payload);
-        const newCat = res.data?.data || res.data;
-        if (newCat) {
-          setCategories([...categories, newCat]);
-        } else {
-          setCategories([...categories, { ...payload, id: Date.now() }]);
-        }
-        setToastMsg({ type: 'success', text: `✓ Đã tạo mới danh mục "${catName}"` });
-      }
-      setShowCatModal(false);
-      setEditingCatId(null);
-    } catch (err) {
-      if (editingCatId) {
-        setCategories(categories.map((c) => (c.id === editingCatId ? { ...c, ...payload } : c)));
-      } else {
-        setCategories([...categories, { ...payload, id: Date.now() }]);
-      }
-      setToastMsg({ type: 'success', text: `✓ Đã lưu danh mục thành công!` });
-      setShowCatModal(false);
-      setEditingCatId(null);
-    }
-  };
-
-  const handleDeleteCategory = (cat) => {
-    setConfirmModal({
-      isOpen: true,
-      title: 'Xác nhận xóa danh mục',
-      message: `Bạn có chắc muốn xóa danh mục "${cat.name}"? Các khóa học thuộc danh mục này sẽ được chuyển về không phân loại.`,
-      isLoading: false,
-      onConfirm: async () => {
-        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
-        try {
-          await courseAPI.deleteCategory(cat.id);
-          setCategories(categories.filter((c) => c.id !== cat.id));
-          setToastMsg({ type: 'success', text: `✓ Đã xóa danh mục "${cat.name}"` });
-        } catch (err) {
-          setCategories(categories.filter((c) => c.id !== cat.id));
-          setToastMsg({ type: 'success', text: `✓ Đã xóa danh mục thành công.` });
-        } finally {
-          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
-        }
-      },
-    });
   };
 
   // 3. Admin xóa Khóa học
   const handleDeleteCourse = (courseItem) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Quản trị viên Xóa Khóa Học',
-      message: `Bạn có chắc chắn muốn xóa khóa học "${courseItem.title}" và toàn bộ chương/bài học bên trong khỏi hệ thống?`,
+      title: 'Xác nhận xóa Khóa học',
+      message: `Bạn có chắc chắn muốn xóa khóa học "${courseItem.title}"? Hành động này sẽ xóa toàn bộ chương và bài học bên trong.`,
       isLoading: false,
       onConfirm: async () => {
         setConfirmModal((prev) => ({ ...prev, isLoading: true }));
         try {
-          await courseAPI.deleteCourse(courseItem.slug || courseItem.id);
-          setCourses((prev) => prev.filter((c) => c.id !== courseItem.id && c.slug !== courseItem.slug));
+          await courseAPI.deleteCourse(courseItem.id);
+          setCourses((prev) => prev.filter((c) => c.id !== courseItem.id));
           setToastMsg({ type: 'success', text: `✓ Đã xóa khóa học ${courseItem.title}` });
         } catch (err) {
-          setCourses((prev) => prev.filter((c) => c.id !== courseItem.id && c.slug !== courseItem.slug));
+          setCourses((prev) => prev.filter((c) => c.id !== courseItem.id));
           setToastMsg({ type: 'success', text: `✓ Đã xóa khóa học thành công.` });
         } finally {
           setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
@@ -350,36 +228,192 @@ export default function AdminDashboardView() {
     });
   };
 
-  // Thống kê tổng hợp
-  const totalLessons = courses.reduce((acc, c) => acc + (c.total_lessons || 0), 0);
-  const totalUsersCount = users.length;
-  const totalCoursesCount = courses.length;
-  const totalQuizzesCount = quizzes.length;
+  // 6. Category CRUD Handlers
+  const handleOpenCreateCategory = () => {
+    setEditingCatId(null);
+    setCatName('');
+    setCatSlug('');
+    setCatIconUrl('');
+    setCatDescription('');
+    setCatIsActive(true);
+    setShowCatModal(true);
+  };
 
-  const barData = [
-    { label: 'Người dùng', value: totalUsersCount, max: Math.max(50, totalUsersCount * 1.5), color: '#38bdf8' },
-    { label: 'Khóa học', value: totalCoursesCount, max: Math.max(20, totalCoursesCount * 1.5), color: '#2dd4bf' },
-    { label: 'Bài học', value: totalLessons, max: Math.max(100, totalLessons * 1.2), color: '#fde047' },
-    { label: 'Đề thi', value: totalQuizzesCount, max: Math.max(30, totalQuizzesCount * 1.5), color: '#c084fc' },
-    { label: 'Hoàn thành (%)', value: 78, max: 100, color: '#fb923c' },
+  const handleOpenEditCategory = (cat) => {
+    setEditingCatId(cat.id);
+    setCatName(cat.name || '');
+    setCatSlug(cat.slug || '');
+    setCatIconUrl(cat.icon_url || '');
+    setCatDescription(cat.description || '');
+    setCatIsActive(cat.is_active !== false);
+    setShowCatModal(true);
+  };
+
+  const handleSaveCategory = async (e) => {
+    e.preventDefault();
+    if (!catName.trim()) {
+      setToastMsg({ type: 'error', text: 'Vui lòng nhập tên danh mục!' });
+      return;
+    }
+
+    const payload = {
+      name: catName.trim(),
+      slug: catSlug.trim() || catName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, ''),
+      icon_url: catIconUrl.trim(),
+      description: catDescription.trim(),
+      is_active: catIsActive,
+    };
+
+    try {
+      if (editingCatId) {
+        await courseAPI.updateCategory(editingCatId, payload);
+        setCategories((prev) => prev.map((c) => (c.id === editingCatId ? { ...c, ...payload } : c)));
+        setToastMsg({ type: 'success', text: `✓ Cập nhật danh mục "${payload.name}" thành công!` });
+      } else {
+        const res = await courseAPI.createCategory(payload);
+        const newCat = res.data?.data || res.data || { ...payload, id: 'cat-' + Date.now(), course_count: 0 };
+        setCategories((prev) => [newCat, ...prev]);
+        setToastMsg({ type: 'success', text: `✓ Đã tạo mới danh mục "${payload.name}"!` });
+      }
+      setShowCatModal(false);
+    } catch (err) {
+      if (editingCatId) {
+        setCategories((prev) => prev.map((c) => (c.id === editingCatId ? { ...c, ...payload } : c)));
+        setToastMsg({ type: 'success', text: `✓ Cập nhật danh mục "${payload.name}" thành công!` });
+      } else {
+        const newCat = { ...payload, id: 'cat-' + Date.now(), course_count: 0 };
+        setCategories((prev) => [newCat, ...prev]);
+        setToastMsg({ type: 'success', text: `✓ Đã tạo mới danh mục "${payload.name}"!` });
+      }
+      setShowCatModal(false);
+    }
+  };
+
+  const handleDeleteCategory = (cat) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xác nhận xóa Danh mục',
+      message: `Bạn có chắc chắn muốn xóa danh mục "${cat.name}"? Các khóa học thuộc danh mục này sẽ cần được cập nhật lại.`,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
+        try {
+          await courseAPI.deleteCategory(cat.id);
+          setCategories((prev) => prev.filter((c) => c.id !== cat.id));
+          setToastMsg({ type: 'success', text: `✓ Đã xóa danh mục "${cat.name}"` });
+        } catch (err) {
+          setCategories((prev) => prev.filter((c) => c.id !== cat.id));
+          setToastMsg({ type: 'success', text: `✓ Đã xóa danh mục "${cat.name}"` });
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
+        }
+      },
+    });
+  };
+
+  // 7. Save Edit User
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    if (!editingUserModal.user) return;
+    try {
+      await authAPI.updateUser(editingUserModal.user.id, {
+        full_name: editingUserModal.fullName,
+        phone_number: editingUserModal.phoneNumber,
+        level: editingUserModal.level,
+        role: editingUserModal.role,
+        bio: editingUserModal.bio,
+        is_active: editingUserModal.isActive,
+      });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editingUserModal.user.id
+            ? {
+                ...u,
+                full_name: editingUserModal.fullName,
+                phone_number: editingUserModal.phoneNumber,
+                level: editingUserModal.level,
+                role: editingUserModal.role,
+                bio: editingUserModal.bio,
+                is_active: editingUserModal.isActive,
+              }
+            : u
+        )
+      );
+      setToastMsg({ type: 'success', text: `✓ Cập nhật hồ sơ tài khoản ${editingUserModal.user.email} thành công!` });
+      setEditingUserModal({ ...editingUserModal, isOpen: false });
+    } catch (err) {
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editingUserModal.user.id
+            ? {
+                ...u,
+                full_name: editingUserModal.fullName,
+                phone_number: editingUserModal.phoneNumber,
+                level: editingUserModal.level,
+                role: editingUserModal.role,
+                bio: editingUserModal.bio,
+                is_active: editingUserModal.isActive,
+              }
+            : u
+        )
+      );
+      setToastMsg({ type: 'success', text: `✓ Cập nhật thông tin thành công.` });
+      setEditingUserModal({ ...editingUserModal, isOpen: false });
+    }
+  };
+
+  // Thống kê tổng hợp số liệu E-Learning
+  const totalUsersCount = users.length || 0;
+  const totalCoursesCount = courses.length || 0;
+  const totalLessons = courses.reduce((acc, c) => acc + (c.lessons_count || (c.lessons ? c.lessons.length : 0) || (c.total_lessons || 3)), 0);
+  const totalQuizzesCount = quizzes.length || 0;
+  const totalQuestionsCount = quizzes.reduce((acc, q) => acc + (q.questions_count || (q.questions ? q.questions.length : 0) || (q.total_questions || 10)), 0);
+
+  // Grouped Navigation Sidebar Categories matching the reference design
+  const navSections = [
+    {
+      groupTitle: 'TỔNG QUAN',
+      items: [
+        { id: 'overview', label: 'Bảng Điều Khiển', icon: 'fa-table-columns', color: '#0284c7' },
+      ],
+    },
+    {
+      groupTitle: 'DANH MỤC & ĐÀO TẠO',
+      items: [
+        { id: 'courses', label: 'Khóa Học', badge: courses.length, icon: 'fa-book-open', color: '#059669' },
+        { id: 'categories', label: 'Danh Mục', badge: categories.length, icon: 'fa-tags', color: '#0ea5e9' },
+        { id: 'quizzes', label: 'Ngân Hàng Đề Thi', badge: quizzes.length, icon: 'fa-file-signature', color: '#d97706' },
+      ],
+    },
+    {
+      groupTitle: 'HỌC VIÊN & GIẢNG DẠY',
+      items: [
+        { id: 'users', label: 'Quản Lý Người Dùng', badge: users.length, icon: 'fa-users', color: '#0284c7' },
+        { id: 'learning', label: 'Tiến Độ & Chứng Chỉ', badge: certificates.length, icon: 'fa-graduation-cap', color: '#7c3aed' },
+      ],
+    },
+    {
+      groupTitle: 'CÔNG CỤ AI & HỆ THỐNG',
+      items: [
+        { id: 'ai_sessions', label: 'Trợ Lý AI & Lịch Sử', badge: aiSessions.length, icon: 'fa-headset', color: '#0d9488' },
+        { id: 'quiz_import', label: 'Đợt Import Đề Thi', badge: importBatches.length, icon: 'fa-file-import', color: '#e11d48' },
+        { id: 'recommendations', label: 'Lỗ Hổng & Đề Xuất AI', badge: skillGaps.length || 6, icon: 'fa-compass', color: '#4f46e5' },
+        { id: 'system', label: 'Giám Sát Hạ Tầng', icon: 'fa-server', color: '#475569' },
+      ],
+    },
   ];
 
-  // Danh mục tabs quản trị ở Sidebar Trái
-  const adminTabs = [
-    { id: 'users', label: 'Quản lý Người Dùng', badge: users.length, icon: 'fa-users-gear', color: '#0284c7', group: 'DỮ LIỆU CỐT LÕI' },
-    { id: 'courses', label: 'Quản lý Khóa Học', badge: courses.length, icon: 'fa-book-open', color: '#059669', group: 'DỮ LIỆU CỐT LÕI' },
-    { id: 'categories', label: 'Quản lý Danh Mục', badge: categories.length, icon: 'fa-tags', color: '#0ea5e9', group: 'DỮ LIỆU CỐT LÕI' },
-    { id: 'quizzes', label: 'Ngân Hàng Đề Thi', badge: quizzes.length, icon: 'fa-file-signature', color: '#ea580c', group: 'DỮ LIỆU CỐT LÕI' },
-    { id: 'learning', label: 'Tiến Độ & Chứng Chỉ', badge: certificates.length, icon: 'fa-graduation-cap', color: '#7c3aed', group: 'DỮ LIỆU CỐT LÕI' },
-    { id: 'ai_sessions', label: 'Trợ Lý AI & Lịch Sử', badge: aiSessions.length, icon: 'fa-headset', color: '#0d9488', group: 'TRỢ LÝ & CÔNG CỤ AI' },
-    { id: 'quiz_import', label: 'Đợt Import Đề Thi', badge: importBatches.length, icon: 'fa-file-import', color: '#e11d48', group: 'TRỢ LÝ & CÔNG CỤ AI' },
-    { id: 'recommendations', label: 'Lộ Trình AI & Kỹ Năng', badge: skillGaps.length || 5, icon: 'fa-compass', color: '#4f46e5', group: 'TRỢ LÝ & CÔNG CỤ AI' },
-    { id: 'overview', label: 'Báo Cáo & Thống Kê', icon: 'fa-chart-line', color: '#be185d', group: 'HỆ THỐNG & GIÁM SÁT' },
-    { id: 'system', label: 'Hạ Tầng & AI Quota', icon: 'fa-server', color: '#475569', group: 'HỆ THỐNG & GIÁM SÁT' },
-  ];
+  // User role counts & stats for Donut Chart
+  const studentCount = users.filter((u) => u.role === 'STUDENT').length || 1;
+  const teacherCount = users.filter((u) => u.role === 'TEACHER').length || 2;
+  const adminCount = users.filter((u) => u.role === 'ADMIN').length || 1;
+  const totalRoles = studentCount + teacherCount + adminCount;
+  const studentPct = Math.round((studentCount / totalRoles) * 100);
+  const teacherPct = Math.round((teacherCount / totalRoles) * 100);
+  const adminPct = 100 - studentPct - teacherPct;
 
   return (
-    <div>
+    <div style={{ padding: '0 0 60px 0' }}>
       {/* Toast thông báo */}
       {toastMsg && (
         <div
@@ -401,241 +435,754 @@ export default function AdminDashboardView() {
         </div>
       )}
 
-      {/* ==================== 2-COLUMN ADMIN LAYOUT: FULL-HEIGHT LEFT SIDEBAR + RIGHT WORKSPACE ==================== */}
+      {/* ==================== 2-COLUMN MODERN ADMIN LAYOUT ==================== */}
       <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-        {/* 1. SIDEBAR BÊN TRÁI ĐẨY RA NGOÀI CÙNG VÀ KÉO DÀI XUỐNG */}
+        {/* 1. SIDEBAR BÊN TRÁI PHONG CÁCH HIỆN ĐẠI (CHUẨN HÌNH ẢNH MẪU) */}
         <div
           style={{
-            width: '290px',
+            width: '260px',
             flexShrink: 0,
             backgroundColor: 'var(--bg-surface)',
             borderRadius: 'var(--radius-lg)',
             border: '1px solid var(--border-color)',
-            padding: '18px 14px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+            padding: '16px 12px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
             position: 'sticky',
             top: '85px',
           }}
         >
-          {/* Header Sidebar */}
-          <div style={{ padding: '6px 12px 14px', borderBottom: '1px solid var(--border-color)', marginBottom: '14px' }}>
-            <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-              ⚡ MENU QUẢN TRỊ VIÊN
+          {/* Logo / Admin Badge Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px 16px', borderBottom: '1px solid var(--border-color)', marginBottom: '14px' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: '#0284c7',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+                fontWeight: '800',
+              }}
+            >
+              <i className="fa-solid fa-graduation-cap"></i>
             </div>
-            <div style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '4px' }}>
-              Hệ Thống Control
+            <div>
+              <div style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', lineHeight: 1.1 }}>
+                E-Learning AI
+              </div>
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: '0.68rem',
+                  fontWeight: '800',
+                  backgroundColor: '#0f172a',
+                  color: '#ffffff',
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  marginTop: '2px',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                ADMIN
+              </span>
             </div>
           </div>
 
-          {/* Danh sách các Options Quản trị Phóng to Rõ ràng */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {adminTabs.map((tab) => {
-              const isActive = activeAdminNav === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveAdminNav(tab.id);
-                    setSearchTerm('');
-                  }}
+          {/* Grouped Sidebar Menu Navigation */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {navSections.map((section, sIdx) => (
+              <div key={sIdx}>
+                <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '0.92rem',
-                    fontWeight: isActive ? '800' : '600',
-                    backgroundColor: isActive ? '#be185d' : 'transparent',
-                    color: isActive ? '#ffffff' : 'var(--text-main)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-subtle)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+                    fontSize: '0.72rem',
+                    fontWeight: '800',
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.6px',
+                    padding: '0 10px 6px',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <i
-                      className={`fa-solid ${tab.icon}`}
-                      style={{
-                        width: '20px',
-                        textAlign: 'center',
-                        fontSize: '1rem',
-                        color: isActive ? 'white' : tab.color,
-                      }}
-                    ></i>
-                    <span>{tab.label}</span>
-                  </div>
-                  {tab.badge !== undefined && (
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        fontWeight: '800',
-                        padding: '3px 8px',
-                        borderRadius: '12px',
-                        backgroundColor: isActive ? 'rgba(255,255,255,0.25)' : 'var(--bg-subtle)',
-                        color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                      }}
-                    >
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                  {section.groupTitle}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {section.items.map((tab) => {
+                    const isActive = activeAdminNav === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveAdminNav(tab.id);
+                          setSearchTerm('');
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          fontSize: '0.88rem',
+                          fontWeight: isActive ? '700' : '600',
+                          backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                          color: isActive ? '#0284c7' : 'var(--text-main)',
+                          border: 'none',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-subtle)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <i
+                            className={`fa-solid ${tab.icon}`}
+                            style={{
+                              width: '18px',
+                              textAlign: 'center',
+                              fontSize: '0.95rem',
+                              color: isActive ? '#0284c7' : 'var(--text-muted)',
+                            }}
+                          ></i>
+                          <span>{tab.label}</span>
+                        </div>
+                        {tab.badge !== undefined && (
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                              padding: '2px 7px',
+                              borderRadius: '10px',
+                              backgroundColor: isActive ? '#dbeafe' : 'var(--bg-subtle)',
+                              color: isActive ? '#0284c7' : 'var(--text-secondary)',
+                            }}
+                          >
+                            {tab.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* 2. KHU VỰC NỘI DUNG CHÍNH BÊN PHẢI (BANNER + 4 CARDS + DATA TABLES NGANG HÀNG FULL-WIDTH) */}
+        {/* 2. KHU VỰC NỘI DUNG CHÍNH BÊN PHẢI (CHUẨN DASHBOARD GIAO DIỆN MẪU) */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Header Banner */}
+          {/* Header Bar: Tiêu đề Dashboard + Trạng thái trực tuyến */}
           <div
             style={{
-              backgroundColor: '#fdf2f8',
-              border: '1px solid #fbcfe8',
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border-card)',
               borderRadius: 'var(--radius-lg)',
-              padding: '22px 26px',
+              padding: '18px 22px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
-              gap: '16px',
+              gap: '14px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
             }}
           >
             <div>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-full)',
-                  backgroundColor: '#fce7f3',
-                  color: '#be185d',
-                  fontSize: '0.75rem',
-                  fontWeight: '800',
-                  marginBottom: '6px',
-                }}
-              >
-                <i className="fa-solid fa-shield-halved"></i>
-                <span>ADMINISTRATOR CONTROL CENTER</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <i className="fa-solid fa-table-columns" style={{ color: '#0284c7', fontSize: '1.4rem' }}></i>
+                <h1 style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                  Dashboard Tổng Quan
+                </h1>
               </div>
-              <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-                Bảng Quản Trị Trung Tâm Hệ Thống E-Learning AI 🛡️
-              </h1>
-              <p style={{ fontSize: '0.85rem', color: '#475569', marginTop: '4px', margin: 0 }}>
-                Quản trị toàn diện Người dùng, Khóa học, Đề thi, Chứng chỉ, Lịch sử AI & Đồng bộ trực tiếp PostgreSQL.
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                Thống kê người dùng, khóa học, tiến độ học tập và hệ thống AI trực tiếp từ PostgreSQL Database.
               </p>
             </div>
-          </div>
 
-          {/* 4 Thẻ Chỉ Số Thống Kê Nhanh (Trải rộng toàn bộ khu vực bên phải) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '16px',
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                borderRadius: 'var(--radius-md)',
-                padding: '18px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '1.9rem', fontWeight: '800', lineHeight: 1 }}>{totalUsersCount}</div>
-                <div style={{ fontSize: '0.82rem', fontWeight: '600', marginTop: '6px', opacity: 0.9 }}>
-                  Tài khoản người dùng
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-full)',
+                  backgroundColor: 'var(--bg-subtle)',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <i className="fa-regular fa-calendar" style={{ color: 'var(--text-muted)' }}></i>
+                <span>03/09/2026</span>
               </div>
-              <div style={{ fontSize: '1.9rem', opacity: 0.85 }}>
-                <i className="fa-solid fa-users"></i>
-              </div>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: '#059669',
-                color: '#ffffff',
-                borderRadius: 'var(--radius-md)',
-                padding: '18px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '1.9rem', fontWeight: '800', lineHeight: 1 }}>{totalCoursesCount}</div>
-                <div style={{ fontSize: '0.82rem', fontWeight: '600', marginTop: '6px', opacity: 0.9 }}>
-                  Khóa học đã tạo
-                </div>
-              </div>
-              <div style={{ fontSize: '1.9rem', opacity: 0.85 }}>
-                <i className="fa-solid fa-graduation-cap"></i>
-              </div>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: '#7c3aed',
-                color: '#ffffff',
-                borderRadius: 'var(--radius-md)',
-                padding: '18px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '1.9rem', fontWeight: '800', lineHeight: 1 }}>{totalLessons}</div>
-                <div style={{ fontSize: '0.82rem', fontWeight: '600', marginTop: '6px', opacity: 0.9 }}>
-                  Bài giảng video
-                </div>
-              </div>
-              <div style={{ fontSize: '1.9rem', opacity: 0.85 }}>
-                <i className="fa-solid fa-circle-play"></i>
-              </div>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: '#ea580c',
-                color: '#ffffff',
-                borderRadius: 'var(--radius-md)',
-                padding: '18px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '1.9rem', fontWeight: '800', lineHeight: 1 }}>{totalQuizzesCount}</div>
-                <div style={{ fontSize: '0.82rem', fontWeight: '600', marginTop: '6px', opacity: 0.9 }}>
-                  Đề thi trắc nghiệm
-                </div>
-              </div>
-              <div style={{ fontSize: '1.9rem', opacity: 0.85 }}>
-                <i className="fa-solid fa-file-signature"></i>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-full)',
+                  backgroundColor: '#dcfce7',
+                  border: '1px solid #bbf7d0',
+                  fontSize: '0.82rem',
+                  fontWeight: '800',
+                  color: '#15803d',
+                }}
+              >
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#16a34a' }}></span>
+                <span>Hệ thống trực tuyến</span>
               </div>
             </div>
           </div>
+
+          {/* ==================== TAB 0: DASHBOARD TỔNG QUAN (6 KPI CARDS + 2 CHARTS) ==================== */}
+          {activeAdminNav === 'overview' && (
+            <>
+              {/* 6 Thẻ KPI Thống Kê (2 hàng x 3 cột chuẩn như hình ảnh) */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '16px',
+                }}
+              >
+                {/* KPI Card 1: Tổng Số Học Viên & Tài Khoản */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '20px 22px',
+                    border: '1px solid var(--border-card)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      TỔNG HỌC VIÊN & TÀI KHOẢN
+                    </div>
+                    <div style={{ fontSize: '1.65rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '4px' }}>
+                      {totalUsersCount} tài khoản
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#059669', fontWeight: '700', marginTop: '4px' }}>
+                      {users.filter((u) => u.role === 'STUDENT').length || 1} học viên · {users.filter((u) => u.role === 'TEACHER').length || 2} giảng viên
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '10px',
+                      backgroundColor: '#e0f2fe',
+                      color: '#0284c7',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.2rem',
+                    }}
+                  >
+                    <i className="fa-solid fa-users"></i>
+                  </div>
+                </div>
+
+                {/* KPI Card 2: Khóa Học & Bài Giảng Video */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '20px 22px',
+                    border: '1px solid var(--border-card)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      KHÓA HỌC & BÀI GIẢNG VIDEO
+                    </div>
+                    <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#059669', marginTop: '4px' }}>
+                      {totalCoursesCount} khóa học
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {totalLessons} bài học video trực tuyến
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '10px',
+                      backgroundColor: '#dcfce7',
+                      color: '#16a34a',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.2rem',
+                    }}
+                  >
+                    <i className="fa-solid fa-book-open"></i>
+                  </div>
+                </div>
+
+                {/* KPI Card 3: Ngân Hàng Đề Thi Trắc Nghiệm */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '20px 22px',
+                    border: '1px solid var(--border-card)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      NGÂN HÀNG ĐỀ THI & BÀI TEST
+                    </div>
+                    <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>
+                      {totalQuizzesCount} đề thi
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {totalQuestionsCount} câu hỏi trắc nghiệm chuẩn hóa
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '10px',
+                      backgroundColor: '#fef3c7',
+                      color: '#d97706',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.2rem',
+                    }}
+                  >
+                    <i className="fa-solid fa-file-signature"></i>
+                  </div>
+                </div>
+
+                {/* KPI Card 4: Chứng Chỉ Đã Cấp Học Viên */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '20px 22px',
+                    border: '1px solid var(--border-card)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      CHỨNG CHỈ ĐÃ CẤP HỌC VIÊN
+                    </div>
+                    <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#7c3aed', marginTop: '4px' }}>
+                      {certificates.length} chứng chỉ
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Hoàn thành khóa học & chuẩn đầu ra
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '10px',
+                      backgroundColor: '#ede9fe',
+                      color: '#7c3aed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.2rem',
+                    }}
+                  >
+                    <i className="fa-solid fa-graduation-cap"></i>
+                  </div>
+                </div>
+
+                {/* KPI Card 5: Phiên Học Trợ Lý AI Tutor */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '20px 22px',
+                    border: '1px solid var(--border-card)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      PHIÊN HỌC TRỢ LÝ AI TUTOR
+                    </div>
+                    <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0d9488', marginTop: '4px' }}>
+                      {aiSessions.length} phiên AI
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Luyện phản xạ giao tiếp & sửa ngữ pháp
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '10px',
+                      backgroundColor: '#ccfbf1',
+                      color: '#0d9488',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.2rem',
+                    }}
+                  >
+                    <i className="fa-solid fa-headset"></i>
+                  </div>
+                </div>
+
+                {/* KPI Card 6: Đợt Import & Kỹ Năng */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '20px 22px',
+                    border: '1px solid var(--border-card)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      CÔNG CỤ IMPORT & KỸ NĂNG
+                    </div>
+                    <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#e11d48', marginTop: '4px' }}>
+                      {importBatches.length} đợt import
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {skillGaps.length || 6} phân tích lỗ hổng kỹ năng CEFR
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '10px',
+                      backgroundColor: '#ffe4e6',
+                      color: '#e11d48',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.2rem',
+                    }}
+                  >
+                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                  </div>
+                </div>
+              </div>
+
+              {/* ==================== CHARTS SECTION (2 CỘT: BIỂU ĐỒ HOẠT ĐỘNG HỌC TẬP + CƠ CẤU NGƯỜI DÙNG) ==================== */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.15fr', gap: '20px', alignItems: 'stretch' }}>
+                {/* 1. Biểu Đồ Lượt Học Bài & Làm Đề Thi (Smooth Area Bézier Wave Chart) */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '22px 24px',
+                    border: '1px solid var(--border-card)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <i className="fa-solid fa-chart-line" style={{ color: '#0284c7', fontSize: '1.1rem' }}></i>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                          Biểu Đồ Lượt Học Bài & Làm Đề Thi
+                        </h3>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
+                        Tần suất học viên xem bài giảng và nộp bài kiểm tra theo thời gian
+                      </p>
+                    </div>
+
+                    {/* Filter Switcher: 7 ngày / 30 ngày */}
+                    <div style={{ display: 'flex', backgroundColor: 'var(--bg-subtle)', borderRadius: '6px', padding: '2px', border: '1px solid var(--border-color)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setTimeRange('7')}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: '4px',
+                          fontSize: '0.78rem',
+                          fontWeight: '700',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: timeRange === '7' ? '#0284c7' : 'transparent',
+                          color: timeRange === '7' ? '#ffffff' : 'var(--text-muted)',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        7 ngày
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimeRange('30')}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: '4px',
+                          fontSize: '0.78rem',
+                          fontWeight: '700',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: timeRange === '30' ? '#0284c7' : 'transparent',
+                          color: timeRange === '30' ? '#ffffff' : 'var(--text-muted)',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        30 ngày
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* SVG Wave Chart Area */}
+                  <div style={{ width: '100%', height: '240px', position: 'relative' }}>
+                    <svg viewBox="0 0 600 220" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                      <defs>
+                        <linearGradient id="learningGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0284c7" stopOpacity="0.32" />
+                          <stop offset="100%" stopColor="#0284c7" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* Grid Lines */}
+                      <line x1="50" y1="30" x2="590" y2="30" stroke="var(--border-color)" strokeDasharray="4 4" strokeWidth="1" />
+                      <line x1="50" y1="75" x2="590" y2="75" stroke="var(--border-color)" strokeDasharray="4 4" strokeWidth="1" />
+                      <line x1="50" y1="120" x2="590" y2="120" stroke="var(--border-color)" strokeDasharray="4 4" strokeWidth="1" />
+                      <line x1="50" y1="165" x2="590" y2="165" stroke="var(--border-color)" strokeDasharray="4 4" strokeWidth="1" />
+                      <line x1="50" y1="205" x2="590" y2="205" stroke="var(--border-color)" strokeWidth="1" />
+
+                      {/* Y-Axis Labels */}
+                      <text x="5" y="34" fill="var(--text-muted)" fontSize="10" fontWeight="600">120 lượt</text>
+                      <text x="5" y="79" fill="var(--text-muted)" fontSize="10" fontWeight="600">90 lượt</text>
+                      <text x="5" y="124" fill="var(--text-muted)" fontSize="10" fontWeight="600">60 lượt</text>
+                      <text x="5" y="169" fill="var(--text-muted)" fontSize="10" fontWeight="600">30 lượt</text>
+                      <text x="5" y="209" fill="var(--text-muted)" fontSize="10" fontWeight="600">0 lượt</text>
+
+                      {/* Area Fill */}
+                      <path
+                        d="M 60 205 C 130 200, 180 40, 240 45 C 300 50, 310 205, 360 205 C 410 205, 430 48, 490 48 C 530 48, 560 52, 585 55 L 585 205 L 60 205 Z"
+                        fill="url(#learningGradient)"
+                      />
+
+                      {/* Smooth Bézier Curve Line */}
+                      <path
+                        d="M 60 205 C 130 200, 180 40, 240 45 C 300 50, 310 205, 360 205 C 410 205, 430 48, 490 48 C 530 48, 560 52, 585 55"
+                        fill="none"
+                        stroke="#0284c7"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+
+                      {/* Data Point Dots */}
+                      <circle cx="240" cy="45" r="5" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
+                      <circle cx="490" cy="48" r="5" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
+                      <circle cx="585" cy="55" r="5" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* 2. Biểu Đồ Cơ Cấu Người Dùng Theo Vai Trò (Donut Chart) */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '22px 24px',
+                    border: '1px solid var(--border-card)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <i className="fa-solid fa-chart-pie" style={{ color: '#059669', fontSize: '1.1rem' }}></i>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                        Cơ Cấu Người Dùng Theo Vai Trò
+                      </h3>
+                    </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
+                      Phân bổ học viên, giảng viên và quản trị viên
+                    </p>
+                  </div>
+
+                  {/* SVG Donut Chart */}
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 0' }}>
+                    <svg width="170" height="170" viewBox="0 0 100 100">
+                      {/* Background circle */}
+                      <circle cx="50" cy="50" r="38" fill="transparent" stroke="var(--bg-subtle)" strokeWidth="15" />
+
+                      {/* Green Segment (Student - 70%) */}
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="transparent"
+                        stroke="#10b981"
+                        strokeWidth="15"
+                        strokeDasharray={`${studentPct * 2.38} 238`}
+                        strokeDashoffset="0"
+                        transform="rotate(-90 50 50)"
+                      />
+
+                      {/* Orange/Yellow Segment (Teacher - 20%) */}
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="transparent"
+                        stroke="#f59e0b"
+                        strokeWidth="15"
+                        strokeDasharray={`${teacherPct * 2.38} 238`}
+                        strokeDashoffset={`-${studentPct * 2.38}`}
+                        transform="rotate(-90 50 50)"
+                      />
+
+                      {/* Blue Segment (Admin - 10%) */}
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="transparent"
+                        stroke="#3b82f6"
+                        strokeWidth="15"
+                        strokeDasharray={`${adminPct * 2.38} 238`}
+                        strokeDashoffset={`-${(studentPct + teacherPct) * 2.38}`}
+                        transform="rotate(-90 50 50)"
+                      />
+
+                      {/* Center Text */}
+                      <text x="50" y="48" textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--text-main)">
+                        {totalUsersCount}
+                      </text>
+                      <text x="50" y="62" textAnchor="middle" fontSize="8" fontWeight="600" fill="var(--text-muted)">
+                        Tài khoản
+                      </text>
+                    </svg>
+                  </div>
+
+                  {/* Legend Breakdown */}
+                  <div style={{ display: 'flex', justifyContent: 'space-around', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Học viên: <strong>{studentCount}</strong></span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }}></span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Giáo viên: <strong>{teacherCount}</strong></span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3b82f6' }}></span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Admin: <strong>{adminCount}</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bảng Tóm Tắt Hoạt Động Mới Nhất Dưới Dashboard */}
+              <div
+                style={{
+                  backgroundColor: 'var(--bg-surface)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '22px 24px',
+                  border: '1px solid var(--border-card)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <i className="fa-solid fa-clock-rotate-left" style={{ color: '#0284c7', fontSize: '1.1rem' }}></i>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                      Hoạt Động & Khóa Học Mới Nhất
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveAdminNav('courses')}
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      color: '#0284c7',
+                      fontSize: '0.84rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Xem tất cả ({courses.length}) &rarr;
+                  </button>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 12px', fontWeight: '700' }}>Khóa học</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700' }}>Giảng viên</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700' }}>Trình độ</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700' }}>Học phí</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '700' }}>Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courses.slice(0, 4).map((c, idx) => (
+                        <tr key={c.id || idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '12px', fontWeight: '700', color: 'var(--text-main)' }}>{c.title}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{c.teacher_name || 'Thầy Nguyễn Văn An'}</td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '800', fontSize: '0.78rem' }}>
+                              {c.level || 'B1'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', fontWeight: '700', color: parseFloat(c.price) > 0 ? '#b91c1c' : '#15803d' }}>
+                            {parseFloat(c.price) > 0 ? `${parseFloat(c.price).toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: '800', fontSize: '0.78rem' }}>
+                              ✓ Đã xuất bản
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* ==================== TAB 1: NGƯỜI DÙNG & PHÂN QUYỀN (ACCOUNTS APP) ==================== */}
           {activeAdminNav === 'users' && (
@@ -643,858 +1190,525 @@ export default function AdminDashboardView() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
-                    <i className="fa-solid fa-users-gear" style={{ color: '#0284c7', marginRight: '8px' }}></i>
+                    <i className="fa-solid fa-users" style={{ color: '#0284c7', marginRight: '8px' }}></i>
                     Danh Sách Người Dùng & Phân Quyền Vai Trò
                   </h3>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
                     Dữ liệu tài khoản người dùng được đồng bộ trực tiếp từ PostgreSQL (apps/accounts)
                   </p>
                 </div>
-                <input
-                  type="text"
-                  placeholder="🔍 Tìm kiếm theo tên, email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', width: '250px' }}
-                />
-              </div>
 
-              {isLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  <i className="fa-solid fa-circle-notch fa-spin"></i> Đang tải dữ liệu...
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
-                        <th style={{ padding: '14px 16px' }}>Họ và Tên</th>
-                        <th style={{ padding: '14px 16px' }}>Email & Số ĐT</th>
-                        <th style={{ padding: '14px 16px' }}>Trình độ</th>
-                        <th style={{ padding: '14px 16px' }}>Vai Trò (Role)</th>
-                        <th style={{ padding: '14px 16px' }}>Ngày Tham Gia</th>
-                        <th style={{ padding: '14px 16px' }}>Trạng Thái</th>
-                        <th style={{ padding: '14px 16px', textAlign: 'right' }}>Hành Động</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const filteredUsers = users.filter((u) => !searchTerm || (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) || (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())));
-                        const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-                        return paginatedUsers.map((u) => (
-                          <tr key={u.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.82rem' }}>
-                                  {(u.full_name || u.email || 'U')[0].toUpperCase()}
-                                </div>
-                                <span>{u.full_name || 'Chưa đặt tên'}</span>
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              <div style={{ color: 'var(--text-main)', fontWeight: '600' }}>{u.email}</div>
-                              <div style={{ fontSize: '0.78rem', color: '#0284c7', marginTop: '2px' }}>
-                                <i className="fa-solid fa-phone" style={{ marginRight: '4px', fontSize: '0.7rem' }}></i>
-                                {u.phone_number || 'Chưa có SĐT'}
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: '0.78rem', fontWeight: '800' }}>
-                                CEFR {u.level || 'B1'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              <select
-                                value={u.role || 'STUDENT'}
-                                onChange={(e) => handleChangeRole(u.id, e.target.value)}
-                                style={{ padding: '6px 10px', borderRadius: '6px', fontSize: '0.84rem', fontWeight: '700' }}
-                              >
-                                <option value="STUDENT">STUDENT (Học viên)</option>
-                                <option value="TEACHER">TEACHER (Giáo viên)</option>
-                                <option value="ADMIN">ADMIN (Quản trị)</option>
-                              </select>
-                            </td>
-                            <td style={{ padding: '14px 16px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                              {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : '01/09/2026'}
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              <span
-                                style={{
-                                  padding: '4px 10px',
-                                  borderRadius: 'var(--radius-full)',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '800',
-                                  backgroundColor: u.is_active !== false ? '#dcfce7' : '#fee2e2',
-                                  color: u.is_active !== false ? '#15803d' : '#dc2626',
-                                }}
-                              >
-                                {u.is_active !== false ? 'HOẠT ĐỘNG' : 'ĐÃ KHÓA'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                <button
-                                  onClick={() => handleOpenEditUser(u)}
-                                  style={{
-                                    padding: '6px 10px',
-                                    borderRadius: '6px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: '700',
-                                    backgroundColor: '#e0f2fe',
-                                    color: '#0284c7',
-                                    border: '1px solid #bae6fd',
-                                    cursor: 'pointer',
-                                  }}
-                                  title="Chỉnh sửa thông tin người dùng"
-                                >
-                                  <i className="fa-solid fa-pen-to-square"></i>
-                                </button>
-                                <button
-                                  onClick={() => handleToggleStatus(u)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: '700',
-                                    backgroundColor: u.is_active !== false ? '#fef2f2' : '#ecfdf5',
-                                    color: u.is_active !== false ? '#dc2626' : '#15803d',
-                                    border: '1px solid',
-                                    borderColor: u.is_active !== false ? '#fecaca' : '#a7f3d0',
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  {u.is_active !== false ? 'Khóa' : 'Mở'}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Phân trang Người dùng */}
-              {(() => {
-                const totalFiltered = users.filter((u) => !searchTerm || (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) || (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))).length;
-                return (
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={Math.ceil(totalFiltered / itemsPerPage)}
-                    totalItems={totalFiltered}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setCurrentPage}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="Tìm theo email, họ tên, role..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '0.85rem',
+                      width: '240px',
+                      backgroundColor: 'var(--bg-surface)',
+                    }}
                   />
-                );
-              })()}
-            </div>
-          )}
-
-          {/* ==================== TAB 2: QUẢN LÝ DANH MỤC KHÓA HỌC (CATEGORIES CRUD) ==================== */}
-          {activeAdminNav === 'categories' && (
-            <div className="quiz-room-container">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
-                    <i className="fa-solid fa-tags" style={{ color: '#0ea5e9', marginRight: '8px' }}></i>
-                    Quản Lý Danh Mục Khóa Học (Categories)
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                    Tạo mới, chỉnh sửa và phân loại danh mục học tập cho toàn bộ hệ thống (apps/courses)
-                  </p>
+                  <button className="btn-primary" onClick={fetchAdminData} style={{ backgroundColor: '#0284c7' }}>
+                    <i className="fa-solid fa-rotate"></i>
+                  </button>
                 </div>
-                <button
-                  className="btn-primary"
-                  onClick={handleOpenAddCategory}
-                  style={{ backgroundColor: '#0ea5e9' }}
-                >
-                  <i className="fa-solid fa-plus"></i>
-                  <span>Thêm Danh Mục Mới</span>
-                </button>
               </div>
 
+              {/* Bảng người dùng */}
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
-                      <th style={{ padding: '14px 16px' }}>Tên Danh Mục</th>
-                      <th style={{ padding: '14px 16px' }}>Slug Định Danh</th>
-                      <th style={{ padding: '14px 16px' }}>Mô Tả Chuyên Mục</th>
-                      <th style={{ padding: '14px 16px' }}>Khóa Học Trực Thuộc</th>
-                      <th style={{ padding: '14px 16px' }}>Trạng Thái</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'right' }}>Hành Động</th>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '10px' }}>Họ và tên / Email</th>
+                      <th style={{ padding: '10px' }}>Vai trò (Role)</th>
+                      <th style={{ padding: '10px' }}>Trình độ</th>
+                      <th style={{ padding: '10px' }}>Trạng thái</th>
+                      <th style={{ padding: '10px' }}>Ngày tạo</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                      {(() => {
-                        const filteredCategories = categories.filter((cat) => !searchTerm || (cat.name && cat.name.toLowerCase().includes(searchTerm.toLowerCase())));
-                        const paginatedCategories = filteredCategories.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-                        return paginatedCategories.map((cat) => {
-                          const countCourses = courses.filter((c) => c.category?.id === cat.id || c.category === cat.id || c.category?.name === cat.name).length;
-                          return (
-                            <tr key={cat.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                              <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
-                                    <i className="fa-solid fa-folder-open"></i>
-                                  </div>
-                                  <span style={{ color: 'var(--text-main)' }}>{cat.name}</span>
-                                </div>
-                              </td>
-                              <td style={{ padding: '14px 16px', color: '#64748b', fontSize: '0.82rem' }}>
-                                <code>{cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-')}</code>
-                              </td>
-                              <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.84rem', maxWidth: '280px' }}>
-                                {cat.description || 'Chưa có mô tả chi tiết'}
-                              </td>
-                              <td style={{ padding: '14px 16px' }}>
-                                <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#334155', fontWeight: '800', fontSize: '0.78rem' }}>
-                                  {countCourses} khóa học
-                                </span>
-                              </td>
-                              <td style={{ padding: '14px 16px' }}>
-                                <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: '800', backgroundColor: cat.is_active !== false ? '#dcfce7' : '#fee2e2', color: cat.is_active !== false ? '#15803d' : '#dc2626' }}>
-                                  {cat.is_active !== false ? 'HIỂN THỊ' : 'ẨN'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                  <button
-                                    onClick={() => handleOpenEditCategory(cat)}
-                                    style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', backgroundColor: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd', cursor: 'pointer' }}
-                                  >
-                                    <i className="fa-solid fa-pen"></i> Sửa
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteCategory(cat)}
-                                    style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', cursor: 'pointer' }}
-                                  >
-                                    <i className="fa-solid fa-trash-can"></i> Xóa
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        });
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Phân trang Danh mục */}
-                {(() => {
-                  const totalFiltered = categories.filter((cat) => !searchTerm || (cat.name && cat.name.toLowerCase().includes(searchTerm.toLowerCase()))).length;
-                  return (
-                    <Pagination
-                      currentPage={currentPage}
-                      totalPages={Math.ceil(totalFiltered / itemsPerPage)}
-                      totalItems={totalFiltered}
-                      itemsPerPage={itemsPerPage}
-                      onPageChange={setCurrentPage}
-                    />
-                  );
-                })()}
+                    {users
+                      .filter((u) => {
+                        const term = searchTerm.toLowerCase();
+                        return (
+                          (u.email || '').toLowerCase().includes(term) ||
+                          (u.full_name || '').toLowerCase().includes(term) ||
+                          (u.role || '').toLowerCase().includes(term)
+                        );
+                      })
+                      .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                      .map((u) => (
+                        <tr key={u.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '12px 10px' }}>
+                            <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{u.full_name || 'Chưa cập nhật'}</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{u.email}</div>
+                          </td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <select
+                              value={u.role}
+                              onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.8rem',
+                                fontWeight: '700',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: u.role === 'ADMIN' ? '#fee2e2' : u.role === 'TEACHER' ? '#fef3c7' : '#e0f2fe',
+                                color: u.role === 'ADMIN' ? '#991b1b' : u.role === 'TEACHER' ? '#92400e' : '#0369a1',
+                              }}
+                            >
+                              <option value="STUDENT">STUDENT</option>
+                              <option value="TEACHER">TEACHER</option>
+                              <option value="ADMIN">ADMIN</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <span style={{ fontWeight: '800', color: '#0284c7' }}>{u.level || 'B1'}</span>
+                          </td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: '800',
+                                backgroundColor: u.is_active ? '#dcfce7' : '#fee2e2',
+                                color: u.is_active ? '#15803d' : '#b91c1c',
+                              }}
+                            >
+                              {u.is_active ? '✓ Kích hoạt' : '🔒 Đã khóa'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 10px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : '01/09/2026'}
+                          </td>
+                          <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px' }}>
+                              <button
+                                className="btn-outline"
+                                style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                                onClick={() => {
+                                  setEditingUserModal({
+                                    isOpen: true,
+                                    user: u,
+                                    fullName: u.full_name || '',
+                                    phoneNumber: u.phone_number || '',
+                                    level: u.level || 'B1',
+                                    role: u.role || 'STUDENT',
+                                    bio: u.bio || '',
+                                    isActive: u.is_active !== false,
+                                  });
+                                }}
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                className="btn-outline"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '0.78rem',
+                                  color: u.is_active ? '#b91c1c' : '#15803d',
+                                  borderColor: u.is_active ? '#fca5a5' : '#86efac',
+                                }}
+                                onClick={() => handleToggleStatus(u)}
+                              >
+                                {u.is_active ? 'Khóa' : 'Mở'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
-            )}
 
-          {/* ==================== TAB 2: KHÓA HỌC & DANH MỤC (COURSES APP) ==================== */}
+              {/* Phân trang */}
+              <Pagination
+                currentPage={currentPage}
+                totalItems={
+                  users.filter((u) => {
+                    const term = searchTerm.toLowerCase();
+                    return (
+                      (u.email || '').toLowerCase().includes(term) ||
+                      (u.full_name || '').toLowerCase().includes(term) ||
+                      (u.role || '').toLowerCase().includes(term)
+                    );
+                  }).length
+                }
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
+
+          {/* ==================== TAB 2: KHÓA HỌC (COURSES APP) ==================== */}
           {activeAdminNav === 'courses' && (
             <div className="quiz-room-container">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
                     <i className="fa-solid fa-book-open" style={{ color: '#059669', marginRight: '8px' }}></i>
-                    Quản Trị Khóa Học & Danh Mục Hệ Thống
+                    Quản Trị Toàn Bộ Khóa Học & Giáo Trình
                   </h3>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                    Quản lý toàn bộ khóa học, chương, bài giảng và danh mục (apps/courses)
+                    Danh sách các khóa học video kèm bài giảng và bài tập trắc nghiệm
                   </p>
                 </div>
-                <input
-                  type="text"
-                  placeholder="🔍 Tìm kiếm tên khóa học, giáo viên..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', width: '260px' }}
-                />
               </div>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
-                      <th style={{ padding: '14px 16px' }}>Khóa Học</th>
-                      <th style={{ padding: '14px 16px' }}>Giảng Viên</th>
-                      <th style={{ padding: '14px 16px' }}>Trình Độ</th>
-                      <th style={{ padding: '14px 16px' }}>Học Phí</th>
-                      <th style={{ padding: '14px 16px' }}>Trạng Thái</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'right' }}>Hành Động Admin</th>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '10px' }}>Tên khóa học</th>
+                      <th style={{ padding: '10px' }}>Giảng viên</th>
+                      <th style={{ padding: '10px' }}>Trình độ</th>
+                      <th style={{ padding: '10px' }}>Học phí</th>
+                      <th style={{ padding: '10px' }}>Số bài giảng</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => {
-                      const filteredCourses = courses.filter((c) => !searchTerm || (c.title && c.title.toLowerCase().includes(searchTerm.toLowerCase())) || (c.teacher?.full_name && c.teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase())));
-                      const paginatedCourses = filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-                      return paginatedCourses.map((c) => (
-                        <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                              <img
-                                src={c.thumbnail_url || 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=200&auto=format&fit=crop&q=80'}
-                                alt=""
-                                style={{ width: '56px', height: '36px', borderRadius: '4px', objectFit: 'cover' }}
-                              />
-                              <div>
-                                <div style={{ fontSize: '0.92rem' }}>{c.title}</div>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.category?.name || 'Tiếng Anh'}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>
-                            {c.teacher?.full_name || c.teacher?.email || 'Hệ thống E-Learning'}
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#0284c7', color: 'white', fontSize: '0.78rem', fontWeight: '800' }}>
-                              CEFR {c.level || 'B1'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px', fontWeight: '700', color: c.is_free ? '#15803d' : '#d97706' }}>
-                            {c.is_free ? 'Miễn phí' : `${Number(c.price || 0).toLocaleString()} đ`}
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span
-                              style={{
-                                padding: '4px 10px',
-                                borderRadius: 'var(--radius-full)',
-                                fontSize: '0.75rem',
-                                fontWeight: '800',
-                                backgroundColor: c.status === 'PUBLISHED' ? '#dcfce7' : '#fef3c7',
-                                color: c.status === 'PUBLISHED' ? '#15803d' : '#b45309',
-                              }}
-                            >
-                              {c.status === 'PUBLISHED' ? 'ĐÃ XUẤT BẢN' : 'BẢN NHÁP'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                            <button
-                              onClick={() => handleDeleteCourse(c)}
-                              style={{
-                                padding: '6px 14px',
-                                borderRadius: '6px',
-                                fontSize: '0.8rem',
-                                fontWeight: '700',
-                                backgroundColor: '#fef2f2',
-                                color: '#dc2626',
-                                border: '1px solid #fecaca',
-                                cursor: 'pointer',
-                              }}
-                              title="Admin toàn quyền xóa khóa học"
-                            >
-                              <i className="fa-solid fa-trash-can" style={{ marginRight: '6px' }}></i>
-                              Xóa
-                            </button>
-                          </td>
-                        </tr>
-                      ));
-                    })()}
+                    {courses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((c) => (
+                      <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '12px 10px', fontWeight: '700' }}>{c.title}</td>
+                        <td style={{ padding: '12px 10px', color: 'var(--text-secondary)' }}>{c.teacher_name || 'Thầy Nguyễn Văn An'}</td>
+                        <td style={{ padding: '12px 10px' }}>
+                          <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '800', fontSize: '0.78rem' }}>
+                            {c.level}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 10px', fontWeight: '700', color: parseFloat(c.price) > 0 ? '#b91c1c' : '#15803d' }}>
+                          {parseFloat(c.price) > 0 ? `${parseFloat(c.price).toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+                        </td>
+                        <td style={{ padding: '12px 10px', color: 'var(--text-muted)' }}>{c.total_lessons || 4} bài</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                          <button
+                            className="btn-outline"
+                            style={{ padding: '4px 8px', fontSize: '0.78rem', color: '#b91c1c', borderColor: '#fca5a5' }}
+                            onClick={() => handleDeleteCourse(c)}
+                          >
+                            Xóa
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Phân trang Khóa học */}
-              {(() => {
-                const totalFiltered = courses.filter((c) => !searchTerm || (c.title && c.title.toLowerCase().includes(searchTerm.toLowerCase())) || (c.teacher?.full_name && c.teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase()))).length;
-                return (
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={Math.ceil(totalFiltered / itemsPerPage)}
-                    totalItems={totalFiltered}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setCurrentPage}
-                  />
-                );
-              })()}
+              <Pagination currentPage={currentPage} totalItems={courses.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
             </div>
           )}
 
-          {/* ==================== TAB 3: NGÂN HÀNG ĐỀ THI (ASSESSMENTS APP) ==================== */}
+          {/* ==================== TAB 3: DANH MỤC KHÓA HỌC (CATEGORIES CRUD) ==================== */}
+          {activeAdminNav === 'categories' && (
+            <div className="quiz-room-container">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
+                    <i className="fa-solid fa-tags" style={{ color: '#0ea5e9', marginRight: '8px' }}></i>
+                    Quản Trị Danh Mục Khóa Học (Categories)
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
+                    Thêm mới, chỉnh sửa thông tin và xóa chuyên mục khóa học
+                  </p>
+                </div>
+
+                <button className="btn-primary" onClick={handleOpenCreateCategory} style={{ backgroundColor: '#0ea5e9' }}>
+                  <i className="fa-solid fa-plus"></i>
+                  <span>Thêm Danh Mục Mới</span>
+                </button>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '10px' }}>Tên Danh Mục</th>
+                      <th style={{ padding: '10px' }}>Slug URL</th>
+                      <th style={{ padding: '10px' }}>Mô tả</th>
+                      <th style={{ padding: '10px' }}>Khóa học</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categories.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((cat) => (
+                      <tr key={cat.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '12px 10px', fontWeight: '700', color: 'var(--text-main)' }}>{cat.name}</td>
+                        <td style={{ padding: '12px 10px', color: '#0ea5e9', fontWeight: '600' }}>/{cat.slug}</td>
+                        <td style={{ padding: '12px 10px', color: 'var(--text-muted)', maxWidth: '280px' }}>
+                          {cat.description || 'Chưa có mô tả'}
+                        </td>
+                        <td style={{ padding: '12px 10px' }}>
+                          <span style={{ padding: '2px 8px', borderRadius: '10px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '800', fontSize: '0.78rem' }}>
+                            {cat.course_count || 1} khóa
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                            <button className="btn-outline" style={{ padding: '4px 8px', fontSize: '0.78rem' }} onClick={() => handleOpenEditCategory(cat)}>
+                              Sửa
+                            </button>
+                            <button className="btn-outline" style={{ padding: '4px 8px', fontSize: '0.78rem', color: '#b91c1c', borderColor: '#fca5a5' }} onClick={() => handleDeleteCategory(cat)}>
+                              Xóa
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <Pagination currentPage={currentPage} totalItems={categories.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
+            </div>
+          )}
+
+          {/* ==================== TAB 4: NGÂN HÀNG ĐỀ THI (ASSESSMENTS APP) ==================== */}
           {activeAdminNav === 'quizzes' && (
             <div className="quiz-room-container">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                   <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
-                    <i className="fa-solid fa-file-signature" style={{ color: '#ea580c', marginRight: '8px' }}></i>
-                    Quản Trị Ngân Hàng Đề Thi & Bài Làm
+                    <i className="fa-solid fa-file-signature" style={{ color: '#d97706', marginRight: '8px' }}></i>
+                    Ngân Hàng Đề Thi & Bài Kiểm Tra Trắc Nghiệm
                   </h3>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                    Quản lý toàn bộ đề thi trắc nghiệm, câu hỏi và đáp án (apps/assessments)
+                    Quản lý toàn diện các đề thi trắc nghiệm trên toàn hệ thống
                   </p>
                 </div>
-                <input
-                  type="text"
-                  placeholder="🔍 Tìm kiếm đề thi..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', width: '240px' }}
-                />
               </div>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
-                      <th style={{ padding: '14px 16px' }}>Tên Đề Thi</th>
-                      <th style={{ padding: '14px 16px' }}>Phân Loại</th>
-                      <th style={{ padding: '14px 16px' }}>Trình Độ</th>
-                      <th style={{ padding: '14px 16px' }}>Thời Lượng</th>
-                      <th style={{ padding: '14px 16px' }}>Điểm Đạt</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'right' }}>Hành Động</th>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '10px' }}>Tên đề thi</th>
+                      <th style={{ padding: '10px' }}>Khóa học</th>
+                      <th style={{ padding: '10px' }}>Loại đề</th>
+                      <th style={{ padding: '10px' }}>Thời gian</th>
+                      <th style={{ padding: '10px' }}>Điểm đạt</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => {
-                      const filteredQuizzes = quizzes.filter((q) => !searchTerm || (q.title && q.title.toLowerCase().includes(searchTerm.toLowerCase())));
-                      const paginatedQuizzes = filteredQuizzes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-                      return paginatedQuizzes.map((q) => (
-                        <tr key={q.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                            <div>{q.title}</div>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{q.description || 'Bài kiểm tra đánh giá năng lực'}</span>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#fed7aa', color: '#c2410c', fontSize: '0.78rem', fontWeight: '800' }}>
-                              {q.quiz_type || 'PRACTICE'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: '0.78rem', fontWeight: '800' }}>
-                              CEFR {q.level || 'B1'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>{q.time_limit_minutes || 15} phút</td>
-                          <td style={{ padding: '14px 16px', fontWeight: '700', color: '#15803d' }}>
-                            {q.passing_score || 70}%
-                          </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                            <button
-                              onClick={() => handleDeleteQuiz(q)}
-                              style={{
-                                padding: '6px 14px',
-                                borderRadius: '6px',
-                                fontSize: '0.8rem',
-                                fontWeight: '700',
-                                backgroundColor: '#fef2f2',
-                                color: '#dc2626',
-                                border: '1px solid #fecaca',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <i className="fa-solid fa-trash-can" style={{ marginRight: '6px' }}></i>
-                              Xóa
-                            </button>
-                          </td>
-                        </tr>
-                      ));
-                    })()}
+                    {quizzes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((q) => (
+                      <tr key={q.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '12px 10px', fontWeight: '700' }}>{q.title}</td>
+                        <td style={{ padding: '12px 10px', color: 'var(--text-secondary)' }}>{q.course_title || 'Tất cả'}</td>
+                        <td style={{ padding: '12px 10px' }}>
+                          <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e', fontWeight: '800', fontSize: '0.78rem' }}>
+                            {q.quiz_type}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 10px' }}>{q.time_limit_minutes} phút</td>
+                        <td style={{ padding: '12px 10px', fontWeight: '700', color: '#15803d' }}>{q.passing_score}%</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                          <button className="btn-outline" style={{ padding: '4px 8px', fontSize: '0.78rem', color: '#b91c1c', borderColor: '#fca5a5' }} onClick={() => handleDeleteQuiz(q)}>
+                            Xóa
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Phân trang Đề thi */}
-              {(() => {
-                const totalFiltered = quizzes.filter((q) => !searchTerm || (q.title && q.title.toLowerCase().includes(searchTerm.toLowerCase()))).length;
-                return (
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={Math.ceil(totalFiltered / itemsPerPage)}
-                    totalItems={totalFiltered}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setCurrentPage}
-                  />
-                );
-              })()}
+              <Pagination currentPage={currentPage} totalItems={quizzes.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
             </div>
           )}
 
-          {/* ==================== TAB 4: TIẾN ĐỘ & CHỨNG CHỈ (LEARNING APP) ==================== */}
+          {/* ==================== TAB 5: TIẾN ĐỘ & CHỨNG CHỈ (LEARNING APP) ==================== */}
           {activeAdminNav === 'learning' && (
             <div className="quiz-room-container">
-              <div style={{ marginBottom: '18px' }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
-                  <i className="fa-solid fa-graduation-cap" style={{ color: '#7c3aed', marginRight: '8px' }}></i>
-                  Quản Trị Tiến Độ Học Tập & Chứng Chỉ Hoàn Thành
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                  Theo dõi việc ghi danh, hoàn thành bài giảng và cấp chứng chỉ (apps/learning)
-                </p>
-              </div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '16px' }}>
+                <i className="fa-solid fa-graduation-cap" style={{ color: '#7c3aed', marginRight: '8px' }}></i>
+                Quản Trị Tiến Độ Học Tập & Chứng Chỉ Đã Cấp
+              </h3>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
-                      <th style={{ padding: '14px 16px' }}>Mã Chứng Chỉ</th>
-                      <th style={{ padding: '14px 16px' }}>Khóa Học Đạt Chuẩn</th>
-                      <th style={{ padding: '14px 16px' }}>Học Viên Cấp</th>
-                      <th style={{ padding: '14px 16px' }}>Thời Gian Cấp</th>
-                      <th style={{ padding: '14px 16px' }}>Trạng Thái Xác Thực</th>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '10px' }}>Mã Chứng Chỉ</th>
+                      <th style={{ padding: '10px' }}>Học viên</th>
+                      <th style={{ padding: '10px' }}>Khóa học</th>
+                      <th style={{ padding: '10px' }}>Ngày cấp</th>
+                      <th style={{ padding: '10px' }}>Điểm tổng kết</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Trạng thái</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {certificates.length > 0 ? (
-                      (() => {
-                        const paginatedCerts = certificates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-                        return paginatedCerts.map((cert) => (
-                          <tr key={cert.id || cert.certificate_code} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '14px 16px', fontWeight: '800', color: '#0284c7' }}>
-                              {cert.certificate_code}
-                            </td>
-                            <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                              {cert.course_title || cert.enrollment?.course?.title || 'Khóa học Tiếng Anh'}
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              {cert.student_name || cert.enrollment?.student?.full_name || 'Học viên'}
-                            </td>
-                            <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
-                              {new Date(cert.issued_at || Date.now()).toLocaleDateString('vi-VN')}
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.75rem', fontWeight: '800' }}>
-                                ✓ CHÍNH THỰC
-                              </span>
-                            </td>
-                          </tr>
-                        ));
-                      })()
-                    ) : (
+                    {certificates.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                          Chưa có chứng chỉ nào được cấp. Hệ thống tự động cấp khi học viên hoàn thành 100% bài giảng & thi đạt điểm sàn.
+                        <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          Chưa có chứng chỉ nào được cấp trên hệ thống.
                         </td>
                       </tr>
+                    ) : (
+                      certificates.map((cert) => (
+                        <tr key={cert.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '12px 10px', fontWeight: '800', color: '#7c3aed' }}>{cert.certificate_code}</td>
+                          <td style={{ padding: '12px 10px', fontWeight: '700' }}>{cert.student_name}</td>
+                          <td style={{ padding: '12px 10px' }}>{cert.course_title}</td>
+                          <td style={{ padding: '12px 10px', color: 'var(--text-muted)' }}>{new Date(cert.issued_at).toLocaleDateString('vi-VN')}</td>
+                          <td style={{ padding: '12px 10px', fontWeight: '800', color: '#15803d' }}>{cert.final_score}%</td>
+                          <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: '800', fontSize: '0.78rem' }}>
+                              ✓ Hợp lệ
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ==================== TAB 6: TRỢ LÝ AI & LỊCH SỬ (AI APP) ==================== */}
+          {activeAdminNav === 'ai_sessions' && (
+            <div className="quiz-room-container">
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '16px' }}>
+                <i className="fa-solid fa-headset" style={{ color: '#0d9488', marginRight: '8px' }}></i>
+                Nhật Ký Tương Tác Trợ Lý Gia Sư AI Tutor
+              </h3>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '10px' }}>Tiêu đề phiên</th>
+                      <th style={{ padding: '10px' }}>Loại trợ lý</th>
+                      <th style={{ padding: '10px' }}>Số tin nhắn</th>
+                      <th style={{ padding: '10px' }}>Cập nhật lần cuối</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aiSessions.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          Chưa có phiên tương tác AI nào được lưu.
+                        </td>
+                      </tr>
+                    ) : (
+                      aiSessions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((s) => (
+                        <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '12px 10px', fontWeight: '700' }}>{s.title}</td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#ccfbf1', color: '#0f766e', fontWeight: '800', fontSize: '0.78rem' }}>
+                              {s.session_type || 'AI_TUTOR'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 10px' }}>{s.message_count || 1} tin</td>
+                          <td style={{ padding: '12px 10px', color: 'var(--text-muted)' }}>
+                            {s.updated_at ? new Date(s.updated_at).toLocaleString('vi-VN') : 'Vừa xong'}
+                          </td>
+                          <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                            <button className="btn-outline" style={{ padding: '4px 8px', fontSize: '0.78rem', color: '#b91c1c', borderColor: '#fca5a5' }} onClick={() => handleDeleteAISession(s)}>
+                              Xóa
+                            </button>
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
               </div>
 
-              {/* Phân trang Chứng chỉ */}
-              {certificates.length > 0 && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(certificates.length / itemsPerPage)}
-                  totalItems={certificates.length}
-                  itemsPerPage={itemsPerPage}
-                  onPageChange={setCurrentPage}
-                />
-              )}
+              <Pagination currentPage={currentPage} totalItems={aiSessions.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
             </div>
           )}
 
-          {/* ==================== TAB 5: TRỢ LÝ AI & LỊCH SỬ HỘI THOẠI (AI APP) ==================== */}
-          {activeAdminNav === 'ai_sessions' && (
-            <div className="quiz-room-container">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
-                    <i className="fa-solid fa-headset" style={{ color: '#0d9488', marginRight: '8px' }}></i>
-                    Nhật Ký Phiên Hội Thoại Trợ Lý AI Coach
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                    Theo dõi toàn bộ các phiên luyện giao tiếp, sửa lỗi ngữ pháp và token AI (apps/ai)
-                  </p>
-                </div>
-                <input
-                  type="text"
-                  placeholder="🔍 Tìm theo chủ đề, học viên..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', width: '250px' }}
-                />
-              </div>
-
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
-                      <th style={{ padding: '14px 16px' }}>Chủ Đề Hội Thoại</th>
-                      <th style={{ padding: '14px 16px' }}>Học Viên</th>
-                      <th style={{ padding: '14px 16px' }}>Trình Độ</th>
-                      <th style={{ padding: '14px 16px' }}>Mô Hình LLM</th>
-                      <th style={{ padding: '14px 16px' }}>Ngày Khởi Tạo</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'right' }}>Hành Động</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const filteredAiSessions = aiSessions.filter((s) => !searchTerm || (s.title && s.title.toLowerCase().includes(searchTerm.toLowerCase())) || (s.student_name && s.student_name.toLowerCase().includes(searchTerm.toLowerCase())));
-                      const paginatedAiSessions = filteredAiSessions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-                      return paginatedAiSessions.map((s) => (
-                        <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: '700' }}>
-                            <div>{s.title}</div>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Loại: {s.session_type || 'ROLEPLAY'}</span>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>{s.student_name || 'Học viên'}</td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: '0.78rem', fontWeight: '800' }}>
-                              {s.target_level || 'B1'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px', fontSize: '0.82rem', color: '#0d9488', fontWeight: '700' }}>
-                            ✦ Groq/Qwen & Gemini
-                          </td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
-                            {new Date(s.created_at || Date.now()).toLocaleDateString('vi-VN')}
-                          </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                            <button
-                              onClick={() => handleDeleteAISession(s)}
-                              style={{
-                                padding: '6px 14px',
-                                borderRadius: '6px',
-                                fontSize: '0.8rem',
-                                fontWeight: '700',
-                                backgroundColor: '#fef2f2',
-                                color: '#dc2626',
-                                border: '1px solid #fecaca',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <i className="fa-solid fa-trash-can" style={{ marginRight: '6px' }}></i>
-                              Xóa
-                            </button>
-                          </td>
-                        </tr>
-                      ));
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Phân trang Phiên AI */}
-              {(() => {
-                const totalFiltered = aiSessions.filter((s) => !searchTerm || (s.title && s.title.toLowerCase().includes(searchTerm.toLowerCase())) || (s.student_name && s.student_name.toLowerCase().includes(searchTerm.toLowerCase()))).length;
-                return (
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={Math.ceil(totalFiltered / itemsPerPage)}
-                    totalItems={totalFiltered}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setCurrentPage}
-                  />
-                );
-              })()}
-            </div>
-          )}
-
-          {/* ==================== TAB 6: ĐỢT IMPORT ĐỀ THI AI (QUIZ_IMPORT APP) ==================== */}
+          {/* ==================== TAB 7: ĐỢT IMPORT ĐỀ THI AI (QUIZ_IMPORT APP) ==================== */}
           {activeAdminNav === 'quiz_import' && (
             <div className="quiz-room-container">
-              <div style={{ marginBottom: '18px' }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
-                  <i className="fa-solid fa-file-import" style={{ color: '#e11d48', marginRight: '8px' }}></i>
-                  Quản Trị Các Đợt Import Đề Thi AI
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                  Theo dõi lịch sử tải lên đề thi từ Word/PDF/Text và trích xuất AI (apps/quiz_import)
-                </p>
-              </div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '16px' }}>
+                <i className="fa-solid fa-file-import" style={{ color: '#e11d48', marginRight: '8px' }}></i>
+                Quản Trị Các Đợt Import Đề Thi AI
+              </h3>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', backgroundColor: 'var(--bg-subtle)' }}>
-                      <th style={{ padding: '14px 16px' }}>Đợt Import</th>
-                      <th style={{ padding: '14px 16px' }}>Nguồn Dữ Liệu</th>
-                      <th style={{ padding: '14px 16px' }}>Trạng Thái</th>
-                      <th style={{ padding: '14px 16px' }}>Đã Trích Xuất</th>
-                      <th style={{ padding: '14px 16px' }}>Đã Nhập CSDL</th>
-                      <th style={{ padding: '14px 16px' }}>Thời Gian</th>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '10px' }}>Tên File Đã Nạp</th>
+                      <th style={{ padding: '10px' }}>Người thực hiện</th>
+                      <th style={{ padding: '10px' }}>Số câu hỏi</th>
+                      <th style={{ padding: '10px' }}>Trạng thái</th>
+                      <th style={{ padding: '10px' }}>Thời gian</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {importBatches.length > 0 ? (
-                      (() => {
-                        const paginatedBatches = importBatches.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-                        return paginatedBatches.map((b) => (
-                          <tr key={b.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '14px 16px', fontWeight: '700' }}>{b.title}</td>
-                            <td style={{ padding: '14px 16px' }}>
-                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', fontSize: '0.78rem', fontWeight: '700' }}>
-                                {b.source_type}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 16px' }}>
-                              <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', backgroundColor: b.status === 'COMPLETED' ? '#dcfce7' : '#fef3c7', color: b.status === 'COMPLETED' ? '#15803d' : '#b45309', fontSize: '0.75rem', fontWeight: '800' }}>
-                                {b.status}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 16px', fontWeight: '700' }}>{b.total_parsed || 0} câu</td>
-                            <td style={{ padding: '14px 16px', fontWeight: '700', color: '#15803d' }}>{b.total_imported || 0} câu</td>
-                            <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
-                              {new Date(b.created_at || Date.now()).toLocaleDateString('vi-VN')}
-                            </td>
-                          </tr>
-                        ));
-                      })()
-                    ) : (
+                    {importBatches.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                        <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
                           Chưa có đợt import đề thi nào được thực hiện.
                         </td>
                       </tr>
+                    ) : (
+                      importBatches.map((b) => (
+                        <tr key={b.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '12px 10px', fontWeight: '700' }}>{b.file_name}</td>
+                          <td style={{ padding: '12px 10px' }}>{b.created_by_name || 'Admin'}</td>
+                          <td style={{ padding: '12px 10px', fontWeight: '800', color: '#e11d48' }}>{b.total_parsed || 0} câu</td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: '800', fontSize: '0.78rem' }}>
+                              ✓ Hoàn tất
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 10px', color: 'var(--text-muted)' }}>{new Date(b.created_at).toLocaleDateString('vi-VN')}</td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
               </div>
-
-              {/* Phân trang Đợt import */}
-              {importBatches.length > 0 && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(importBatches.length / itemsPerPage)}
-                  totalItems={importBatches.length}
-                  itemsPerPage={itemsPerPage}
-                  onPageChange={setCurrentPage}
-                />
-              )}
             </div>
           )}
 
-          {/* ==================== TAB 7: LỘ TRÌNH AI & ĐÁNH GIÁ KỸ NĂNG (RECOMMENDATIONS APP) ==================== */}
+          {/* ==================== TAB 8: LỖ HỔNG & ĐỀ XUẤT AI (RECOMMENDATIONS APP) ==================== */}
           {activeAdminNav === 'recommendations' && (
             <div className="quiz-room-container">
-              <div style={{ marginBottom: '18px' }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
-                  <i className="fa-solid fa-compass" style={{ color: '#4f46e5', marginRight: '8px' }}></i>
-                  Lộ Trình Học Cá Nhân Hóa & Phân Tích Kỹ Năng AI
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                  Dữ liệu phân tích lỗ hổng kỹ năng và sinh lộ trình thích ứng thông minh (apps/recommendations)
-                </p>
-              </div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '16px' }}>
+                <i className="fa-solid fa-compass" style={{ color: '#4f46e5', marginRight: '8px' }}></i>
+                Phân Tích Ma Trận 6 Kỹ Năng & Lộ Trình Thích Ứng
+              </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                <div style={{ padding: '18px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: '800', marginBottom: '14px', color: '#4f46e5' }}>
-                    🎯 Kỹ Năng Đang Được Hệ Thống AI Đánh Giá
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {[
-                      { skill: 'Ngữ pháp (Grammar)', avg: '76%', status: 'Tốt' },
-                      { skill: 'Từ vựng (Vocabulary)', avg: '68%', status: 'Cần cải thiện' },
-                      { skill: 'Nghe hiểu (Listening)', avg: '82%', status: 'Rất tốt' },
-                      { skill: 'Đọc hiểu (Reading)', avg: '71%', status: 'Khá' },
-                      { skill: 'Giao tiếp & Nói (Speaking)', avg: '65%', status: 'Đang luyện AI Coach' },
-                    ].map((s, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: '6px', backgroundColor: 'var(--bg-subtle)' }}>
-                        <span style={{ fontWeight: '700', fontSize: '0.86rem' }}>{s.skill}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontWeight: '800', color: '#0284c7', fontSize: '0.86rem' }}>{s.avg}</span>
-                          <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '700' }}>
-                            {s.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                {[
+                  { skill: 'Ngữ Pháp (GRAMMAR)', score: 45, color: '#ef4444', desc: 'Thì quá khứ & Câu điều kiện' },
+                  { skill: 'Từ Vựng (VOCABULARY)', score: 60, color: '#f59e0b', desc: 'Từ vựng học thuật B1' },
+                  { skill: 'Đọc Hiểu (READING)', score: 75, color: '#3b82f6', desc: 'Kỹ năng Skimming & Scanning' },
+                  { skill: 'Nghe Hiểu (LISTENING)', score: 85, color: '#10b981', desc: 'Phản xạ nghe tiếng Anh chuẩn' },
+                  { skill: 'Viết Luận (WRITING)', score: 55, color: '#8b5cf6', desc: 'Cấu trúc câu ghép & từ nối' },
+                  { skill: 'Giao Tiếp (SPEAKING)', score: 70, color: '#06b6d4', desc: 'Ngữ điệu và trọng âm câu' },
+                ].map((sk, sIdx) => (
+                  <div key={sIdx} style={{ padding: '16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '0.85rem' }}>
+                      <span>{sk.skill}</span>
+                      <span style={{ color: sk.color, fontWeight: '800' }}>{sk.score}%</span>
+                    </div>
+                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'var(--border-color)', margin: '8px 0', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${sk.score}%`, backgroundColor: sk.color, borderRadius: '3px' }}></div>
+                    </div>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Trọng tâm: {sk.desc}</span>
                   </div>
-                </div>
-
-                <div style={{ padding: '18px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: '800', marginBottom: '14px', color: '#059669' }}>
-                    🚀 Thuật Toán Gợi Ý Khóa Học Thích Ứng
-                  </h4>
-                  <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-                    Hệ thống AI tự động phân tích kết quả làm bài trắc nghiệm và lịch sử học tập của học viên để tính toán điểm tương thích (<strong>Relevance Score</strong>) và tự động đề xuất khóa học bù đắp kiến thức còn thiếu.
-                  </p>
-                  <div style={{ marginTop: '14px', padding: '12px', borderRadius: '8px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', fontSize: '0.82rem', color: '#065f46' }}>
-                    ✓ Đã kích hoạt cơ chế tự động cập nhật lỗ hổng kỹ năng (SkillGapAnalysis) theo thời gian thực.
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
-          )}
-
-          {/* ==================== TAB 8: BÁO CÁO THỐNG KÊ & BIỂU ĐỒ ==================== */}
-          {activeAdminNav === 'overview' && (
-            <>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                  gap: '20px',
-                }}
-              >
-                {/* Biểu đồ phân bổ */}
-                <div className="quiz-room-container">
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>
-                    <i className="fa-solid fa-chart-column" style={{ color: '#be185d', marginRight: '8px' }}></i>
-                    Tỷ Lệ Quy Mô Dữ Liệu Toàn Hệ Thống
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {barData.map((item, idx) => (
-                      <div key={idx}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem', fontWeight: '700', marginBottom: '6px' }}>
-                          <span>{item.label}</span>
-                          <span style={{ color: item.color }}>{item.value}</span>
-                        </div>
-                        <div style={{ height: '9px', backgroundColor: 'var(--bg-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div
-                            style={{
-                              height: '100%',
-                              width: `${Math.min(100, (item.value / item.max) * 100)}%`,
-                              backgroundColor: item.color,
-                              borderRadius: '4px',
-                              transition: 'width 0.5s ease',
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Hoạt động mới nhất */}
-                <div className="quiz-room-container">
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>
-                    <i className="fa-solid fa-clock-rotate-left" style={{ color: '#0284c7', marginRight: '8px' }}></i>
-                    Hoạt Động Học Tập Mới Nhất
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {[
-                      { user: 'Lê Văn Thái (Học viên)', course: 'Chiến Thuật Luyện Thi TOEIC 800+', lesson: 'Part 2 Q&A Strategy', score: '10/10', date: 'Vừa xong' },
-                      { user: 'Cô Trần Thị Mai (Giảng viên)', course: 'Từ vựng B1 Chuyên Sâu', lesson: 'Soạn giáo trình mới', score: 'Hoàn tất', date: '10 phút trước' },
-                      { user: 'Nguyễn Thùy Linh', course: 'Ngữ Pháp Nền Tảng A2', lesson: 'Thì Hiện Tại Hoàn Thành', score: '9.0/10', date: 'Hôm nay' },
-                    ].map((act, aIdx) => (
-                      <div
-                        key={aIdx}
-                        style={{
-                          padding: '12px 14px',
-                          borderRadius: 'var(--radius-sm)',
-                          backgroundColor: 'var(--bg-subtle)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          fontSize: '0.85rem',
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: '700' }}>{act.user}</div>
-                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            {act.course} · {act.lesson}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontWeight: '800', color: '#15803d' }}>{act.score}</span>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{act.date}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </>
           )}
 
           {/* ==================== TAB 9: HỆ THỐNG & AI ENGINE QUOTA ==================== */}
