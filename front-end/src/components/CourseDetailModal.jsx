@@ -228,27 +228,54 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
               </h2>
             </div>
 
-            <button
-              onClick={onClose}
-              style={{
-                position: 'absolute',
-                top: '12px',
-                right: '12px',
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                border: 'none',
-                fontSize: '1rem',
-              }}
-            >
-              <i className="fa-solid fa-xmark"></i>
-            </button>
+            <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.hash = `#/courses/${currentData.slug || currentData.id}`;
+                  onClose();
+                }}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  fontSize: '0.75rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backdropFilter: 'blur(4px)',
+                }}
+                title="Mở toàn trang theo đường dẫn URL"
+              >
+                <i className="fa-solid fa-up-right-from-square"></i>
+                <span>Mở toàn trang</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  border: 'none',
+                  fontSize: '1rem',
+                  backdropFilter: 'blur(4px)',
+                }}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
           </div>
         )}
 
@@ -470,7 +497,21 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
             </strong>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => {
+                window.location.hash = `#/courses/${currentData.slug || currentData.id}`;
+                onClose();
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              title="Mở toàn trang chi tiết khóa học"
+            >
+              <i className="fa-solid fa-up-right-from-square"></i>
+              <span>Xem chi tiết</span>
+            </button>
+
             <button className="btn-outline" onClick={onClose}>
               Đóng
             </button>
@@ -485,7 +526,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                 style={{ padding: '8px 22px', fontSize: '0.9rem', backgroundColor: '#059669' }}
               >
                 <i className="fa-solid fa-circle-play"></i>
-                <span>✓ Vào học ngay</span>
+                <span>Vào học ngay</span>
               </button>
             ) : (
               <button

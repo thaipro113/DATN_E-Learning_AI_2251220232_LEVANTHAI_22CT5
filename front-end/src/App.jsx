@@ -27,6 +27,7 @@ import AdminDashboardView from './components/AdminDashboardView';
 import AICommunicationView from './components/AICommunicationView';
 import Footer from './components/Footer';
 import FloatingContactWidget from './components/FloatingContactWidget';
+import { cleanCourseTitle } from './utils/media';
 import { authAPI, recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
 
 export default function App() {
@@ -496,30 +497,109 @@ export default function App() {
       <main className={`main-content ${currentTab === 'admin_dashboard' ? 'full-width-admin' : ''}`}>
         {/* Breadcrumb Bar with Back Button when in Subviews */}
         {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <button
-              onClick={() => handleSelectTab(user.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--bg-surface)',
-                border: '1px solid var(--border-color)',
-                color: '#0284c7',
-                fontSize: '0.82rem',
-                fontWeight: '700',
-                cursor: 'pointer',
-              }}
-            >
-              <i className="fa-solid fa-arrow-left"></i>
-              <span>Quay lại Tổng quan</span>
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            {/* Nút Quay lại thông minh theo ngữ cảnh */}
+            {currentTab === 'learning' ? (
+              <button
+                onClick={() => handleSelectTab('courses')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  color: '#0284c7',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <i className="fa-solid fa-arrow-left"></i>
+                <span>Quay lại Khóa học</span>
+              </button>
+            ) : currentTab === 'teacher_quizzes' ? (
+              <button
+                onClick={() => handleSelectTab('teacher_dashboard')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  color: '#0284c7',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <i className="fa-solid fa-arrow-left"></i>
+                <span>Quay lại Studio Giảng dạy</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => handleSelectTab(user?.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  color: '#0284c7',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <i className="fa-solid fa-arrow-left"></i>
+                <span>Quay lại {user?.role === 'TEACHER' ? 'Studio Giảng dạy' : 'Tổng quan'}</span>
+              </button>
+            )}
 
+            {/* Breadcrumb theo phân cấp logic */}
             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              <span>Trang chủ / </span>
-              <strong style={{ color: 'var(--text-main)' }}>{tabNames[currentTab] || currentTab}</strong>
+              <span
+                style={{ cursor: 'pointer', color: '#0284c7', fontWeight: '600' }}
+                onClick={() => handleSelectTab(user?.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')}
+              >
+                Trang chủ
+              </span>
+              {' / '}
+              {currentTab === 'learning' ? (
+                <>
+                  <span
+                    style={{ cursor: 'pointer', color: '#0284c7', fontWeight: '600' }}
+                    onClick={() => handleSelectTab('courses')}
+                  >
+                    Khóa học
+                  </span>
+                  {' / '}
+                  <strong style={{ color: 'var(--text-main)' }}>
+                    {selectedCourseToLearn?.title ? cleanCourseTitle(selectedCourseToLearn.title) : 'Phòng học trực tuyến'}
+                  </strong>
+                </>
+              ) : currentTab === 'teacher_quizzes' ? (
+                <>
+                  <span
+                    style={{ cursor: 'pointer', color: '#0284c7', fontWeight: '600' }}
+                    onClick={() => handleSelectTab('teacher_dashboard')}
+                  >
+                    Studio Giảng dạy
+                  </span>
+                  {' / '}
+                  <strong style={{ color: 'var(--text-main)' }}>Quản lý Đề thi</strong>
+                </>
+              ) : (
+                <strong style={{ color: 'var(--text-main)' }}>{tabNames[currentTab] || currentTab}</strong>
+              )}
             </div>
           </div>
         )}

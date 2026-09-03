@@ -132,10 +132,10 @@ export default function UserProfileView({ user, onUpdateUserSuccess, onNavigate,
         <button
           type="button"
           className="btn-back-link"
-          onClick={() => onNavigate && onNavigate('dashboard')}
+          onClick={() => onNavigate && onNavigate(user?.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')}
         >
           <i className="fa-solid fa-arrow-left"></i>
-          <span>Quay lại Tổng quan</span>
+          <span>Quay lại {user?.role === 'TEACHER' ? 'Studio Giảng dạy' : 'Tổng quan'}</span>
         </button>
         <div className="profile-page-breadcrumb">
           <span>Hệ thống</span> / <strong>Hồ sơ cá nhân</strong>

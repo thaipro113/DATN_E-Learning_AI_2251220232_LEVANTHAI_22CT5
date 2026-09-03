@@ -97,7 +97,7 @@ export default function CourseDetailFullView({
             }}
           >
             <i className="fa-solid fa-arrow-left"></i>
-            <span>Tất cả Khóa học</span>
+            <span>Quay lại Khóa học</span>
           </button>
           <span>/</span>
           <span style={{ color: 'var(--text-muted)' }}>{course.category?.name || 'Tiếng Anh'}</span>
@@ -411,7 +411,7 @@ export default function CourseDetailFullView({
                 style={{ width: '100%', padding: '12px', fontSize: '1rem', fontWeight: '800', backgroundColor: '#059669', marginBottom: '16px' }}
               >
                 <i className="fa-solid fa-circle-play"></i>
-                <span>✓ Vào Học Ngay</span>
+                <span>Vào Học Ngay</span>
               </button>
             ) : (
               <button
