@@ -342,9 +342,9 @@ export default function App() {
     }
   }, [isLoggedIn, currentTab, user?.role]);
 
-  // Tự động chuyển hướng đến #/login nếu vào #/profile khi CHƯA ĐĂNG NHẬP
+  // Tự động chuyển hướng đến #/login nếu vào #/profile hoặc #/cert_verify khi CHƯA ĐĂNG NHẬP
   useEffect(() => {
-    if (!isLoggedIn && currentTab === 'profile') {
+    if (!isLoggedIn && (currentTab === 'profile' || currentTab === 'cert_verify')) {
       handleSelectTab('login');
     }
   }, [isLoggedIn, currentTab]);
@@ -418,9 +418,6 @@ export default function App() {
 
             {isLoggedIn && user.role === 'STUDENT' && (
               <>
-                <button className={`nav-link ${currentTab === 'learning' ? 'active' : ''}`} onClick={() => handleSelectTab('learning')}>
-                  <span>Đang học</span>
-                </button>
                 <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
                   <span>Luyện đề</span>
                 </button>
@@ -449,10 +446,6 @@ export default function App() {
                 </button>
               </>
             )}
-
-            <button className={`nav-link ${currentTab === 'cert_verify' ? 'active' : ''}`} onClick={() => handleSelectTab('cert_verify')}>
-              <span>Tra cứu Chứng chỉ</span>
-            </button>
           </div>
         </div>
 

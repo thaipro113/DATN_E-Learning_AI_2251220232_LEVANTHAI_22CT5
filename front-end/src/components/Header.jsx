@@ -95,16 +95,8 @@ export default function Header({
                     <span>Khóa học</span>
                   </button>
                 </li>
-                {isLoggedIn ? (
+                {isLoggedIn && (
                   <>
-                    <li>
-                      <button
-                        className={`nav-link ${currentTab === 'learning' ? 'active' : ''}`}
-                        onClick={() => onSelectTab('learning')}
-                      >
-                        <span>Đang học</span>
-                      </button>
-                    </li>
                     <li>
                       <button
                         className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`}
@@ -140,15 +132,6 @@ export default function Header({
                       </button>
                     </li>
                   </>
-                ) : (
-                  <li>
-                    <button
-                      className={`nav-link ${currentTab === 'cert_verify' ? 'active' : ''}`}
-                      onClick={() => onSelectTab('cert_verify')}
-                    >
-                      <span>Tra cứu Chứng chỉ</span>
-                    </button>
-                  </li>
                 )}
               </>
             )}
@@ -342,30 +325,32 @@ export default function Header({
                       <span>Hồ sơ & Đổi mật khẩu</span>
                     </button>
 
-                    {/* Nút Tra cứu chứng chỉ số */}
-                    <button
-                      onClick={() => {
-                        onSelectTab('cert_verify');
-                        setIsProfileOpen(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        width: '100%',
-                        padding: '8px',
-                        border: 'none',
-                        backgroundColor: 'var(--bg-subtle)',
-                        color: 'var(--text-main)',
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <i className="fa-solid fa-award" style={{ color: '#d97706' }}></i>
-                      <span>Tra cứu Chứng chỉ</span>
-                    </button>
+                    {/* Nút Tra cứu chứng chỉ số (chỉ dành cho học viên) */}
+                    {role === 'STUDENT' && (
+                      <button
+                        onClick={() => {
+                          onSelectTab('cert_verify');
+                          setIsProfileOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          width: '100%',
+                          padding: '8px',
+                          border: 'none',
+                          backgroundColor: 'var(--bg-subtle)',
+                          color: 'var(--text-main)',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <i className="fa-solid fa-award" style={{ color: '#d97706' }}></i>
+                        <span>Tra cứu Chứng chỉ</span>
+                      </button>
+                    )}
 
                     {/* Nút Đăng Xuất */}
                     <button
