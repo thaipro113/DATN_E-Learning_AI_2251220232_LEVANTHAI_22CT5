@@ -139,7 +139,7 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
   const handleSaveQuiz = async (e) => {
     e.preventDefault();
     if (!quizTitle.trim()) {
-      setToastMsg('⚠️ Vui lòng nhập tiêu đề đề thi!');
+      setToastMsg('Vui lòng nhập tiêu đề đề thi!');
       return;
     }
 
@@ -160,16 +160,16 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
     try {
       if (editingQuiz) {
         await assessmentAPI.updateQuiz(editingQuiz.id, payload);
-        setToastMsg('🎉 Đã cập nhật đề thi thành công!');
+        setToastMsg('Đã cập nhật đề thi thành công!');
       } else {
         await assessmentAPI.createQuiz(payload);
-        setToastMsg('🎉 Đã tạo đề thi mới thành công!');
+        setToastMsg('Đã tạo đề thi mới thành công!');
       }
       setIsQuizModalOpen(false);
       fetchQuizzesAndCourses();
     } catch (err) {
       console.warn('Save quiz error:', err);
-      setToastMsg('⚠️ Không thể lưu đề thi vào CSDL.');
+      setToastMsg('Không thể lưu đề thi vào CSDL.');
     } finally {
       setIsSavingQuiz(false);
     }
@@ -185,10 +185,10 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
         setConfirmModal((prev) => ({ ...prev, isLoading: true }));
         try {
           await assessmentAPI.deleteQuiz(quiz.id);
-          setToastMsg('🗑️ Đã xóa đề thi thành công!');
+          setToastMsg('Đã xóa đề thi thành công!');
           fetchQuizzesAndCourses();
         } catch (err) {
-          setToastMsg('⚠️ Không thể xóa đề thi.');
+          setToastMsg('Không thể xóa đề thi.');
         } finally {
           setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
         }
@@ -262,19 +262,19 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
   const handleSaveQuestion = async (e) => {
     e.preventDefault();
     if (!qContent.trim()) {
-      setToastMsg('⚠️ Vui lòng nhập nội dung câu hỏi!');
+      setToastMsg('Vui lòng nhập nội dung câu hỏi!');
       return;
     }
 
     const validOptions = qOptions.filter((o) => o.content.trim() !== '');
     if (validOptions.length < 2) {
-      setToastMsg('⚠️ Câu hỏi phải có ít nhất 2 phương án trả lời!');
+      setToastMsg('Câu hỏi phải có ít nhất 2 phương án trả lời!');
       return;
     }
 
     const hasCorrect = validOptions.some((o) => o.is_correct);
     if (!hasCorrect) {
-      setToastMsg('⚠️ Vui lòng chọn ít nhất 1 đáp án đúng!');
+      setToastMsg('Vui lòng chọn ít nhất 1 đáp án đúng!');
       return;
     }
 
@@ -299,17 +299,17 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
     try {
       if (editingQuestion) {
         await assessmentAPI.updateQuestion(editingQuestion.id, payload);
-        setToastMsg('🎉 Đã cập nhật câu hỏi thành công!');
+        setToastMsg('Đã cập nhật câu hỏi thành công!');
       } else {
         await assessmentAPI.createQuestion(managingQuiz.id, payload);
-        setToastMsg('🎉 Đã thêm câu hỏi vào đề thi!');
+        setToastMsg('Đã thêm câu hỏi vào đề thi!');
       }
       setIsQuestionFormOpen(false);
       handleManageQuestions(managingQuiz);
       fetchQuizzesAndCourses();
     } catch (err) {
       console.warn('Save question error:', err);
-      setToastMsg('⚠️ Không thể lưu câu hỏi.');
+      setToastMsg('Không thể lưu câu hỏi.');
     } finally {
       setIsSavingQuestion(false);
     }
@@ -325,11 +325,11 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
         setConfirmModal((prev) => ({ ...prev, isLoading: true }));
         try {
           await assessmentAPI.deleteQuestion(q.id);
-          setToastMsg('🗑️ Đã xóa câu hỏi!');
+          setToastMsg('Đã xóa câu hỏi!');
           handleManageQuestions(managingQuiz);
           fetchQuizzesAndCourses();
         } catch (err) {
-          setToastMsg('⚠️ Không thể xóa câu hỏi.');
+          setToastMsg('Không thể xóa câu hỏi.');
         } finally {
           setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
         }
@@ -527,7 +527,7 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
                       color: quiz.is_published !== false ? '#15803d' : '#dc2626',
                     }}
                   >
-                    {quiz.is_published !== false ? '✓ Đã xuất bản' : '⚪ Bản nháp'}
+                    {quiz.is_published !== false ? '✓ Đã xuất bản' : 'Bản nháp'}
                   </span>
                 </div>
 
@@ -950,7 +950,7 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
                     {/* Explanation */}
                     {(q.explanation || q.explanation_vi) && (
                       <div style={{ fontSize: '0.78rem', color: '#854d0e', backgroundColor: '#fefce8', padding: '6px 10px', borderRadius: '6px', border: '1px solid #fef08a' }}>
-                        💡 <strong>Giải thích:</strong> {q.explanation || q.explanation_vi}
+                        <strong>Giải thích:</strong> {q.explanation || q.explanation_vi}
                       </div>
                     )}
                   </div>
@@ -1140,7 +1140,7 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
         onClose={() => setShowAIQuizModal(false)}
         onSaveSuccess={() => {
           fetchQuizzesAndCourses();
-          setToastMsg('🎉 Đã tạo và lưu đề thi AI vào CSDL thành công!');
+          setToastMsg('Đã tạo và lưu đề thi AI vào CSDL thành công!');
         }}
         courses={courses}
       />
@@ -1162,7 +1162,7 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
             position: 'fixed',
             bottom: '24px',
             right: '24px',
-            backgroundColor: toastMsg.startsWith('⚠️') ? '#dc2626' : '#059669',
+            backgroundColor: (typeof toastMsg === 'string' && (toastMsg.startsWith('Không') || toastMsg.startsWith('Vui lòng') || toastMsg.includes('lỗi') || toastMsg.includes('chưa'))) ? '#dc2626' : '#059669',
             color: 'white',
             padding: '12px 22px',
             borderRadius: 'var(--radius-md)',
@@ -1176,7 +1176,7 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
             animation: 'fadeIn 0.2s ease',
           }}
         >
-          <i className={`fa-solid ${toastMsg.startsWith('⚠️') ? 'fa-triangle-exclamation' : 'fa-circle-check'}`}></i>
+          <i className={`fa-solid ${(typeof toastMsg === 'string' && (toastMsg.startsWith('Không') || toastMsg.startsWith('Vui lòng') || toastMsg.includes('lỗi') || toastMsg.includes('chưa'))) ? 'fa-triangle-exclamation' : 'fa-circle-check'}`}></i>
           <span>{toastMsg}</span>
         </div>
       )}

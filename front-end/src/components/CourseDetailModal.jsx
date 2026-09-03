@@ -77,7 +77,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
             <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', color: '#f8fafc' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
                 <span style={{ backgroundColor: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: '800', fontSize: '0.72rem' }}>
-                  🎬 Đang xem thử bài giảng
+                  Đang xem thử bài giảng
                 </span>
                 <strong style={{ color: '#f1f5f9', fontSize: '0.9rem' }}>{activePreviewLesson.title}</strong>
               </div>
@@ -219,7 +219,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
                 </span>
                 {currentData.slug && (
                   <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                    🔗 /{currentData.slug}
+                    /{currentData.slug}
                   </span>
                 )}
               </div>
@@ -266,7 +266,7 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
               }}
             >
               <strong style={{ color: '#15803d', display: 'block', marginBottom: '4px' }}>
-                💡 Trọng tâm bài học ({activePreviewLesson.title}):
+                Trọng tâm bài học ({activePreviewLesson.title}):
               </strong>
               <div style={{ whiteSpace: 'pre-line', lineHeight: 1.6, color: '#166534' }}>
                 {activePreviewLesson.content}
@@ -423,11 +423,11 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
 
                               {isEnrolled ? (
                                 <span style={{ fontSize: '0.7rem', padding: '1px 7px', borderRadius: '4px', backgroundColor: isSelected ? '#bbf7d0' : '#e0f2fe', color: isSelected ? '#15803d' : '#0284c7', fontWeight: '700' }}>
-                                  {isSelected ? '🎬 Đang xem' : 'Đã mở khóa'}
+                                  {isSelected ? 'Đang xem' : 'Đã mở khóa'}
                                 </span>
                               ) : canPreview ? (
                                 <span style={{ fontSize: '0.7rem', padding: '1px 7px', borderRadius: '4px', backgroundColor: isSelected ? '#bbf7d0' : '#dcfce7', color: '#15803d', fontWeight: '800' }}>
-                                  {isSelected ? '🎬 Đang xem' : 'Học thử miễn phí'}
+                                  {isSelected ? 'Đang xem' : 'Học thử miễn phí'}
                                 </span>
                               ) : (
                                 <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '600' }}>

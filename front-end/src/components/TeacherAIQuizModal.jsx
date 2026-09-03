@@ -307,12 +307,12 @@ export default function TeacherAIQuizModal({
         });
       }
 
-      const successMsg = `🎉 Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`;
+      const successMsg = `Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`;
       if (onSaveSuccess) onSaveSuccess(successMsg);
       onClose();
     } catch (err) {
       console.warn('Quiz save note:', err);
-      const successMsg = `🎉 Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`;
+      const successMsg = `Đã lưu thành công ${generatedQuestions.length} câu hỏi AI vào CSDL Ngân Hàng Đề Thi!`;
       if (onSaveSuccess) onSaveSuccess(successMsg);
       onClose();
     } finally {
@@ -402,7 +402,7 @@ export default function TeacherAIQuizModal({
           {/* 1. Chọn Phạm vi tạo đề (Scope Selector) */}
           <div>
             <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>
-              📍 1. Chọn phạm vi gắn đề thi trong hệ thống:
+              1. Chọn phạm vi gắn đề thi trong hệ thống:
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {[
@@ -688,7 +688,7 @@ export default function TeacherAIQuizModal({
 
                     {q.explanation_vi && (
                       <div style={{ fontSize: '0.75rem', color: '#854d0e', backgroundColor: '#fef9c3', padding: '6px 10px', borderRadius: '4px', lineHeight: '1.4' }}>
-                        💡 <strong>Giải thích sư phạm:</strong> {q.explanation_vi}
+                        <strong>Giải thích sư phạm:</strong> {q.explanation_vi}
                       </div>
                     )}
                   </div>

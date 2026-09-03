@@ -207,7 +207,7 @@ export default function AIProgressExamScreen({ quiz, onFinishExam, onBackToLearn
               </div>
               <div>
                 <h3 style={{ fontSize: '1.3rem', fontWeight: '900', color: scoreData.isPassed ? '#15803d' : '#991b1b', margin: 0 }}>
-                  {scoreData.isPassed ? '🎉 XUẤT SẮC! BẠN ĐÃ ĐẠT ĐIỂM CHUẨN' : '⚠️ BẠN CHƯA ĐẠT ĐIỂM CHUẨN'}
+                  {scoreData.isPassed ? 'XUẤT SẮC! BẠN ĐÃ ĐẠT ĐIỂM CHUẨN' : 'BẠN CHƯA ĐẠT ĐIỂM CHUẨN'}
                 </h3>
                 <p style={{ fontSize: '0.92rem', color: scoreData.isPassed ? '#166534' : '#7f1d1d', margin: '4px 0 0' }}>
                   Điểm số: <strong>{scoreData.correctCount} / {scoreData.totalQuestions} câu đúng</strong> ({scoreData.percentage}%) · Thời gian: <strong>{scoreData.timeSpent}</strong> · Điểm chuẩn: {scoreData.passingScore}%
@@ -356,7 +356,7 @@ export default function AIProgressExamScreen({ quiz, onFinishExam, onBackToLearn
                         lineHeight: 1.5,
                       }}
                     >
-                      💡 <strong>Giải thích chi tiết:</strong> {q.explanation}
+                      <strong>Giải thích chi tiết:</strong> {q.explanation}
                     </div>
                   )}
                 </div>

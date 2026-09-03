@@ -11,7 +11,7 @@ const SCENARIOS = [
     title: 'Giao tiếp đời sống & Sở thích',
     subtitle: 'Daily Small Talk & Hobbies',
     level: 'A2 - B1',
-    starterPrompt: "Hi there! 👋 I'm your AI English speaking partner. How's your day going? What did you do today?",
+    starterPrompt: "Hi there! I'm your AI English speaking partner. How's your day going? What did you do today?",
     suggestions: [
       "I had a busy day at work, but everything went smoothly.",
       "The weather is really nice today, so I went for a morning walk.",
@@ -453,7 +453,7 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
 
         let responseText = '';
         if (grammarData?.has_errors) {
-          responseText = `💡 **Gợi ý cách diễn đạt chuẩn bản xứ:**\n"${grammarData.corrected_text}"\n\n${grammarData.overall_comment_vi || 'Great effort! Keep practicing!'}`;
+          responseText = `**Gợi ý cách diễn đạt chuẩn bản xứ:**\n"${grammarData.corrected_text}"\n\n${grammarData.overall_comment_vi || 'Great effort! Keep practicing!'}`;
         } else {
           responseText = `That sounds very natural! Let's keep the conversation going. What else would you like to share about this topic?`;
         }
@@ -929,7 +929,7 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
 
                 {m.role === 'ai' && m.model_used && (
                   <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '3px', marginLeft: '44px' }}>
-                    ✦ {m.model_used}
+                    {m.model_used}
                   </span>
                 )}
               </div>

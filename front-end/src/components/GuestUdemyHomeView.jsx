@@ -32,7 +32,7 @@ export default function GuestUdemyHomeView({
             {/* Top Badge */}
             <div className="landing-hero-badge">
               <span className="badge-pulsing-dot"></span>
-              <span>🚀 NỀN TẢNG E-LEARNING AI THẾ HỆ MỚI</span>
+              <span>NỀN TẢNG E-LEARNING AI THẾ HỆ MỚI</span>
             </div>
 
             {/* Headline Lớn Nổi Bật */}

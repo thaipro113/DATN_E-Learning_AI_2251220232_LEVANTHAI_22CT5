@@ -147,7 +147,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   // Tự động sinh mô tả khóa học chi tiết và chuyên nghiệp bằng AI
   const handleGenerateAIDescription = async () => {
     if (!newTitle.trim()) {
-      setToastMsg('⚠️ Vui lòng nhập "Tiêu đề khóa học" trước để AI có thể viết mô tả phù hợp!');
+      setToastMsg('Vui lòng nhập "Tiêu đề khóa học" trước để AI có thể viết mô tả phù hợp!');
       return;
     }
 
@@ -167,13 +167,13 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       const aiText = res.data?.data?.description || res.data?.description;
       if (aiText && aiText.length > 50) {
         setNewDescription(aiText.trim());
-        setToastMsg('✨ AI đã tự động tư duy và viết xong bản mô tả chi tiết cho khóa học!');
+        setToastMsg('AI đã tự động tư duy và viết xong bản mô tả chi tiết cho khóa học!');
       } else {
         throw new Error('Empty response from AI backend');
       }
     } catch (e) {
       console.warn('AI Description Generation error:', e);
-      setToastMsg('⚠️ Không thể kết nối đến máy chủ AI để sinh mô tả.');
+      setToastMsg('Không thể kết nối đến máy chủ AI để sinh mô tả.');
     } finally {
       setIsGeneratingDesc(false);
     }
@@ -444,12 +444,12 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                           </span>
                           {course.status === 'DRAFT' && (
                             <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f59e0b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
-                              📝 Bản nháp
+                              Bản nháp
                             </span>
                           )}
                           {course.status === 'ARCHIVED' && (
                             <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#64748b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
-                              📦 Lưu trữ
+                              Lưu trữ
                             </span>
                           )}
                         </div>
@@ -567,7 +567,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         }}
         onSaveSuccess={(msg) => {
           fetchTeacherCourses();
-          setToastMsg(typeof msg === 'string' ? msg : '🎉 Đã tạo và lưu đề thi AI vào CSDL Ngân Hàng Đề Thi thành công!');
+          setToastMsg(typeof msg === 'string' ? msg : 'Đã tạo và lưu đề thi AI vào CSDL Ngân Hàng Đề Thi thành công!');
         }}
         courses={courses}
         initialCourse={selectedCourseForAIQuiz}
@@ -774,7 +774,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                         cursor: 'pointer',
                       }}
                     >
-                      📷 {st.label}
+                      {st.label}
                     </button>
                   ))}
                 </div>
@@ -846,8 +846,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                     }}
                   >
                     <option value="PUBLISHED">✓ Đã xuất bản</option>
-                    <option value="DRAFT">📝 Bản nháp</option>
-                    <option value="ARCHIVED">📦 Lưu trữ</option>
+                    <option value="DRAFT">Bản nháp</option>
+                    <option value="ARCHIVED">Lưu trữ</option>
                   </select>
                 </div>
               </div>
@@ -878,12 +878,12 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                     title="AI tự động phân tích Tiêu đề, Danh mục, Trình độ CEFR để soạn bản mô tả chuẩn hóa chi tiết cho giảng viên"
                   >
                     <i className={`fa-solid ${isGeneratingDesc ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
-                    <span>{isGeneratingDesc ? 'AI đang viết mô tả...' : '✨ AI Viết mô tả chi tiết'}</span>
+                    <span>{isGeneratingDesc ? 'AI đang viết mô tả...' : 'AI Viết mô tả chi tiết'}</span>
                   </button>
                 </div>
                 <textarea
                   rows={5}
-                  placeholder="Nhập mô tả khóa học hoặc bấm nút '✨ AI Viết mô tả chi tiết' ở trên để AI tự động soạn giáo án, mục tiêu đầu ra và đối tượng học viên..."
+                  placeholder="Nhập mô tả khóa học hoặc bấm nút 'AI Viết mô tả chi tiết' ở trên để AI tự động soạn giáo án, mục tiêu đầu ra và đối tượng học viên..."
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   style={{

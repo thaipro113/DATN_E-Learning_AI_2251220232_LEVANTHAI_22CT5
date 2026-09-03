@@ -1285,7 +1285,7 @@ export default function AdminDashboardView() {
                                 color: u.is_active ? '#15803d' : '#b91c1c',
                               }}
                             >
-                              {u.is_active ? '✓ Kích hoạt' : '🔒 Đã khóa'}
+                              {u.is_active ? '✓ Kích hoạt' : 'Đã khóa'}
                             </span>
                           </td>
                           <td style={{ padding: '12px 10px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -1818,7 +1818,7 @@ export default function AdminDashboardView() {
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
                   >
                     <option value="active">✓ Hoạt động bình thường</option>
-                    <option value="locked">🔒 Đã khóa tài khoản</option>
+                    <option value="locked">Đã khóa tài khoản</option>
                   </select>
                 </div>
               </div>

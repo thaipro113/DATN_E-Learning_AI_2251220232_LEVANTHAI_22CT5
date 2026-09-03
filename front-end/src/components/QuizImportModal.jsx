@@ -258,11 +258,11 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
         }
       }
 
-      alert(`🎉 Đã nạp thành công ${previewData.length} câu hỏi vào Đề thi trong CSDL PostgreSQL!`);
+      alert(`Đã nạp thành công ${previewData.length} câu hỏi vào Đề thi trong CSDL PostgreSQL!`);
       if (onImportSuccess) onImportSuccess();
       onClose();
     } catch (err) {
-      alert('🎉 Đã ghi nhận lưu câu hỏi vào Đề thi trong CSDL!');
+      alert('Đã ghi nhận lưu câu hỏi vào Đề thi trong CSDL!');
       if (onImportSuccess) onImportSuccess();
       onClose();
     } finally {
@@ -345,7 +345,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
           {/* 1. Chọn Phạm vi gắn Đề thi */}
           <div>
             <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>
-              📍 1. Chọn phạm vi gắn đề thi khi Import:
+              1. Chọn phạm vi gắn đề thi khi Import:
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {[
@@ -463,7 +463,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
           {/* 3. Định dạng nguồn */}
           <div>
             <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
-              📄 2. Chọn định dạng tệp tải lên:
+              2. Chọn định dạng tệp tải lên:
             </label>
             <div style={{ display: 'flex', gap: '10px' }}>
               {['RAW_TEXT', 'CSV', 'DOCX'].map((type) => (
@@ -483,7 +483,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
                     cursor: 'pointer',
                   }}
                 >
-                  {type === 'RAW_TEXT' ? '📝 Văn bản trực tiếp' : type === 'CSV' ? '📊 Tệp Excel / CSV' : '📄 Tệp Word (.docx)'}
+                  {type === 'RAW_TEXT' ? 'Văn bản trực tiếp' : type === 'CSV' ? 'Tệp Excel / CSV' : 'Tệp Word (.docx)'}
                 </button>
               ))}
             </div>
@@ -529,7 +529,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
               style={{ cursor: 'pointer' }}
             />
             <label htmlFor="useAI" style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: '600', cursor: 'pointer' }}>
-              ✨ Sử dụng AI Engine để tự động chuẩn hóa đáp án A/B/C/D và bóc tách lời giải thích sư phạm
+              Sử dụng AI Engine để tự động chuẩn hóa đáp án A/B/C/D và bóc tách lời giải thích sư phạm
             </label>
           </div>
 
@@ -577,7 +577,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: 'var(--bg-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <label style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                  🎯 Chọn phương thức lưu vào CSDL:
+                  Chọn phương thức lưu vào CSDL:
                 </label>
 
                 <div style={{ display: 'flex', gap: '12px' }}>

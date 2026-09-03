@@ -197,7 +197,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
         setCertificateData(resData.certificate);
         setToastMsg({
           type: 'success',
-          text: '🎉 Chúc mừng! Bạn đã hoàn thành 100% khóa học và nhận được Chứng chỉ tốt nghiệp!',
+          text: 'Chúc mừng! Bạn đã hoàn thành 100% khóa học và nhận được Chứng chỉ tốt nghiệp!',
         });
       } else {
         setToastMsg({
@@ -771,7 +771,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <div>
                   <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#7c3aed', textTransform: 'uppercase' }}>
-                    ⚡ AI PROGRESS QUIZ (ĐANG LÀM BÀI ÔN TẬP)
+                    AI PROGRESS QUIZ (ĐANG LÀM BÀI ÔN TẬP)
                   </span>
                   <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', margin: '4px 0 0' }}>
                     {activeTakingQuiz.title}
@@ -834,7 +834,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
 
                     {quizSubmitted && q.explanation && (
                       <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '6px', backgroundColor: '#eff6ff', color: '#1e40af', fontSize: '0.82rem' }}>
-                        💡 <strong>Giải thích:</strong> {q.explanation}
+                        <strong>Giải thích:</strong> {q.explanation}
                       </div>
                     )}
                   </div>

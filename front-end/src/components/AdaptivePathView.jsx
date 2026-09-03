@@ -46,7 +46,7 @@ export default function AdaptivePathView({ learningPath: initialPath }) {
     setIsGenerating(true);
     try {
       const res = await recommendationAPI.generateLearningPath(targetLevel, goalDescription);
-      alert('🎉 AI đã phân tích ma trận kỹ năng và tái tạo Lộ trình học tập cá nhân hóa mới thành công!');
+      alert('AI đã phân tích ma trận kỹ năng và tái tạo Lộ trình học tập cá nhân hóa mới thành công!');
       fetchLivePath();
     } catch (err) {
       alert('Tái tạo lộ trình AI hoàn tất!');
@@ -139,16 +139,16 @@ export default function AdaptivePathView({ learningPath: initialPath }) {
                     {step.title}
                   </h3>
                   <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: step.step_type === 'QUIZ' ? '#ffedd5' : step.step_type === 'AI_PRACTICE' ? '#f3e8ff' : '#e0f2fe', color: step.step_type === 'QUIZ' ? '#c2410c' : step.step_type === 'AI_PRACTICE' ? '#7e22ce' : '#0369a1', fontWeight: '800' }}>
-                    {step.step_type === 'QUIZ' ? '📝 BÀI THI' : step.step_type === 'AI_PRACTICE' ? '✨ AI COACH' : '📖 BÀI HỌC'}
+                    {step.step_type === 'QUIZ' ? 'BÀI THI' : step.step_type === 'AI_PRACTICE' ? 'AI COACH' : 'BÀI HỌC'}
                   </span>
                   {step.target_skill_display && (
                     <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: '700' }}>
-                      🎯 {step.target_skill_display}
+                      {step.target_skill_display}
                     </span>
                   )}
                   {step.estimated_minutes && (
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      ⏱️ {step.estimated_minutes} phút
+                      {step.estimated_minutes} phút
                     </span>
                   )}
                 </div>

@@ -46,7 +46,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   // Tự động sinh mô tả khóa học chi tiết bằng AI
   const handleGenerateAIDescription = async () => {
     if (!editTitle.trim()) {
-      setToastMsg('⚠️ Vui lòng nhập tiêu đề khóa học trước!');
+      setToastMsg('Vui lòng nhập tiêu đề khóa học trước!');
       return;
     }
 
@@ -67,13 +67,13 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       const aiText = res.data?.data?.description || res.data?.description;
       if (aiText && aiText.length > 50) {
         setEditDescription(aiText.trim());
-        setToastMsg('✨ AI đã tự động tư duy và viết xong bản mô tả chi tiết cho khóa học!');
+        setToastMsg('AI đã tự động tư duy và viết xong bản mô tả chi tiết cho khóa học!');
       } else {
         throw new Error('Empty response from AI backend');
       }
     } catch (e) {
       console.warn('AI Description Generation error:', e);
-      setToastMsg('⚠️ Không thể kết nối đến máy chủ AI để sinh mô tả.');
+      setToastMsg('Không thể kết nối đến máy chủ AI để sinh mô tả.');
     } finally {
       setIsGeneratingDesc(false);
     }
@@ -82,7 +82,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   // AI viết mục tiêu chương học
   const handleGenerateChapterAIDesc = async () => {
     if (!chapterTitle.trim()) {
-      setToastMsg('⚠️ Vui lòng nhập "Tên chương học" trước!');
+      setToastMsg('Vui lòng nhập "Tên chương học" trước!');
       return;
     }
     setIsGeneratingChapterDesc(true);
@@ -96,11 +96,11 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       const aiText = res.data?.data?.description || res.data?.description;
       if (aiText) {
         setChapterDesc(aiText.trim());
-        setToastMsg('✨ AI đã viết xong mục tiêu chương học!');
+        setToastMsg('AI đã viết xong mục tiêu chương học!');
       }
     } catch (e) {
       console.warn('AI Chapter Desc error:', e);
-      setToastMsg('⚠️ Không thể kết nối AI để sinh mục tiêu chương.');
+      setToastMsg('Không thể kết nối AI để sinh mục tiêu chương.');
     } finally {
       setIsGeneratingChapterDesc(false);
     }
@@ -109,7 +109,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   // AI tóm tắt trọng tâm bài học
   const handleGenerateLessonAIContent = async (chTitle) => {
     if (!lessonTitle.trim()) {
-      setToastMsg('⚠️ Vui lòng nhập "Tên bài học" trước!');
+      setToastMsg('Vui lòng nhập "Tên bài học" trước!');
       return;
     }
     setIsGeneratingLessonContent(true);
@@ -124,11 +124,11 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       const aiText = res.data?.data?.description || res.data?.description;
       if (aiText) {
         setLessonContent(aiText.trim());
-        setToastMsg('✨ AI đã tóm tắt xong kiến thức trọng tâm cho bài giảng!');
+        setToastMsg('AI đã tóm tắt xong kiến thức trọng tâm cho bài giảng!');
       }
     } catch (e) {
       console.warn('AI Lesson Content error:', e);
-      setToastMsg('⚠️ Không thể kết nối AI để sinh nội dung bài học.');
+      setToastMsg('Không thể kết nối AI để sinh nội dung bài học.');
     } finally {
       setIsGeneratingLessonContent(false);
     }
@@ -394,7 +394,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       if (onCourseUpdated) onCourseUpdated();
     } catch (err) {
       console.error('Lỗi khi lưu tài liệu:', err);
-      setToastMsg('⚠️ Có lỗi xảy ra khi lưu tài liệu. Vui lòng thử lại.');
+      setToastMsg('Có lỗi xảy ra khi lưu tài liệu. Vui lòng thử lại.');
     }
   };
 
@@ -695,8 +695,8 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                   >
                     <option value="PUBLISHED">✓ Đã xuất bản (PUBLISHED)</option>
-                    <option value="DRAFT">📝 Bản nháp (DRAFT)</option>
-                    <option value="ARCHIVED">📦 Đã lưu trữ (ARCHIVED)</option>
+                    <option value="DRAFT">Bản nháp (DRAFT)</option>
+                    <option value="ARCHIVED">Đã lưu trữ (ARCHIVED)</option>
                   </select>
                 </div>
               </div>
@@ -795,7 +795,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                     title="AI tự động phân tích Tiêu đề, Trình độ CEFR để soạn bản mô tả chi tiết"
                   >
                     <i className={`fa-solid ${isGeneratingDesc ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
-                    <span>{isGeneratingDesc ? 'AI đang viết...' : '✨ AI Viết mô tả chi tiết'}</span>
+                    <span>{isGeneratingDesc ? 'AI đang viết...' : 'AI Viết mô tả chi tiết'}</span>
                   </button>
                 </div>
                 <textarea
@@ -898,12 +898,12 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                       title="AI tự động phân tích tên chương để viết mô tả mục tiêu súc tích, vừa đủ"
                     >
                       <i className={`fa-solid ${isGeneratingChapterDesc ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
-                      <span>{isGeneratingChapterDesc ? 'AI đang viết...' : '✨ AI viết mục tiêu chương'}</span>
+                      <span>{isGeneratingChapterDesc ? 'AI đang viết...' : 'AI viết mục tiêu chương'}</span>
                     </button>
                   </div>
                   <textarea
                     rows={2}
-                    placeholder="Nhập mô tả mục tiêu của chương hoặc bấm '✨ AI viết mục tiêu chương'..."
+                    placeholder="Nhập mô tả mục tiêu của chương hoặc bấm 'AI viết mục tiêu chương'..."
                     value={chapterDesc}
                     onChange={(e) => setChapterDesc(e.target.value)}
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
@@ -1135,14 +1135,14 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                               title="AI tự động tóm tắt kiến thức trọng tâm súc tích cho bài giảng"
                             >
                               <i className={`fa-solid ${isGeneratingLessonContent ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
-                              <span>{isGeneratingLessonContent ? 'AI đang tóm tắt...' : '✨ AI tóm tắt trọng tâm'}</span>
+                              <span>{isGeneratingLessonContent ? 'AI đang tóm tắt...' : 'AI tóm tắt trọng tâm'}</span>
                             </button>
                           </div>
                           <textarea
                             rows={3}
                             value={lessonContent}
                             onChange={(e) => setLessonContent(e.target.value)}
-                            placeholder="Tóm tắt kiến thức, từ vựng hoặc cấu trúc câu cần ghi nhớ hoặc bấm '✨ AI tóm tắt trọng tâm'..."
+                            placeholder="Tóm tắt kiến thức, từ vựng hoặc cấu trúc câu cần ghi nhớ hoặc bấm 'AI tóm tắt trọng tâm'..."
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                           />
                         </div>
@@ -1531,7 +1531,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
           isOpen={Boolean(aiQuizConfig)}
           onClose={() => setAiQuizConfig(null)}
           onSaveSuccess={() => {
-            setToastMsg('🎉 Đã tạo và lưu đề thi trắc nghiệm AI vào CSDL thành công!');
+            setToastMsg('Đã tạo và lưu đề thi trắc nghiệm AI vào CSDL thành công!');
             setAiQuizConfig(null);
           }}
           courses={courseDetail ? [courseDetail] : []}

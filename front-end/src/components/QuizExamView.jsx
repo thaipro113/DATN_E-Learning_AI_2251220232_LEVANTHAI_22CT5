@@ -114,7 +114,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
       }
 
       if (!fullQuizDetail.questions || fullQuizDetail.questions.length === 0) {
-        setToastMsg('⚠️ Đề thi này hiện chưa có câu hỏi trong CSDL. Vui lòng chọn đề thi khác!');
+        setToastMsg('Đề thi này hiện chưa có câu hỏi trong CSDL. Vui lòng chọn đề thi khác!');
         return;
       }
 
@@ -134,7 +134,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
         }
       }
     } catch (e) {
-      setToastMsg('⚠️ Không thể khởi động phòng thi trắc nghiệm.');
+      setToastMsg('Không thể khởi động phòng thi trắc nghiệm.');
     }
   };
 
@@ -186,7 +186,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
         setSelectedQuiz(null);
         setExamResult(null);
         setSelectedAttemptDetail(gradedData);
-        setToastMsg('🎉 Đã nộp bài và chấm điểm thành công!');
+        setToastMsg('Đã nộp bài và chấm điểm thành công!');
       } else {
         // Fallback: Tự tính kết quả nếu thi offline
         let correctCount = 0;
@@ -263,7 +263,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
       fetchQuizzesAndHistory();
     } catch (err) {
       console.error('Submit exam error:', err);
-      setToastMsg('⚠️ Có lỗi xảy ra trong quá trình nộp bài.');
+      setToastMsg('Có lỗi xảy ra trong quá trình nộp bài.');
     } finally {
       setIsSubmitting(false);
     }
@@ -299,11 +299,11 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
         }
         setSelectedAttemptDetail(detail);
       } else {
-        setToastMsg('⚠️ Không tìm thấy chi tiết bài thi đã làm.');
+        setToastMsg('Không tìm thấy chi tiết bài thi đã làm.');
       }
     } catch (err) {
       console.warn('Could not load attempt detail:', err);
-      setToastMsg('⚠️ Không thể tải chi tiết bài làm từ CSDL.');
+      setToastMsg('Không thể tải chi tiết bài làm từ CSDL.');
     } finally {
       setIsLoadingAttemptDetail(false);
     }
@@ -413,7 +413,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
             </span>
             {unansweredCount > 0 && (
               <span style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#fefce8', color: '#854d0e', fontSize: '0.82rem', fontWeight: '700' }}>
-                ⚪ Chưa chọn: {unansweredCount} câu
+                Chưa chọn: {unansweredCount} câu
               </span>
             )}
             <span style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.82rem', fontWeight: '600', marginLeft: 'auto' }}>
@@ -427,7 +427,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
         {selectedAttemptDetail.skill_breakdown && selectedAttemptDetail.skill_breakdown.length > 0 && (
           <div style={{ marginBottom: '28px', backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
             <h4 style={{ fontSize: '0.95rem', fontWeight: '800', color: '#0f172a', marginBottom: '12px' }}>
-              📊 Đánh giá năng lực theo kỹ năng trong bài thi:
+              Đánh giá năng lực theo kỹ năng trong bài thi:
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
               {selectedAttemptDetail.skill_breakdown.map((sk) => (
@@ -467,7 +467,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
               if (!hasAnswered) {
                 badgeBg = '#fefce8';
                 badgeColor = '#854d0e';
-                badgeText = '⚪ CHƯA CHỌN ĐÁP ÁN (0 điểm)';
+                badgeText = 'CHƯA CHỌN ĐÁP ÁN (0 điểm)';
                 cardBorder = '#fef08a';
               } else if (!isAnsCorrect) {
                 badgeBg = '#fee2e2';
@@ -602,7 +602,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
                         lineHeight: '1.5',
                       }}
                     >
-                      <strong style={{ color: '#0284c7' }}>💡 Giải thích sư phạm từ AI:</strong> {explanation}
+                      <strong style={{ color: '#0284c7' }}>Giải thích sư phạm từ AI:</strong> {explanation}
                     </div>
                   )}
                 </div>
@@ -759,7 +759,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
                   </div>
                   <div>
                     <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: examResult.isPassed ? '#15803d' : '#991b1b', margin: 0 }}>
-                      {examResult.isPassed ? '🎉 Chúc mừng! Bạn đã ĐẠT chuẩn bài thi!' : '⚠️ Bạn chưa đạt điểm chuẩn!'}
+                      {examResult.isPassed ? 'Chúc mừng! Bạn đã ĐẠT chuẩn bài thi!' : 'Bạn chưa đạt điểm chuẩn!'}
                     </h4>
                     <p style={{ fontSize: '0.85rem', color: examResult.isPassed ? '#166534' : '#7f1d1d', margin: '2px 0 0' }}>
                       Kết quả: <strong>{examResult.correctCount}/{examResult.totalQuestions} câu đúng</strong> ({examResult.score}%) · Yêu cầu đạt: {Math.round(Number(selectedQuiz.passing_score || 70))}% · Thời gian: {Math.floor(examResult.timeSpentSecs / 60)}p {examResult.timeSpentSecs % 60}s
@@ -792,7 +792,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
               {examResult.skillBreakdown && Object.keys(examResult.skillBreakdown).length > 0 && (
                 <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
-                    📊 Đánh giá năng lực theo từng kỹ năng:
+                    Đánh giá năng lực theo từng kỹ năng:
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
                     {Object.entries(examResult.skillBreakdown).map(([skill, pct]) => (
@@ -1018,7 +1018,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
                   {/* Lời giải thích khi đã nộp bài */}
                   {examResult && (currentQuestion.explanation || currentQuestion.explanation_vi) && (
                     <div style={{ padding: '12px 16px', backgroundColor: '#fefce8', borderRadius: '8px', border: '1px solid #fef08a', color: '#854d0e', fontSize: '0.85rem', marginBottom: '20px' }}>
-                      <strong>💡 Giải thích sư phạm:</strong> {currentQuestion.explanation_vi || currentQuestion.explanation}
+                      <strong>Giải thích sư phạm:</strong> {currentQuestion.explanation_vi || currentQuestion.explanation}
                     </div>
                   )}
 
@@ -1191,9 +1191,9 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
                 { id: 'ALL', label: `Tất cả (${quizzes.length})` },
-                { id: 'PLACEMENT', label: `🎯 Đánh giá đầu vào` },
-                { id: 'PRACTICE', label: `📝 Luyện tập` },
-                { id: 'FINAL', label: `🏆 Cuối khóa` },
+                { id: 'PLACEMENT', label: `Đánh giá đầu vào` },
+                { id: 'PRACTICE', label: `Luyện tập` },
+                { id: 'FINAL', label: `Cuối khóa` },
               ].map((p) => (
                 <button
                   key={p.id}
@@ -1317,7 +1317,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
                               color: quiz.quiz_type === 'FINAL' ? '#b45309' : quiz.quiz_type === 'PLACEMENT' ? '#0369a1' : '#7e22ce',
                             }}
                           >
-                            {quiz.quiz_type === 'PLACEMENT' ? '🎯 Đầu vào' : quiz.quiz_type === 'FINAL' ? '🏆 Cuối khóa' : '📝 Luyện tập'} · CEFR {quiz.level || 'B1'}
+                            {quiz.quiz_type === 'PLACEMENT' ? 'Đầu vào' : quiz.quiz_type === 'FINAL' ? 'Cuối khóa' : 'Luyện tập'} · CEFR {quiz.level || 'B1'}
                           </span>
 
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1443,7 +1443,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
             position: 'fixed',
             bottom: '24px',
             right: '24px',
-            backgroundColor: toastMsg.startsWith('⚠️') ? '#dc2626' : '#059669',
+            backgroundColor: (typeof toastMsg === 'string' && (toastMsg.startsWith('Không') || toastMsg.startsWith('Vui lòng') || toastMsg.includes('lỗi') || toastMsg.includes('chưa'))) ? '#dc2626' : '#059669',
             color: 'white',
             padding: '12px 22px',
             borderRadius: 'var(--radius-md)',
@@ -1457,7 +1457,7 @@ export default function QuizExamView({ onOpenAuthModal, isLoggedIn, user = null,
             animation: 'fadeIn 0.2s ease',
           }}
         >
-          <i className={`fa-solid ${toastMsg.startsWith('⚠️') ? 'fa-triangle-exclamation' : 'fa-circle-check'}`}></i>
+          <i className={`fa-solid ${(typeof toastMsg === 'string' && (toastMsg.startsWith('Không') || toastMsg.startsWith('Vui lòng') || toastMsg.includes('lỗi') || toastMsg.includes('chưa'))) ? 'fa-triangle-exclamation' : 'fa-circle-check'}`}></i>
           <span>{toastMsg}</span>
         </div>
       )}

@@ -69,7 +69,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         if (tokens?.refresh) localStorage.setItem('refresh_token', tokens.refresh);
         if (userObj) localStorage.setItem('user_info', JSON.stringify(userObj));
 
-        alert('🎉 Đăng ký tài khoản thành công!');
+        alert('Đăng ký tài khoản thành công!');
         if (tokens?.access) {
           onLoginSuccess(userObj || { email, full_name: fullName, role, level: targetLevel, phone_number: phoneNumber, bio, avatar_url: avatarUrl });
           onClose();

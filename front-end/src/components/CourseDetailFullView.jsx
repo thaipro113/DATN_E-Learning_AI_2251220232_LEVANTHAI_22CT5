@@ -160,7 +160,7 @@ export default function CourseDetailFullView({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ backgroundColor: '#10b981', color: 'white', padding: '3px 8px', borderRadius: '4px', fontWeight: '800', fontSize: '0.72rem' }}>
-                      🎬 ĐANG XEM THỬ MIỄN PHÍ
+                      ĐANG XEM THỬ MIỄN PHÍ
                     </span>
                     <strong>{activePreviewLesson.title}</strong>
                   </div>
@@ -246,7 +246,7 @@ export default function CourseDetailFullView({
               }}
             >
               <strong style={{ color: '#15803d', display: 'block', marginBottom: '6px', fontSize: '0.92rem' }}>
-                💡 Trọng tâm bài giảng: {activePreviewLesson.title}
+                Trọng tâm bài giảng: {activePreviewLesson.title}
               </strong>
               <div style={{ whiteSpace: 'pre-line', lineHeight: 1.7, color: '#166534' }}>
                 {activePreviewLesson.content}
@@ -264,7 +264,7 @@ export default function CourseDetailFullView({
             }}
           >
             <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '14px' }}>
-              🎯 Giới thiệu và Mục tiêu khóa học
+              Giới thiệu và Mục tiêu khóa học
             </h3>
             <div
               style={{
@@ -289,7 +289,7 @@ export default function CourseDetailFullView({
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                📚 Giáo trình khóa học ({course.chapters?.length || 0} Chương · {course.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 0} Bài giảng)
+                Giáo trình khóa học ({course.chapters?.length || 0} Chương · {course.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 0} Bài giảng)
               </h3>
               <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: '700' }}>
                 ✓ Các bài có nhãn "Học thử miễn phí" có thể xem ngay
@@ -359,15 +359,15 @@ export default function CourseDetailFullView({
                             </span>
                             {isEnrolled ? (
                               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: isSelected ? '#bbf7d0' : '#e0f2fe', color: isSelected ? '#15803d' : '#0284c7', fontWeight: '700' }}>
-                                {isSelected ? '🎬 Đang phát' : 'Đã mở khóa'}
+                                {isSelected ? 'Đang phát' : 'Đã mở khóa'}
                               </span>
                             ) : canPreview ? (
                               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: isSelected ? '#bbf7d0' : '#dcfce7', color: '#15803d', fontWeight: '800' }}>
-                                {isSelected ? '🎬 Đang phát' : 'Học thử miễn phí'}
+                                {isSelected ? 'Đang phát' : 'Học thử miễn phí'}
                               </span>
                             ) : (
                               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '600' }}>
-                                🔒 Khóa (Cần đăng ký)
+                                Khóa (Cần đăng ký)
                               </span>
                             )}
                           </div>

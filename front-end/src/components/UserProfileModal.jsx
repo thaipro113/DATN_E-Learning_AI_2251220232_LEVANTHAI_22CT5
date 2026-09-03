@@ -102,7 +102,7 @@ export default function UserProfileModal({ isOpen, onClose, user, onUpdateUserSu
         old_password: oldPassword,
         new_password: newPassword,
       });
-      setMsg({ type: 'success', text: '🎉 Đổi mật khẩu thành công!' });
+      setMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');

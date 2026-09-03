@@ -172,7 +172,7 @@ export default function StudentProgressQuizModal({
 
       const mockQuiz = {
         id: 'ai-progress-quiz-' + Date.now(),
-        title: `⚡ Đề Ôn Tập AI: ${targetChapterTitle}`,
+        title: `Đề Ôn Tập AI: ${targetChapterTitle}`,
         description: `Đề ôn tập thích ứng được AI tạo tự động từ ${displayLessons.length} bài học bạn đang học trong chương '${targetChapterTitle}'.`,
         quiz_type: 'PRACTICE',
         time_limit_minutes: numQuestions * 2,
@@ -271,7 +271,7 @@ export default function StudentProgressQuizModal({
           </ul>
           {completedLessons.length === 0 && (
             <span style={{ display: 'block', fontSize: '0.72rem', color: '#7c3aed', marginTop: '6px', fontStyle: 'italic' }}>
-              💡 AI sẽ phân tích lý thuyết từ bài giảng bạn đang học để sinh bộ đề ôn tập tương ứng.
+              AI sẽ phân tích lý thuyết từ bài giảng bạn đang học để sinh bộ đề ôn tập tương ứng.
             </span>
           )}
         </div>

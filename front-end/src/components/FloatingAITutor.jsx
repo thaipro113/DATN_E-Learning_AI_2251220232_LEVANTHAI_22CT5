@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { aiAPI } from '../services/api';
 
 const QUICK_TOPICS = [
-  { id: 'daily', title: '☕ Giao tiếp đời sống', prompt: 'Hi! Let\'s practice a casual daily conversation. How was your day today?' },
-  { id: 'interview', title: '💼 Phỏng vấn xin việc', prompt: 'Welcome to the interview! Can you tell me a little about yourself and your background?' },
-  { id: 'travel', title: '✈️ Du lịch & Sân bay', prompt: 'Hello traveller! Where are you planning to travel for your next vacation?' },
-  { id: 'restaurant', title: '🍽️ Gọi món nhà hàng', prompt: 'Good evening! Welcome to our restaurant. Are you ready to order or would you like a few minutes with the menu?' },
-  { id: 'business', title: '🏢 Tiếng Anh công sở', prompt: 'Hi there! Could you give me a quick update on your current project milestone?' },
-  { id: 'ielts', title: '🎯 Luyện Speaking IELTS', prompt: 'Let\'s practice IELTS Speaking Part 1. What do you enjoy doing in your free time?' },
+  { id: 'daily', title: 'Giao tiếp đời sống', prompt: 'Hi! Let\'s practice a casual daily conversation. How was your day today?' },
+  { id: 'interview', title: 'Phỏng vấn xin việc', prompt: 'Welcome to the interview! Can you tell me a little about yourself and your background?' },
+  { id: 'travel', title: 'Du lịch & Sân bay', prompt: 'Hello traveller! Where are you planning to travel for your next vacation?' },
+  { id: 'restaurant', title: 'Gọi món nhà hàng', prompt: 'Good evening! Welcome to our restaurant. Are you ready to order or would you like a few minutes with the menu?' },
+  { id: 'business', title: 'Tiếng Anh công sở', prompt: 'Hi there! Could you give me a quick update on your current project milestone?' },
+  { id: 'ielts', title: 'Luyện Speaking IELTS', prompt: 'Let\'s practice IELTS Speaking Part 1. What do you enjoy doing in your free time?' },
 ];
 
 export default function FloatingAITutor({
@@ -33,7 +33,7 @@ export default function FloatingAITutor({
   const [messages, setMessages] = useState([
     {
       role: 'ai',
-      text: `Hello ${user?.full_name || 'there'}! 👋 Welcome to your **AI English Communication Coach**. Choose a topic below or type anything in English to start practicing!`,
+      text: `Hello ${user?.full_name || 'there'}! Welcome to your **AI English Communication Coach**. Choose a topic below or type anything in English to start practicing!`,
       grammar: null,
       model_used: 'AI Speaking Coach',
     },
@@ -233,7 +233,7 @@ export default function FloatingAITutor({
 
         let responseText = '';
         if (grammarData?.has_errors) {
-          responseText = `💡 **Gợi ý cách diễn đạt chuẩn:**\n"${grammarData.corrected_text}"\n\n${grammarData.overall_comment_vi || 'Great effort! Keep practicing!'}`;
+          responseText = `**Gợi ý cách diễn đạt chuẩn:**\n"${grammarData.corrected_text}"\n\n${grammarData.overall_comment_vi || 'Great effort! Keep practicing!'}`;
         } else {
           responseText = `That sounds very natural! Let's keep the conversation going. What else would you like to discuss?`;
         }
@@ -568,7 +568,7 @@ export default function FloatingAITutor({
 
                     {m.role === 'ai' && m.model_used && (
                       <span style={{ fontSize: '0.62rem', color: '#94a3b8', marginTop: '2px', marginLeft: '4px' }}>
-                        ✦ {m.model_used}
+                        {m.model_used}
                       </span>
                     )}
                   </div>
