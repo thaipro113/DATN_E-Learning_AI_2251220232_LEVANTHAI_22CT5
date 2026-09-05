@@ -267,3 +267,32 @@ class StudentAnswer(BaseModel):
     def __str__(self):
         result = "ĐÚNG" if self.is_correct else "SAI"
         return f"{self.attempt.student.full_name} - Câu {self.question.order_index}: {result} (+{self.score_earned}đ)"
+
+
+class QuestionAIAnalysis(BaseModel):
+    """
+    Mô hình lưu trữ kết quả phân tích học thuật chuyên sâu của LLM cho từng câu hỏi trong đề thi.
+    Được suy luận từ cấu trúc ngữ pháp, ngữ cảnh và phương án trả lời thay vì dùng keyword matching.
+    """
+    question = models.OneToOneField(
+        Question,
+        on_delete=models.CASCADE,
+        related_name='ai_analysis',
+        verbose_name=_('Câu hỏi được phân tích')
+    )
+    topic = models.CharField(_('Chủ đề học thuật'), max_length=255)
+    sub_topic = models.CharField(_('Chủ đề phụ cụ thể'), max_length=255, blank=True, default='')
+    skill = models.CharField(_('Kỹ năng đánh giá'), max_length=50, blank=True, default='GRAMMAR')
+    difficulty = models.CharField(_('Độ khó CEFR'), max_length=20, blank=True, default='B1')
+    reason = models.TextField(_('Lý giải chuyên sâu từ AI'), blank=True, default='')
+    confidence = models.FloatField(_('Độ tin cậy của AI (0.0 - 1.0)'), default=0.0)
+    raw_response = models.JSONField(_('Dữ liệu JSON gốc từ LLM'), default=dict, blank=True)
+
+    class Meta:
+        db_table = 'question_ai_analyses'
+        verbose_name = _('Phân tích AI cho câu hỏi')
+        verbose_name_plural = _('Danh sách phân tích AI câu hỏi')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.topic} - {self.difficulty}] {self.question.content[:50]}"

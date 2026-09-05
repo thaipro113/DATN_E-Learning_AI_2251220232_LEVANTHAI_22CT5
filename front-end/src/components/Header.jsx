@@ -118,18 +118,10 @@ export default function Header({
                     </li>
                     <li>
                       <button
-                        className={`nav-link ${currentTab === 'path' ? 'active' : ''}`}
+                        className={`nav-link ${currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`}
                         onClick={() => onSelectTab('path')}
                       >
-                        <span>Lộ trình AI</span>
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        className={`nav-link ${currentTab === 'skills' ? 'active' : ''}`}
-                        onClick={() => onSelectTab('skills')}
-                      >
-                        <span>Lỗ hổng kỹ năng</span>
+                        <span>Luyện Lỗi Sai AI</span>
                       </button>
                     </li>
                     <li>

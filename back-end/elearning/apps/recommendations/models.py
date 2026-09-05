@@ -191,14 +191,20 @@ class SkillGapAnalysis(BaseModel):
         verbose_name="Kỹ năng ngôn ngữ"
     )
     proficiency_score = models.FloatField(
-        default=0.0,
+        null=True,
+        blank=True,
+        default=None,
         verbose_name="Điểm thành thạo năng lực (0 - 100)"
+    )
+    is_assessed = models.BooleanField(
+        default=False,
+        verbose_name="Đã được đánh giá qua bài thi"
     )
     weak_topics = models.JSONField(
         default=list,
         blank=True,
         verbose_name="Danh sách các chủ đề/dạng bài còn yếu",
-        help_text="Ví dụ: ['Past Simple vs Present Perfect', 'Prepositions of Place']"
+        help_text="Ví dụ: [{'topic': 'Past Perfect', 'sub_topic': 'Past Perfect vs Past Simple'}]"
     )
     recommended_action = models.TextField(
         blank=True,
@@ -217,7 +223,8 @@ class SkillGapAnalysis(BaseModel):
         ordering = ['proficiency_score']
 
     def __str__(self):
-        return f"{self.student.email} - {self.get_skill_type_display()}: {self.proficiency_score:.1f}%"
+        score_str = f"{self.proficiency_score:.1f}%" if self.is_assessed and self.proficiency_score is not None else "Chưa đánh giá"
+        return f"{self.student.email} - {self.get_skill_type_display()}: {score_str}"
 
 
 class CourseRecommendation(BaseModel):

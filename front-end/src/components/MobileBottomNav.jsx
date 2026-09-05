@@ -41,11 +41,11 @@ export default function MobileBottomNav({ currentTab, onSelectTab }) {
 
       <button
         type="button"
-        className={`mobile-nav-item ${currentTab === 'path' ? 'active' : ''}`}
+        className={`mobile-nav-item ${currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`}
         onClick={() => onSelectTab('path')}
       >
-        <i className="fa-solid fa-compass"></i>
-        <span>Lộ trình AI</span>
+        <i className="fa-solid fa-circle-exclamation"></i>
+        <span>Luyện Lỗi Sai AI</span>
       </button>
     </div>
   );
