@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import CourseDetailModal from './CourseDetailModal';
+import CourseRecommendationWizardModal from './CourseRecommendationWizardModal';
 import Pagination from './Pagination';
 import { cleanCourseTitle, isCourseEnrolled } from '../utils/media';
 
@@ -9,6 +10,7 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
   const [selectedLevel, setSelectedLevel] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingCourse, setViewingCourse] = useState(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
@@ -227,34 +229,59 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
           </p>
         </div>
 
-        {/* Search Input */}
-        <div style={{ position: 'relative', width: '280px' }}>
-          <input
-            type="text"
-            placeholder="Tìm kiếm khóa học..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+        {/* Search & AI Wizard Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setIsWizardOpen(true)}
             style={{
-              width: '100%',
-              padding: '9px 12px 9px 34px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 18px',
               borderRadius: 'var(--radius-full)',
-              border: '1px solid var(--border-color)',
+              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: '700',
               fontSize: '0.85rem',
-              outline: 'none',
-              backgroundColor: 'var(--bg-surface)',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+              transition: 'all 0.2s ease',
             }}
-          />
-          <i
-            className="fa-solid fa-magnifying-glass"
-            style={{
-              position: 'absolute',
-              left: '12px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)',
-              fontSize: '0.8rem',
-            }}
-          ></i>
+          >
+            <i className="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Tìm khóa học phù hợp cùng AI (4 bước)</span>
+          </button>
+
+          <div style={{ position: 'relative', width: '260px' }}>
+            <input
+              type="text"
+              placeholder="Tìm kiếm khóa học..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '9px 12px 9px 34px',
+                borderRadius: 'var(--radius-full)',
+                border: '1px solid var(--border-color)',
+                fontSize: '0.85rem',
+                outline: 'none',
+                backgroundColor: 'var(--bg-surface)',
+              }}
+            />
+            <i
+              className="fa-solid fa-magnifying-glass"
+              style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+                fontSize: '0.8rem',
+              }}
+            ></i>
+          </div>
         </div>
       </div>
 
@@ -600,6 +627,14 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
         onClose={() => setViewingCourse(null)}
         course={viewingCourse}
         myCourses={myCourses}
+        onEnroll={onEnroll}
+        onNavigateToLearning={onNavigateToLearning}
+      />
+
+      {/* AI 4-Step Course Recommendation Wizard Modal */}
+      <CourseRecommendationWizardModal
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
         onEnroll={onEnroll}
         onNavigateToLearning={onNavigateToLearning}
       />

@@ -333,3 +333,75 @@ class GenerateCourseDescriptionAPIView(APIView):
             )
 
 
+class QuestionAnalysisAPIView(APIView):
+    """
+    API Endpoint: Phân tích học thuật chuyên sâu cho câu hỏi kiểm tra bằng LLM thật.
+    Nhận ID câu hỏi hoặc nội dung câu hỏi, trả về phân tích JSON (topic, sub_topic, skill, difficulty, reason, confidence).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        question_id = request.data.get('question_id')
+        from apps.ai.services import QuestionAnalysisAIService
+
+        if question_id:
+            from apps.assessments.models import Question
+            try:
+                question = Question.objects.get(id=question_id)
+                ai_record = QuestionAnalysisAIService.analyze_and_store_question(
+                    question=question,
+                    student_answer=request.data.get('student_answer'),
+                    force_refresh=request.data.get('force_refresh', False)
+                )
+                return success_response(
+                    data={
+                        'question_id': str(question.id),
+                        'topic': ai_record.topic,
+                        'sub_topic': ai_record.sub_topic,
+                        'skill': ai_record.skill,
+                        'difficulty': ai_record.difficulty,
+                        'reason': ai_record.reason,
+                        'confidence': ai_record.confidence,
+                    },
+                    message="Phân tích câu hỏi bằng AI thành công!",
+                    status_code=status.HTTP_200_OK
+                )
+            except Question.DoesNotExist:
+                return error_response(
+                    message="Không tìm thấy câu hỏi với ID đã cung cấp.",
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            except Exception as e:
+                return error_response(
+                    message=f"Lỗi khi gọi LLM phân tích: {str(e)}",
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        question_content = request.data.get('question_content')
+        if not question_content:
+            return error_response(
+                message="Vui lòng cung cấp question_id hoặc question_content.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            analysis = QuestionAnalysisAIService.analyze_question_data({
+                'question_content': question_content,
+                'options_text': request.data.get('options_text', 'N/A'),
+                'correct_answer': request.data.get('correct_answer', 'N/A'),
+                'student_answer': request.data.get('student_answer', 'N/A'),
+                'explanation': request.data.get('explanation', 'N/A'),
+                'skill_type': request.data.get('skill_type', 'GRAMMAR')
+            })
+            return success_response(
+                data=analysis,
+                message="Phân tích câu hỏi bằng AI thành công!",
+                status_code=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return error_response(
+                message=f"Lỗi khi gọi LLM phân tích: {str(e)}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+

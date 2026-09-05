@@ -96,6 +96,9 @@ export const aiAPI = {
   // AI Tự động tư duy & Sinh mô tả khóa học chuyên sâu cho Giảng viên
   generateCourseDescription: (data) =>
     apiClient.post('ai/courses/generate-description/', data),
+  // AI Phân tích học thuật chuyên sâu cho câu hỏi bằng LLM thật
+  analyzeQuestion: (data) =>
+    apiClient.post('ai/questions/analyze/', data),
 };
 
 export const recommendationAPI = {
@@ -107,6 +110,24 @@ export const recommendationAPI = {
   getRecommendedCourses: () => apiClient.get('recommendations/courses/'),
   dismissRecommendation: (recommendationId) =>
     apiClient.post(`recommendations/courses/${recommendationId}/dismiss/`),
+  // Lấy chi tiết lỗi sai khi làm trắc nghiệm & phân tích học thuật từ AI
+  getStudentMistakes: () => apiClient.get('recommendations/mistakes/'),
+  // AI Luyện tập điểm yếu & Lỗi sai: Sinh câu hỏi mới toanh bám sát lỗi sai
+  generateWeakTopicQuiz: (topic, subTopic = '', level = 'B1', quantity = 5, topics = []) => {
+    if (typeof topic === 'object' && topic !== null) {
+      return apiClient.post('recommendations/weak-topics/generate-quiz/', topic);
+    }
+    return apiClient.post('recommendations/weak-topics/generate-quiz/', {
+      topic,
+      sub_topic: subTopic,
+      topics,
+      level,
+      quantity,
+    });
+  },
+  // AI Course Recommendation Wizard 4 bước
+  recommendCoursesWizard: (wizardData) =>
+    apiClient.post('recommendations/courses/wizard-recommend/', wizardData),
 };
 
 export const quizImportAPI = {

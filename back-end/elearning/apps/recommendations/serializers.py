@@ -150,6 +150,7 @@ class SkillGapAnalysisSerializer(serializers.ModelSerializer):
     Serializer hiển thị điểm thành thạo và phân tích lỗ hổng kỹ năng của học viên.
     """
     skill_type_display = serializers.CharField(source='get_skill_type_display', read_only=True)
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = SkillGapAnalysis
@@ -158,10 +159,15 @@ class SkillGapAnalysisSerializer(serializers.ModelSerializer):
             'skill_type',
             'skill_type_display',
             'proficiency_score',
+            'is_assessed',
+            'status',
             'weak_topics',
             'recommended_action',
             'last_assessed_at'
         ]
+
+    def get_status(self, obj):
+        return 'ASSESSED' if obj.is_assessed else 'NOT_ASSESSED'
 
 
 class CourseRecommendationSerializer(serializers.ModelSerializer):
@@ -180,3 +186,24 @@ class CourseRecommendationSerializer(serializers.ModelSerializer):
             'is_dismissed',
             'created_at'
         ]
+
+
+class WeakTopicQuizRequestSerializer(serializers.Serializer):
+    """
+    Serializer yêu cầu sinh đề ôn tập điểm yếu bằng AI LLM.
+    """
+    topic = serializers.CharField(max_length=500, required=False, allow_blank=True, default="", help_text="Chủ đề ngữ pháp hoặc từ vựng còn yếu")
+    sub_topic = serializers.CharField(max_length=500, required=False, allow_blank=True, default="", help_text="Chủ đề phụ cụ thể")
+    topics = serializers.ListField(child=serializers.CharField(max_length=255), required=False, default=list, help_text="Danh sách nhiều chủ đề lỗi sai đã chọn")
+    level = serializers.ChoiceField(choices=EnglishLevel.choices, required=False, default=EnglishLevel.B1)
+    quantity = serializers.IntegerField(required=False, default=5, min_value=1, max_value=20)
+
+
+class CourseRecommendationWizardRequestSerializer(serializers.Serializer):
+    """
+    Serializer tiếp nhận 4 bước lựa chọn từ AI Course Recommendation Wizard.
+    """
+    goal = serializers.CharField(max_length=255, required=False, default="Nâng cao toàn diện năng lực tiếng Anh")
+    self_level = serializers.ChoiceField(choices=EnglishLevel.choices, required=False, default=EnglishLevel.B1)
+    priority_skill = serializers.CharField(max_length=255, required=False, default="Ngữ pháp & Từ vựng")
+    daily_time = serializers.CharField(max_length=100, required=False, default="30 phút")

@@ -6,7 +6,8 @@ from .views import (
     GrammarCheckAPIView,
     GenerateProgressQuizAPIView,
     GenerateTeacherQuizAPIView,
-    GenerateCourseDescriptionAPIView
+    GenerateCourseDescriptionAPIView,
+    QuestionAnalysisAPIView
 )
 
 app_name = 'ai'
@@ -28,5 +29,8 @@ urlpatterns = [
 
     # 5. AI Tự động tư duy & Sinh mô tả khóa học cho Giảng viên
     path('courses/generate-description/', GenerateCourseDescriptionAPIView.as_view(), name='generate_course_description'),
+
+    # 6. AI Phân tích học thuật chuyên sâu câu hỏi (Real LLM Question Analysis)
+    path('questions/analyze/', QuestionAnalysisAPIView.as_view(), name='analyze_question'),
 ]
 

@@ -339,8 +339,8 @@ export default function App() {
     courses: 'Danh mục Khóa học',
     learning: 'Đang học',
     quizzes: 'Luyện Đề Thi',
-    path: 'Lộ trình AI',
-    skills: 'Lỗ hổng Kỹ năng',
+    path: 'Luyện Lỗi Sai AI',
+    skills: 'Luyện Lỗi Sai AI',
     ai_coach: 'Phòng Luyện Giao Tiếp AI',
     teacher_dashboard: 'Studio Giảng dạy',
     teacher_quizzes: 'Quản lý Đề thi',
@@ -412,7 +412,7 @@ export default function App() {
               >
                 <i className="fa-solid fa-graduation-cap"></i>
               </div>
-              <strong style={{ fontSize: '1rem', color: 'var(--text-main)' }}>E-Learning AI</strong>
+              <strong style={{ fontSize: '1rem', color: 'var(--text-main)' }}>TL-ENGLISH</strong>
             </div>
 
             <button
@@ -437,11 +437,8 @@ export default function App() {
                 <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
                   <span>Luyện đề</span>
                 </button>
-                <button className={`nav-link ${currentTab === 'path' ? 'active' : ''}`} onClick={() => handleSelectTab('path')}>
-                  <span>Lộ trình AI</span>
-                </button>
-                <button className={`nav-link ${currentTab === 'skills' ? 'active' : ''}`} onClick={() => handleSelectTab('skills')}>
-                  <span>Lỗ hổng kỹ năng</span>
+                <button className={`nav-link ${currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`} onClick={() => handleSelectTab('path')}>
+                  <span>Luyện Lỗi Sai AI</span>
                 </button>
                 <button className={`nav-link ${currentTab === 'ai_coach' ? 'active' : ''}`} onClick={() => handleSelectTab('ai_coach')}>
                   <span>Giao tiếp AI</span>
@@ -731,15 +728,22 @@ export default function App() {
               />
             )}
 
-            {currentTab === 'path' && (
-              <AdaptivePathView learningPath={learningPath} onNavigateToCourse={() => setCurrentTab('learning')} />
-            )}
-
-            {currentTab === 'skills' && (
-              <SkillGapsView
+            {(currentTab === 'path' || currentTab === 'skills') && (
+              <AdaptivePathView
+                learningPath={learningPath}
                 skillGaps={skillGaps}
-                onNavigateToPath={() => setCurrentTab('path')}
-                onNavigateToQuiz={() => setCurrentTab('quizzes')}
+                myCourses={myCourses}
+                myAttempts={myAttempts}
+                user={user}
+                onNavigateToCourses={() => handleSelectTab('courses')}
+                onNavigateToLearning={(course) => {
+                  if (course) setSelectedCourseToLearn(course);
+                  handleSelectTab('learning');
+                }}
+                onNavigateToQuiz={(quiz) => {
+                  handleSelectTab('quizzes');
+                }}
+                onNavigateToAICoach={() => handleSelectTab('ai_coach')}
               />
             )}
 

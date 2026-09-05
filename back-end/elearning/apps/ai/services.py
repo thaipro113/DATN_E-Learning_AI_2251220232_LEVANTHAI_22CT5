@@ -11,7 +11,8 @@ from apps.assessments.models import (
     AnswerOption,
     QuizType,
     QuestionType,
-    SkillType
+    SkillType,
+    QuestionAIAnalysis
 )
 from .models import ChatSession, ChatMessage, SessionType, MessageSenderType
 from .prompts import build_system_prompt, build_quiz_generation_prompt
@@ -330,3 +331,92 @@ class AIQuizService:
             return False, "Không thể sinh câu hỏi vào lúc này. Vui lòng thử lại.", []
 
         return True, f"Sinh thành công {len(questions)} câu hỏi trắc nghiệm từ AI!", questions
+
+
+class QuestionAnalysisAIService:
+    """
+    Dịch vụ AI phân tích ngữ pháp, chủ đề học thuật và độ khó CEFR cho câu hỏi kiểm tra.
+    Sử dụng LLM thật (Groq Cloud / Gemini), tuyệt đối không dùng keyword matching hay regex.
+    """
+
+    @staticmethod
+    def analyze_question_data(question_data: dict) -> dict:
+        """
+        Gửi dữ liệu câu hỏi tới LLM Provider để nhận JSON phân tích học thuật.
+        Pipeline: question data -> prompt -> LLM API -> structured JSON -> validation -> return
+        """
+        provider = get_llm_provider()
+        return provider.analyze_question(question_data)
+
+    @staticmethod
+    def analyze_and_store_question(
+        question: Question,
+        student_answer: Optional[str] = None,
+        force_refresh: bool = False
+    ) -> QuestionAIAnalysis:
+        """
+        Trích xuất toàn bộ thông tin câu hỏi (nội dung, phương án, đáp án đúng, explanation),
+        gửi qua LLM phân tích ngữ cảnh và lưu kết quả vào bảng QuestionAIAnalysis.
+        """
+        if not force_refresh:
+            existing = QuestionAIAnalysis.objects.filter(question=question).first()
+            if existing:
+                return existing
+
+        options = question.options.all().order_by('order_index')
+        options_lines = []
+        correct_answer_str = ""
+
+        option_letters = ['A', 'B', 'C', 'D', 'E', 'F']
+        for idx, opt in enumerate(options):
+            letter = option_letters[idx] if idx < len(option_letters) else str(idx + 1)
+            options_lines.append(f"{letter}. {opt.content}")
+            if opt.is_correct:
+                correct_answer_str = f"{letter}. {opt.content}"
+
+        question_payload = {
+            'question_content': question.content,
+            'options_text': "\n".join(options_lines) if options_lines else "N/A",
+            'correct_answer': correct_answer_str or "N/A",
+            'student_answer': student_answer or "N/A",
+            'explanation': question.explanation or "N/A",
+            'skill_type': question.skill or "GRAMMAR"
+        }
+
+        # Gọi LLM thật để phân tích
+        analysis_result = QuestionAnalysisAIService.analyze_question_data(question_payload)
+
+        # Lưu hoặc cập nhật vào database
+        with transaction.atomic():
+            ai_record, _ = QuestionAIAnalysis.objects.update_or_create(
+                question=question,
+                defaults={
+                    'topic': analysis_result['topic'],
+                    'sub_topic': analysis_result.get('sub_topic', ''),
+                    'skill': analysis_result.get('skill', question.skill or 'GRAMMAR'),
+                    'difficulty': analysis_result.get('difficulty', question.level or 'B1'),
+                    'reason': analysis_result.get('reason', ''),
+                    'confidence': float(analysis_result.get('confidence', 0.95)),
+                    'raw_response': analysis_result.get('raw_response', {})
+                }
+            )
+
+        return ai_record
+
+    @staticmethod
+    def batch_analyze_unprocessed_questions(limit: int = 50) -> int:
+        """
+        Tự động duyệt các câu hỏi trong CSDL chưa có QuestionAIAnalysis để phân tích hàng loạt bằng LLM thật.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        unprocessed_questions = Question.objects.filter(ai_analysis__isnull=True).prefetch_related('options')[:limit]
+        analyzed_count = 0
+        for q in unprocessed_questions:
+            try:
+                QuestionAnalysisAIService.analyze_and_store_question(q)
+                analyzed_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to analyze question {q.id}: {e}")
+        return analyzed_count

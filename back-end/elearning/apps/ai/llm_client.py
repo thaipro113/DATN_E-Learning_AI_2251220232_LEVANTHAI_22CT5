@@ -5,7 +5,13 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple, Optional
 from django.conf import settings
 
-from .prompts import GRAMMAR_ANALYZER_SYSTEM_PROMPT, QUIZ_GENERATOR_SYSTEM_PROMPT
+from .prompts import (
+    GRAMMAR_ANALYZER_SYSTEM_PROMPT,
+    QUIZ_GENERATOR_SYSTEM_PROMPT,
+    QUESTION_ANALYSIS_SYSTEM_PROMPT,
+    WEAK_TOPIC_QUIZ_SYSTEM_PROMPT,
+    COURSE_RECOMMENDATION_SYSTEM_PROMPT
+)
 
 try:
     from google import genai
@@ -21,6 +27,28 @@ class BaseLLMProvider(ABC):
     """
     Interface cơ sở cho tất cả các nhà cung cấp mô hình ngôn ngữ lớn (LLM Provider).
     """
+
+    @abstractmethod
+    def analyze_question(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Phân tích chuyên sâu nội dung câu hỏi, phương án, đáp án đúng bằng LLM thật.
+        Trả về dict: {"topic": str, "sub_topic": str, "skill": str, "difficulty": str, "reason": str, "confidence": float}
+        """
+        pass
+
+    @abstractmethod
+    def generate_weak_topic_quiz(self, topic: str, sub_topic: str, level: str, quantity: int = 5) -> Dict[str, Any]:
+        """
+        Tự động sinh bộ câu hỏi luyện tập mới toanh bám sát chủ đề còn yếu (Weak Topic Practice).
+        """
+        pass
+
+    @abstractmethod
+    def recommend_courses_with_llm(self, student_profile: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Đánh giá và xếp hạng các khóa học ứng viên từ CSDL cho học viên dựa trên hồ sơ và mục tiêu.
+        """
+        pass
 
     @abstractmethod
     def generate_chat_response(
@@ -224,11 +252,11 @@ class GeminiLLMProvider(BaseLLMProvider):
             f"- Trình độ: CEFR {level}\n"
             f"- Học phí: {'Miễn phí 100%' if is_free or float(price) == 0 else f'{int(price):,} VNĐ'}\n\n"
             f"Bố cục yêu cầu (mỗi phần cách nhau bằng 2 dòng xuống hàng \\n\\n):\n"
-            f"🎯 **TỔNG QUAN & Ý NGHĨA KHÓA HỌC:** (2-3 câu ngắn gọn về trọng tâm bài học)\n\n"
-            f"🚀 **MỤC TIÊU ĐẦU RA (CEFR {level}):** (2-3 gạch đầu dòng kỹ năng đạt được)\n\n"
-            f"📚 **PHƯƠNG PHÁP HỌC TẬP VÀ TRỢ LÝ AI:** (1-2 câu về ứng dụng thực hành & AI hỗ trợ)\n\n"
-            f"👥 **ĐỐI TƯỢNG PHÙ HỢP:** (1 câu ngắn gọn)\n\n"
-            f"⭐ **LỜI KHUYÊN TỪ GIẢNG VIÊN:** (1 câu truyền cảm hứng)\n\n"
+            f"**TỔNG QUAN & Ý NGHĨA KHÓA HỌC:** (2-3 câu ngắn gọn về trọng tâm bài học)\n\n"
+            f"**MỤC TIÊU ĐẦU RA (CEFR {level}):** (2-3 gạch đầu dòng kỹ năng đạt được)\n\n"
+            f"**PHƯƠNG PHÁP HỌC TẬP VÀ TRỢ LÝ AI:** (1-2 câu về ứng dụng thực hành & AI hỗ trợ)\n\n"
+            f"**ĐỐI TƯỢNG PHÙ HỢP:** (1 câu ngắn gọn)\n\n"
+            f"**LỜI KHUYÊN TỪ GIẢNG VIÊN:** (1 câu truyền cảm hứng)\n\n"
             f"Hãy viết vừa đủ, không dài dòng, không viết liền tù tì thành một khối văn bản."
         )
         if self.client:
@@ -252,8 +280,8 @@ class GeminiLLMProvider(BaseLLMProvider):
             f"Bạn là giảng viên tiếng Anh. Dựa vào khóa học '{course_title}' (CEFR {level}) và tên chương học '{chapter_title}', "
             f"hãy viết mô tả mục tiêu của chương học này súc tích, vừa đủ (khoảng 30 - 50 từ), có xuống dòng rõ ràng.\n"
             f"Ví dụ cấu trúc:\n"
-            f"🎯 Mục tiêu: Nắm vững bản chất và cấu trúc...\n"
-            f"💡 Ứng dụng: Tự tin vận dụng vào các bài thi và giao tiếp thực tế."
+            f"Mục tiêu: Nắm vững bản chất và cấu trúc...\n"
+            f"Ứng dụng: Tự tin vận dụng vào các bài thi và giao tiếp thực tế."
         )
         if self.client:
             try:
@@ -289,6 +317,24 @@ class GeminiLLMProvider(BaseLLMProvider):
                     return GroqLLMProvider(api_key=groq_key).generate_lesson_content(course_title, chapter_title, lesson_title, level)
 
         return FallbackMockLLMProvider().generate_lesson_content(course_title, chapter_title, lesson_title, level)
+
+    def analyze_question(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
+        groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
+        if groq_key:
+            return GroqLLMProvider(api_key=groq_key).analyze_question(question_data)
+        return FallbackMockLLMProvider().analyze_question(question_data)
+
+    def generate_weak_topic_quiz(self, topic: str, sub_topic: str, level: str, quantity: int = 5) -> Dict[str, Any]:
+        groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
+        if groq_key:
+            return GroqLLMProvider(api_key=groq_key).generate_weak_topic_quiz(topic, sub_topic, level, quantity)
+        return FallbackMockLLMProvider().generate_weak_topic_quiz(topic, sub_topic, level, quantity)
+
+    def recommend_courses_with_llm(self, student_profile: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+        groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
+        if groq_key:
+            return GroqLLMProvider(api_key=groq_key).recommend_courses_with_llm(student_profile, candidate_courses)
+        return FallbackMockLLMProvider().recommend_courses_with_llm(student_profile, candidate_courses)
 
 
 class GroqLLMProvider(BaseLLMProvider):
@@ -552,6 +598,195 @@ class GroqLLMProvider(BaseLLMProvider):
 
         return FallbackMockLLMProvider().generate_lesson_content(course_title, chapter_title, lesson_title, level)
 
+    def _call_json_completion(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 2048,
+        temperature: float = 0.2
+    ) -> Dict[str, Any]:
+        """
+        Gửi yêu cầu tới Groq Cloud API và bắt buộc phản hồi JSON có cấu trúc.
+        Tự động fallback giữa các model khả dụng trên Groq Cloud (Qwen / GPT-OSS).
+        """
+        import urllib.request
+        candidate_models = [self.model, 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b']
+        last_error = None
+
+        for model_name in candidate_models:
+            payload = {
+                'model': model_name,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_prompt}
+                ],
+                'temperature': temperature,
+                'max_tokens': max_tokens,
+                'response_format': {'type': 'json_object'}
+            }
+            try:
+                req = urllib.request.Request(
+                    self.endpoint,
+                    data=json.dumps(payload).encode('utf-8'),
+                    headers={
+                        'Content-Type': 'application/json',
+                        'Authorization': f"Bearer {self.api_key}",
+                        'User-Agent': 'Mozilla/5.0'
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    result = json.loads(response.read().decode('utf-8'))
+                    raw_text = result['choices'][0]['message']['content'].strip()
+                    if raw_text.startswith('```json'):
+                        raw_text = raw_text[7:]
+                    if raw_text.startswith('```'):
+                        raw_text = raw_text[3:]
+                    if raw_text.endswith('```'):
+                        raw_text = raw_text[:-3]
+                    return json.loads(raw_text.strip())
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Groq API call with model '{model_name}' failed: {e}. Trying next available model...")
+
+        raise RuntimeError(f"Tất cả các model LLM thật trên Groq đều không phản hồi: {last_error}")
+
+    def analyze_question(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Phân tích chuyên sâu câu hỏi tiếng Anh bằng LLM thật:
+        Xác định topic, sub_topic, skill, CEFR difficulty, reason, confidence.
+        Không sử dụng keyword hay regex.
+        """
+        user_prompt = (
+            f"Please conduct an in-depth linguistic and pedagogical analysis for the following English question:\n\n"
+            f"QUESTION CONTENT:\n{question_data.get('question_content', '').strip()}\n\n"
+            f"ANSWER CHOICES:\n{question_data.get('options_text', 'N/A')}\n\n"
+            f"CORRECT ANSWER:\n{question_data.get('correct_answer', 'N/A')}\n\n"
+            f"STUDENT'S ANSWER:\n{question_data.get('student_answer', 'N/A')}\n\n"
+            f"EXPLANATION:\n{question_data.get('explanation', 'N/A')}\n\n"
+            f"ASSESSED SKILL CONTEXT:\n{question_data.get('skill_type', 'GRAMMAR')}\n\n"
+            f"INSTRUCTION: Do not classify based only on keywords. Analyze grammar structure, semantic context, answer choices, correct answer and explanation."
+        )
+
+        data = self._call_json_completion(
+            system_prompt=QUESTION_ANALYSIS_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            max_tokens=1024,
+            temperature=0.1
+        )
+
+        topic = data.get('topic')
+        if not topic or not str(topic).strip():
+            raise ValueError("LLM did not return a valid 'topic' field in JSON response.")
+
+        return {
+            'topic': str(topic).strip(),
+            'sub_topic': str(data.get('sub_topic', '')).strip(),
+            'skill': str(data.get('skill', 'GRAMMAR')).strip().upper(),
+            'difficulty': str(data.get('difficulty', 'B1')).strip().upper(),
+            'reason': str(data.get('reason', '')).strip(),
+            'confidence': float(data.get('confidence', 0.95)),
+            'raw_response': data
+        }
+
+    def generate_weak_topic_quiz(self, topic: str, sub_topic: str, level: str, quantity: int = 5) -> Dict[str, Any]:
+        """
+        Sinh ngẫu nhiên các câu hỏi trắc nghiệm hoàn toàn mới bám sát weak topic của học viên bằng LLM thật.
+        """
+        user_prompt = (
+            f"Generate exactly {quantity} brand new multiple-choice practice questions for student's identified weak topic:\n"
+            f"- Primary Topic: {topic}\n"
+            f"- Specific Sub-topic / Rule: {sub_topic or 'Comprehensive application'}\n"
+            f"- Target CEFR Level: {level or 'B1'}\n"
+            f"- Required Question Count: {quantity}\n\n"
+            f"Ensure all {quantity} questions strictly target this weak area to help the student overcome their mistakes."
+        )
+
+        data = self._call_json_completion(
+            system_prompt=WEAK_TOPIC_QUIZ_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            max_tokens=4096,
+            temperature=0.7
+        )
+
+        if not isinstance(data, dict) or 'questions' not in data or not isinstance(data['questions'], list):
+            raise ValueError("LLM returned invalid schema for weak topic quiz.")
+
+        valid_questions = []
+        for q in data['questions']:
+            if 'question' in q and 'options' in q and 'correct_answer' in q:
+                valid_questions.append({
+                    'question': str(q['question']).strip(),
+                    'options': [str(opt) for opt in q['options']],
+                    'correct_answer': str(q['correct_answer']).strip().upper()[:1],
+                    'explanation': str(q.get('explanation', '')).strip(),
+                    'difficulty': str(q.get('difficulty', level or 'B1')).strip().upper()
+                })
+
+        if len(valid_questions) == 0:
+            raise ValueError("LLM returned an empty or invalid question set.")
+
+        return {
+            'topic': data.get('topic', topic),
+            'questions': valid_questions
+        }
+
+    def recommend_courses_with_llm(self, student_profile: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Đánh giá và xếp hạng các khóa học ứng viên từ CSDL PostgreSQL cho học viên.
+        LLM không được bịa khóa học, chỉ chọn trong danh sách được cung cấp.
+        """
+        courses_text = ""
+        for c in candidate_courses:
+            price_text = "Miễn phí" if c.get('is_free') else f"{c.get('price')} VNĐ"
+            courses_text += (
+                f"- Course ID: {c['id']}\n"
+                f"  Title: {c['title']}\n"
+                f"  Category: {c.get('category', 'English')}\n"
+                f"  Level: {c.get('level', 'B1')}\n"
+                f"  Price: {price_text}\n"
+                f"  Description: {c.get('description', '')}\n\n"
+            )
+
+        user_prompt = (
+            f"STUDENT PROFILE & SURVEY GOALS:\n"
+            f"- Học tập mục tiêu: {student_profile.get('goal', 'Nâng cao trình độ tiếng Anh')}\n"
+            f"- Trình độ tự đánh giá: {student_profile.get('self_level', 'B1')}\n"
+            f"- Kỹ năng cần ưu tiên: {student_profile.get('priority_skill', 'Ngữ pháp & Từ vựng')}\n"
+            f"- Thời gian học cam kết mỗi ngày: {student_profile.get('daily_time', '30 phút')}\n"
+            f"- Điểm số kỹ năng hiện tại: {json.dumps(student_profile.get('skill_scores', {}), ensure_ascii=False)}\n"
+            f"- Các chủ đề đang yếu: {json.dumps(student_profile.get('weak_topics', []), ensure_ascii=False)}\n"
+            f"- Khóa học đã hoàn thành: {json.dumps(student_profile.get('completed_courses', []), ensure_ascii=False)}\n\n"
+            f"CANDIDATE COURSES RETRIEVED FROM POSTGRESQL (CHỈ ĐƯỢC CHỌN TỪ DANH SÁCH NÀY):\n"
+            f"{courses_text}\n"
+            f"Vui lòng xếp hạng các khóa học phù hợp nhất và giải thích lý do cụ thể bằng tiếng Việt."
+        )
+
+        data = self._call_json_completion(
+            system_prompt=COURSE_RECOMMENDATION_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            max_tokens=2048,
+            temperature=0.3
+        )
+
+        if not isinstance(data, dict) or 'recommended_courses' not in data:
+            raise ValueError("LLM returned invalid course recommendation schema.")
+
+        candidate_ids = {str(c['id']) for c in candidate_courses}
+        valid_recs = []
+        for item in data['recommended_courses']:
+            cid = str(item.get('course_id', '')).strip()
+            if cid in candidate_ids:
+                valid_recs.append({
+                    'course_id': cid,
+                    'match_score': float(item.get('match_score', 0.85)),
+                    'reason': str(item.get('reason', '')).strip()
+                })
+
+        if not valid_recs:
+            raise ValueError("None of the courses recommended by LLM matched candidate course IDs from database.")
+
+        return {'recommended_courses': valid_recs}
+
 
 class FallbackMockLLMProvider(BaseLLMProvider):
     """
@@ -743,6 +978,15 @@ class FallbackMockLLMProvider(BaseLLMProvider):
             f"- **Ví dụ điển hình:** Phân tích các mẫu câu và bài tập thường gặp ở cấp độ {level}.\n"
             f"- **Lưu ý ghi nhớ:** Tránh nhầm lẫn các trường hợp ngoại lệ trong quá trình làm bài và giao tiếp."
         )
+
+    def analyze_question(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
+        raise RuntimeError("Hệ thống yêu cầu LLM thật (Groq/Gemini) để phân tích câu hỏi học thuật. Không sử dụng Mock trong luồng chính.")
+
+    def generate_weak_topic_quiz(self, topic: str, sub_topic: str, level: str, quantity: int = 5) -> Dict[str, Any]:
+        raise RuntimeError("Hệ thống yêu cầu LLM thật (Groq/Gemini) để sinh đề thi luyện tập điểm yếu. Không sử dụng Mock trong luồng chính.")
+
+    def recommend_courses_with_llm(self, student_profile: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+        raise RuntimeError("Hệ thống yêu cầu LLM thật (Groq/Gemini) để xếp hạng gợi ý khóa học. Không sử dụng Mock trong luồng chính.")
 
 
 def get_llm_provider() -> BaseLLMProvider:

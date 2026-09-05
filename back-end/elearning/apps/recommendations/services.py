@@ -13,7 +13,8 @@ from apps.assessments.models import (
     StudentAnswer,
     SkillType,
     QuizType,
-    AttemptStatus
+    AttemptStatus,
+    QuestionAIAnalysis
 )
 from .models import (
     LearningPath,
@@ -28,13 +29,16 @@ from .models import (
 class SkillGapService:
     """
     Dịch vụ phân tích năng lực và phát hiện lỗ hổng kiến thức của học viên (Skill Gap Analytics).
+    100% dựa trên dữ liệu thật từ QuizAttempt và StudentAnswer.
+    Chủ đề yếu được lấy trực tiếp từ QuestionAIAnalysis của LLM (không cắt chuỗi, không đoán keyword).
+    Nếu chưa làm bài, trả về NOT_ASSESSED, tuyệt đối không gán điểm giả 65% hay 70%.
     """
 
     @staticmethod
     def analyze_student_skill_gaps(student: CustomUser) -> List[SkillGapAnalysis]:
         """
         Phân tích kết quả các bài thi gần nhất để tính toán điểm thành thạo từng kỹ năng
-        và trích xuất danh sách các chủ đề học viên thường làm sai.
+        và trích xuất danh sách các chủ đề học viên thường làm sai qua QuestionAIAnalysis.
         """
         # 1. Lấy tất cả câu trả lời trong các bài thi đã hoàn thành của học viên
         completed_attempts = QuizAttempt.objects.filter(
@@ -56,6 +60,9 @@ class SkillGapService:
             attempt__in=completed_attempts
         ).select_related('question')
 
+        # Cache phân tích AI cho các câu hỏi đã gặp
+        from apps.ai.services import QuestionAnalysisAIService
+
         for ans in student_answers:
             q = ans.question
             skill = q.skill
@@ -64,10 +71,21 @@ class SkillGapService:
                 skill_stats[skill]['total_points_earned'] += float(ans.score_earned)
                 skill_stats[skill]['total_max_points'] += float(q.points)
 
-                # Nếu trả lời sai -> Ghi nhận chủ đề yếu
+                # Nếu trả lời sai -> Ghi nhận chủ đề yếu bằng QuestionAIAnalysis từ LLM
                 if not ans.is_correct:
-                    topic_label = f"{skill_label}: {q.content[:40]}..."
-                    skill_stats[skill]['weak_topics'].add(topic_label)
+                    ai_analysis = QuestionAIAnalysis.objects.filter(question=q).first()
+                    if not ai_analysis:
+                        try:
+                            ai_analysis = QuestionAnalysisAIService.analyze_and_store_question(q)
+                        except Exception:
+                            ai_analysis = None
+
+                    if ai_analysis and ai_analysis.topic:
+                        if ai_analysis.sub_topic:
+                            topic_label = f"{ai_analysis.topic} ({ai_analysis.sub_topic})"
+                        else:
+                            topic_label = ai_analysis.topic
+                        skill_stats[skill]['weak_topics'].add(topic_label)
 
         # 2. Tạo hoặc cập nhật bảng SkillGapAnalysis
         analyses = []
@@ -75,112 +93,155 @@ class SkillGapService:
             for skill_code, data in skill_stats.items():
                 if data['has_data'] and data['total_max_points'] > 0:
                     score = round((data['total_points_earned'] / data['total_max_points']) * 100.0, 1)
-                else:
-                    # Nếu chưa làm bài thi kỹ năng này -> Gán điểm mặc định theo level học viên
-                    score = 65.0
+                    is_assessed = True
+                    weak_list = list(data['weak_topics'])[:5]
 
-                weak_list = list(data['weak_topics'])[:5]
-
-                # Sinh đề xuất cải thiện thông minh
-                if score < 50.0:
-                    action = f"Kỹ năng {data['label']} cần củng cố gấp. Hãy bắt đầu lại từ các bài học ngữ pháp căn bản và thực hiện thêm bài tập trắc nghiệm."
-                elif score < 75.0:
-                    action = f"Kỹ năng {data['label']} ở mức trung bình khá. Cần tăng cường luyện phản xạ và làm bài tập nâng cao."
+                    if score < 50.0:
+                        action = f"Kỹ năng {data['label']} cần củng cố gấp ({score}%). Hãy luyện tập các dạng bài còn yếu và làm lại bài kiểm tra."
+                    elif score < 75.0:
+                        action = f"Kỹ năng {data['label']} ở mức trung bình khá ({score}%). Hãy tiếp tục rèn luyện theo lộ trình AI."
+                    else:
+                        action = f"Kỹ năng {data['label']} rất tốt ({score}%)! Duy trì luyện đề thường xuyên."
                 else:
-                    action = f"Kỹ năng {data['label']} rất tốt! Tiếp tục duy trì luyện đề và mở rộng vốn từ chuyên sâu."
+                    # Tuyệt đối không gán điểm mặc định 65% hay 70%
+                    score = None
+                    is_assessed = False
+                    weak_list = []
+                    action = f"Chưa có dữ liệu đánh giá cho kỹ năng {data['label']}. Hãy thực hiện bài kiểm tra để AI chẩn đoán."
 
                 analysis, _ = SkillGapAnalysis.objects.update_or_create(
                     student=student,
                     skill_type=skill_code,
                     defaults={
                         'proficiency_score': score,
+                        'is_assessed': is_assessed,
                         'weak_topics': weak_list,
                         'recommended_action': action
                     }
                 )
                 analyses.append(analysis)
 
-        return sorted(analyses, key=lambda x: x.proficiency_score)
+        # Sắp xếp: Kỹ năng đã đánh giá đưa lên trước (từ điểm thấp nhất -> cao nhất), kỹ năng chưa đánh giá xếp sau
+        return sorted(analyses, key=lambda x: (0 if x.is_assessed else 1, x.proficiency_score if x.proficiency_score is not None else 999.0))
 
 
 class CourseRecommendationService:
     """
-    Dịch vụ AI gợi ý khóa học phù hợp cho học viên dựa trên thuật toán Content-Based Filtering.
+    Dịch vụ AI gợi ý khóa học phù hợp cho học viên dựa trên LLM thật (Groq/Gemini).
+    Truy vấn CSDL PostgreSQL trước, LLM chỉ xếp hạng và giải thích lý do từ danh sách ứng viên thật.
     """
+
+    @staticmethod
+    def recommend_courses_with_wizard(
+        student: CustomUser,
+        goal: str = "Nâng cao toàn diện năng lực tiếng Anh",
+        self_level: str = "B1",
+        priority_skill: str = "Ngữ pháp & Từ vựng",
+        daily_time: str = "30 phút",
+        limit: int = 5
+    ) -> List[CourseRecommendation]:
+        """
+        AI Course Recommendation Wizard 4 bước:
+        1. Mục tiêu học tập (goal)
+        2. Trình độ tự đánh giá (self_level)
+        3. Kỹ năng ưu tiên (priority_skill)
+        4. Thời gian học mỗi ngày (daily_time)
+        Backend truy vấn CSDL PostgreSQL các khóa học THẬT (PUBLISHED, chưa đăng ký).
+        LLM xếp hạng và giải thích lý do sư phạm phù hợp cho từng khóa.
+        Backend xác thực course_id và lưu vào CSDL.
+        """
+        enrolled_course_ids = Enrollment.objects.filter(student=student).values_list('course_id', flat=True)
+
+        candidate_courses_qs = Course.objects.filter(
+            status='PUBLISHED'
+        ).exclude(id__in=enrolled_course_ids).select_related('category', 'teacher')
+
+        candidate_courses = list(candidate_courses_qs)
+        if not candidate_courses:
+            return []
+
+        # Chuẩn bị context học tập hiện có của học viên (Learning Analytics)
+        skill_analyses = SkillGapAnalysis.objects.filter(student=student, is_assessed=True)
+        skill_scores = {s.skill_type: s.proficiency_score for s in skill_analyses}
+        weak_topics = []
+        for s in skill_analyses:
+            weak_topics.extend(s.weak_topics)
+
+        completed_courses = list(
+            Enrollment.objects.filter(student=student, status='COMPLETED')
+            .values_list('course__title', flat=True)
+        )
+
+        student_profile = {
+            'goal': goal,
+            'self_level': self_level,
+            'priority_skill': priority_skill,
+            'daily_time': daily_time,
+            'skill_scores': skill_scores,
+            'weak_topics': weak_topics[:10],
+            'completed_courses': completed_courses
+        }
+
+        candidate_data = []
+        course_map = {}
+        for c in candidate_courses:
+            cid_str = str(c.id)
+            course_map[cid_str] = c
+            candidate_data.append({
+                'id': cid_str,
+                'title': c.title,
+                'category': c.category.name if c.category else 'Tiếng Anh',
+                'level': c.level,
+                'is_free': c.is_free,
+                'price': float(c.price) if c.price else 0.0,
+                'description': (c.description or '')[:300]
+            })
+
+        # Gọi LLM thật để xếp hạng
+        from apps.ai.llm_client import get_llm_provider
+        provider = get_llm_provider()
+        llm_response = provider.recommend_courses_with_llm(
+            student_profile=student_profile,
+            candidate_courses=candidate_data
+        )
+
+        recommendations = []
+        with transaction.atomic():
+            for rec in llm_response.get('recommended_courses', [])[:limit]:
+                cid = rec.get('course_id')
+                if cid in course_map:
+                    matched_course = course_map[cid]
+                    score = float(rec.get('match_score', 0.85))
+                    if score <= 1.0:
+                        score = score * 100.0
+                    score = min(max(round(score, 1), 10.0), 99.0)
+
+                    db_rec, _ = CourseRecommendation.objects.update_or_create(
+                        student=student,
+                        course=matched_course,
+                        defaults={
+                            'relevance_score': score,
+                            'reason': rec.get('reason', f"Được AI đề xuất phù hợp mục tiêu {goal}."),
+                            'is_dismissed': False
+                        }
+                    )
+                    recommendations.append(db_rec)
+
+        return recommendations
 
     @staticmethod
     def generate_course_recommendations(student: CustomUser, limit: int = 5) -> List[CourseRecommendation]:
         """
-        Đề xuất các khóa học tối ưu nhất cho học viên:
-        - Phù hợp với trình độ hiện tại hoặc trình độ mục tiêu.
-        - Giải quyết các kỹ năng mà học viên có điểm thành thạo thấp nhất.
-        - Loại trừ các khóa học mà học viên đã đăng ký.
+        Đề xuất khóa học từ LLM thật dựa trên Learning Analytics hiện tại của học viên.
         """
-        # 1. Lấy danh sách ID các khóa học đã đăng ký
-        enrolled_course_ids = Enrollment.objects.filter(student=student).values_list('course_id', flat=True)
-
-        # 2. Lấy danh sách kỹ năng yếu nhất của học viên
-        gaps = SkillGapAnalysis.objects.filter(student=student).order_by('proficiency_score')
-        weakest_skills = [g.skill_type for g in gaps[:2]] if gaps.exists() else [SkillType.GRAMMAR, SkillType.VOCABULARY]
-
-        # 3. Lọc các khóa học chưa đăng ký và đang phát hành
-        candidate_courses = Course.objects.filter(
-            status='PUBLISHED'
-        ).exclude(id__in=enrolled_course_ids).select_related('category', 'teacher')
-
-        scored_courses = []
-        for course in candidate_courses:
-            score = 50.0  # Điểm cơ sở
-
-            # Ưu tiên số 1: Trình độ khóa học trùng khớp chính xác với trình độ học viên (ví dụ B1)
-            if course.level == student.level:
-                score += 40.0
-            # Ưu tiên số 2: Trình độ khóa học kế tiếp (ví dụ B1 -> B2 để nâng cao mục tiêu)
-            elif student.level == EnglishLevel.B1 and course.level == EnglishLevel.B2:
-                score += 25.0
-            elif student.level == EnglishLevel.A2 and course.level == EnglishLevel.B1:
-                score += 25.0
-            elif student.level == EnglishLevel.B2 and course.level == EnglishLevel.C1:
-                score += 25.0
-            elif course.level == 'ALL' or course.level == EnglishLevel.ALL:
-                score += 20.0
-            else:
-                score += 10.0
-
-            # Cộng điểm nếu tiêu đề hoặc mô tả chứa từ khóa kỹ năng yếu
-            for skill in weakest_skills:
-                skill_name = dict(SkillType.choices).get(skill, '').lower()
-                if skill_name in course.title.lower() or skill_name in course.description.lower():
-                    score += 20.0
-
-            # Đảm bảo điểm trong thang 0 - 100
-            final_score = min(score, 99.0)
-
-            reason = (
-                f"Khóa học CEFR {course.get_level_display()} được gợi ý phù hợp với trình độ {student.get_level_display()} của bạn "
-                f"để củng cố kiến thức trọng tâm và nâng cao năng lực."
-            )
-
-            scored_courses.append((course, final_score, reason))
-
-        # Sắp xếp theo điểm tương thích giảm dần
-        scored_courses.sort(key=lambda x: x[1], reverse=True)
-
-        recommendations = []
-        with transaction.atomic():
-            for course, score, reason in scored_courses[:limit]:
-                rec, _ = CourseRecommendation.objects.update_or_create(
-                    student=student,
-                    course=course,
-                    defaults={
-                        'relevance_score': score,
-                        'reason': reason,
-                        'is_dismissed': False
-                    }
-                )
-                recommendations.append(rec)
-
-        return recommendations
+        return CourseRecommendationService.recommend_courses_with_wizard(
+            student=student,
+            goal="Nâng cao toàn diện năng lực tiếng Anh theo chuẩn CEFR",
+            self_level=student.level or "B1",
+            priority_skill="Ngữ pháp & Từ vựng trọng tâm",
+            daily_time="30 phút",
+            limit=limit
+        )
 
     @staticmethod
     def dismiss_recommendation(student: CustomUser, recommendation_id: str) -> bool:
