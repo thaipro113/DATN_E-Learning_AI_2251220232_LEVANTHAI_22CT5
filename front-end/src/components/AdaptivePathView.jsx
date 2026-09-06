@@ -27,6 +27,7 @@ export default function AdaptivePathView({
     subTopic: '',
     topics: [],
     level: 'B1',
+    practicingMistakeId: null,
   });
 
   const fetchMistakes = async () => {
@@ -99,10 +100,11 @@ export default function AdaptivePathView({
       subTopic: topicObj.sub_topic || '',
       topics: [topicObj.topic],
       level: topicObj.difficulty || 'B1',
+      practicingMistakeId: null,
     });
   };
 
-  // Luyện tập 1 câu hỏi cụ thể
+  // Luyện tập 1 câu hỏi cụ thể (Sẽ tự động xóa khỏi danh sách khi luyện xong và đóng modal)
   const handlePracticeSingleMistake = (mistake) => {
     setPracticeModal({
       isOpen: true,
@@ -110,7 +112,63 @@ export default function AdaptivePathView({
       subTopic: mistake.sub_topic || '',
       topics: [mistake.topic],
       level: mistake.difficulty || 'B1',
+      practicingMistakeId: mistake.id,
     });
+  };
+
+  // Đóng modal luyện tập & Tự động xóa câu hỏi sai đã luyện xong khỏi danh sách
+  const handleClosePracticeModal = async () => {
+    const mistakeIdToResolve = practiceModal.practicingMistakeId;
+    setPracticeModal((prev) => ({
+      ...prev,
+      isOpen: false,
+      practicingMistakeId: null,
+    }));
+
+    if (mistakeIdToResolve) {
+      // 1. Gửi request backend để đánh dấu đã khắc phục câu hỏi sai
+      try {
+        await recommendationAPI.resolveMistake(mistakeIdToResolve);
+      } catch (err) {
+        console.warn('Lỗi khi gọi resolveMistake:', err);
+      }
+
+      // 2. Xóa ngay câu hỏi đó khỏi danh sách giao diện
+      setMistakeData((prev) => {
+        const remainingMistakes = (prev.mistakes || []).filter((item) => item.id !== mistakeIdToResolve);
+        // Tái lập danh sách weak_topics dựa trên các câu còn lại
+        const topicsMap = {};
+        remainingMistakes.forEach((item) => {
+          if (!topicsMap[item.topic]) {
+            topicsMap[item.topic] = {
+              topic: item.topic,
+              sub_topic: item.sub_topic,
+              count: 0,
+              difficulty: item.difficulty,
+              skill: item.skill,
+              sample_reason: item.reason,
+              latest_mistake_at: item.attempt_date,
+            };
+          }
+          topicsMap[item.topic].count += 1;
+        });
+        const updatedTopics = Object.values(topicsMap).sort((a, b) => b.count - a.count);
+
+        return {
+          ...prev,
+          total_mistakes: remainingMistakes.length,
+          mistakes: remainingMistakes,
+          weak_topics: updatedTopics,
+        };
+      });
+
+      // Bỏ chọn khỏi selectedMistakeIds nếu có
+      setSelectedMistakeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(mistakeIdToResolve);
+        return next;
+      });
+    }
   };
 
   // Luyện tập các lỗi sai đã chọn bằng checkbox
@@ -128,6 +186,7 @@ export default function AdaptivePathView({
       subTopic: '',
       topics: topicsArr,
       level: selectedList[0]?.difficulty || 'B1',
+      practicingMistakeId: null,
     });
   };
 
@@ -140,6 +199,7 @@ export default function AdaptivePathView({
       subTopic: '',
       topics: topicsArr,
       level: mistakeData.weak_topics[0]?.difficulty || 'B1',
+      practicingMistakeId: null,
     });
   };
 
@@ -864,7 +924,7 @@ export default function AdaptivePathView({
       {/* Modal Luyện Tập Câu Hỏi Mới Do AI Sinh Ra */}
       <WeakTopicPracticeModal
         isOpen={practiceModal.isOpen}
-        onClose={() => setPracticeModal({ ...practiceModal, isOpen: false })}
+        onClose={handleClosePracticeModal}
         topic={practiceModal.topic}
         subTopic={practiceModal.subTopic}
         topics={practiceModal.topics}

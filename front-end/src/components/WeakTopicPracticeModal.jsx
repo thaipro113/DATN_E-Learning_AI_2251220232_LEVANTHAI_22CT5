@@ -139,7 +139,7 @@ export default function WeakTopicPracticeModal({
                   textTransform: 'uppercase',
                 }}
               >
-                Luyen tap diem yeu cung AI
+                Luyện tập điểm yếu cùng AI
               </span>
               <span
                 style={{
@@ -155,7 +155,7 @@ export default function WeakTopicPracticeModal({
               </span>
             </div>
             <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main, #0f172a)' }}>
-              Chu de: {topic} {subTopic ? `(${subTopic})` : ''}
+              Chủ đề: {topic} {subTopic ? `(${subTopic})` : ''}
             </h3>
           </div>
 
@@ -180,10 +180,10 @@ export default function WeakTopicPracticeModal({
           {isLoading && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted, #64748b)' }}>
               <div style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '8px' }}>
-                AI dang phan tich diem yeu va tao de thi moi toanh...
+                AI đang phân tích điểm yếu và tạo đề thi mới toanh...
               </div>
               <p style={{ fontSize: '0.85rem', margin: 0 }}>
-                Cac cau hoi duoc sinh ngau nhien bang mo hinh ngon ngu lon (LLM) bam sat chu de {topic}.
+                Các câu hỏi được sinh ngẫu nhiên bằng mô hình ngôn ngữ lớn (LLM) bám sát chủ đề {topic}.
               </p>
             </div>
           )}
@@ -213,7 +213,7 @@ export default function WeakTopicPracticeModal({
                   cursor: 'pointer',
                 }}
               >
-                Thu lai voi AI
+                Thử lại với AI
               </button>
             </div>
           )}
@@ -234,12 +234,12 @@ export default function WeakTopicPracticeModal({
                 >
                   <div>
                     <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: score >= 4 ? '#065f46' : '#9a3412' }}>
-                      Ket qua luyen tap: {score}/{questions.length} cau dung ({Math.round((score / questions.length) * 100)}%)
+                      Kết quả luyện tập: {score}/{questions.length} câu đúng ({Math.round((score / questions.length) * 100)}%)
                     </h4>
                     <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: score >= 4 ? '#047857' : '#c2410c' }}>
                       {score >= 4
-                        ? 'Chuc mung ban da khac phuc rat tot chu de nay! Hay xem ky loi giai thich ben duoi.'
-                        : 'Ban con nham lan o mot so cau. Hay doc ky phan giai thich chuyen sau cua AI cho tung cau de ghi nho.'}
+                        ? 'Chúc mừng bạn đã khắc phục rất tốt chủ đề này! Hãy xem kỹ lời giải thích bên dưới.'
+                        : 'Bạn còn nhầm lẫn ở một số câu. Hãy đọc kỹ phần giải thích chuyên sâu của AI cho từng câu để ghi nhớ.'}
                     </p>
                   </div>
                   <button
@@ -255,7 +255,7 @@ export default function WeakTopicPracticeModal({
                       cursor: 'pointer',
                     }}
                   >
-                    Luyen tiep 5 cau moi
+                    Luyện tiếp 5 câu mới
                   </button>
                 </div>
               )}
@@ -288,7 +288,7 @@ export default function WeakTopicPracticeModal({
                           flexShrink: 0,
                         }}
                       >
-                        Cau {qIdx + 1}
+                        Câu {qIdx + 1}
                       </span>
                       <p style={{ margin: 0, fontSize: '0.98rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', lineHeight: 1.5 }}>
                         {q.question}
@@ -377,7 +377,7 @@ export default function WeakTopicPracticeModal({
                           lineHeight: 1.5,
                         }}
                       >
-                        <strong>Loi giai thich AI:</strong> {q.explanation || 'Chua co giai thich chi tiet cho cau nay.'}
+                        <strong>Lời giải thích AI:</strong> {q.explanation || 'Chưa có giải thích chi tiết cho câu này.'}
                       </div>
                     )}
                   </div>
@@ -401,7 +401,7 @@ export default function WeakTopicPracticeModal({
           <div style={{ fontSize: '0.84rem', color: 'var(--text-muted, #64748b)' }}>
             {!isSubmitted && questions.length > 0 && (
               <span>
-                Da chon {answeredCount}/{questions.length} cau
+                Đã chọn {answeredCount}/{questions.length} câu
               </span>
             )}
           </div>
@@ -420,7 +420,7 @@ export default function WeakTopicPracticeModal({
                 cursor: 'pointer',
               }}
             >
-              Dong
+              Đóng
             </button>
 
             {!isSubmitted && questions.length > 0 && (
@@ -439,7 +439,7 @@ export default function WeakTopicPracticeModal({
                   opacity: answeredCount === 0 ? 0.6 : 1,
                 }}
               >
-                Nop bai & Cham diem
+                Nộp bài & Chấm điểm
               </button>
             )}
           </div>
