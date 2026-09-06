@@ -257,6 +257,7 @@ class StudentAnswer(BaseModel):
     text_answer = models.TextField(_('Câu trả lời tự luận / điền từ'), blank=True, default='')
     is_correct = models.BooleanField(_('Đúng hay sai'), default=False)
     score_earned = models.DecimalField(_('Điểm nhận được'), max_digits=4, decimal_places=2, default=0.00)
+    is_resolved = models.BooleanField(_('Đã luyện tập khắc phục'), default=False)
 
     class Meta:
         db_table = 'student_answers'

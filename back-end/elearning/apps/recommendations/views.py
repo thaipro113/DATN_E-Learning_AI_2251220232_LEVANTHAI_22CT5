@@ -235,10 +235,11 @@ class StudentMistakeAnalysisAPIView(APIView):
         has_enrolled_courses = Enrollment.objects.filter(student=student).exists()
         has_quiz_attempts = QuizAttempt.objects.filter(student=student).exists()
 
-        # Lấy tất cả câu trả lời sai của học viên
+        # Lấy tất cả câu trả lời sai chưa được khắc phục của học viên
         wrong_answers = StudentAnswer.objects.filter(
             attempt__student=student,
-            is_correct=False
+            is_correct=False,
+            is_resolved=False
         ).select_related(
             'question',
             'selected_option',
@@ -275,7 +276,7 @@ class StudentMistakeAnalysisAPIView(APIView):
             correct_opt = next((opt['content'] for opt in options_data if opt['is_correct']), '')
             student_opt = ans.selected_option.content if ans.selected_option else ans.text_answer
 
-            # Gom nhóm theo chủ đề
+            # Gom nhóm theo chủ đề - Ưu tiên các lỗi sai làm gần đây nhất
             topic_key = topic
             if topic_key not in topics_counter:
                 topics_counter[topic_key] = {
@@ -284,8 +285,13 @@ class StudentMistakeAnalysisAPIView(APIView):
                     'count': 0,
                     'difficulty': difficulty,
                     'skill': q.skill,
-                    'sample_reason': reason
+                    'sample_reason': reason,
+                    'latest_mistake_at': ans.created_at
                 }
+            else:
+                if ans.created_at > topics_counter[topic_key]['latest_mistake_at']:
+                    topics_counter[topic_key]['latest_mistake_at'] = ans.created_at
+
             topics_counter[topic_key]['count'] += 1
 
             mistakes_list.append({
@@ -304,7 +310,12 @@ class StudentMistakeAnalysisAPIView(APIView):
                 'attempt_date': ans.created_at.strftime('%d/%m/%Y %H:%M')
             })
 
-        sorted_topics = sorted(topics_counter.values(), key=lambda x: x['count'], reverse=True)
+        # Sắp xếp các chủ đề: Ưu tiên chủ đề có câu hỏi sai làm gần đây nhất (latest_mistake_at) rồi đến số lượng (count)
+        sorted_topics = sorted(
+            topics_counter.values(),
+            key=lambda x: (x['latest_mistake_at'], x['count']),
+            reverse=True
+        )
 
         return success_response(
             data={
@@ -316,6 +327,30 @@ class StudentMistakeAnalysisAPIView(APIView):
             },
             message="Phân tích lỗi sai trắc nghiệm của học viên thành công!",
             status_code=status.HTTP_200_OK
+        )
+
+
+class ResolveStudentMistakeAPIView(APIView):
+    """
+    API Endpoint: Đánh dấu câu hỏi sai đã được học viên luyện tập và xóa khỏi danh sách.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, mistake_id):
+        from apps.assessments.models import StudentAnswer
+        updated = StudentAnswer.objects.filter(
+            id=mistake_id,
+            attempt__student=request.user
+        ).update(is_resolved=True)
+        if updated:
+            return success_response(
+                data={"mistake_id": str(mistake_id), "resolved": True},
+                message="Đã xóa câu hỏi sai khỏi danh sách cần khắc phục!",
+                status_code=status.HTTP_200_OK
+            )
+        return error_response(
+            message="Không tìm thấy câu trả lời tương ứng.",
+            status_code=status.HTTP_404_NOT_FOUND
         )
 
 
