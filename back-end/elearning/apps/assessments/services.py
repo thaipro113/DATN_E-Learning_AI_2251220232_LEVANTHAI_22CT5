@@ -48,6 +48,14 @@ class QuizService:
         if course_id:
             queryset = queryset.filter(course_id=course_id)
 
+        chapter_id = filters.get('chapter_id')
+        if chapter_id:
+            queryset = queryset.filter(chapter_id=chapter_id)
+
+        lesson_id = filters.get('lesson_id')
+        if lesson_id:
+            queryset = queryset.filter(lesson_id=lesson_id)
+
         search_query = filters.get('search')
         if search_query:
             queryset = queryset.filter(
