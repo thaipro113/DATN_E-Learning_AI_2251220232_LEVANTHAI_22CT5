@@ -24,7 +24,8 @@ from .schemas import (
     change_password_schema,
     admin_list_users_schema,
     admin_get_user_schema,
-    admin_update_user_schema
+    admin_update_user_schema,
+    admin_delete_user_schema
 )
 
 
@@ -250,5 +251,28 @@ class AdminUserDetailAPIView(APIView):
         return success_response(
             data=UserResponseSerializer(updated_user).data,
             message="Cập nhật tài khoản người dùng thành công!",
+            status_code=status.HTTP_200_OK
+        )
+
+    @admin_delete_user_schema
+    def delete(self, request, user_id):
+        target_user = UserService.get_user_by_id(user_id)
+        if not target_user:
+            return error_response(
+                message="Không tìm thấy tài khoản người dùng để xóa.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if str(target_user.id) == str(request.user.id):
+            return error_response(
+                message="Quản trị viên không thể tự xóa tài khoản của chính mình.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        UserService.admin_delete_user(target_user)
+
+        return success_response(
+            data=None,
+            message=f"Đã xóa vĩnh viễn tài khoản {target_user.email} thành công!",
             status_code=status.HTTP_200_OK
         )

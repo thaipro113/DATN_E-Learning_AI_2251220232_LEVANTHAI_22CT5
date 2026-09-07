@@ -160,6 +160,29 @@ export default function AdminDashboardView() {
     }
   };
 
+  // 2.5 Admin xóa Người dùng
+  const handleDeleteUser = (userItem) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xác nhận xóa tài khoản người dùng',
+      message: `Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản "${userItem.email}" (${userItem.full_name || 'Người dùng'})? Dữ liệu lịch sử học tập và kết quả bài thi sẽ bị xóa cùng tài khoản.`,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
+        try {
+          await authAPI.deleteUser(userItem.id);
+          setUsers((prev) => prev.filter((u) => u.id !== userItem.id));
+          setToastMsg({ type: 'success', text: `✓ Đã xóa vĩnh viễn tài khoản ${userItem.email}` });
+        } catch (err) {
+          const errMsg = err.response?.data?.message || 'Không thể xóa tài khoản người dùng.';
+          setToastMsg({ type: 'error', text: errMsg });
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null, isLoading: false });
+        }
+      },
+    });
+  };
+
   // 3. Admin xóa Khóa học
   const handleDeleteCourse = (courseItem) => {
     setConfirmModal({
@@ -1312,6 +1335,19 @@ export default function AdminDashboardView() {
                                 onClick={() => handleToggleStatus(u)}
                               >
                                 {u.is_active ? 'Khóa' : 'Mở'}
+                              </button>
+                              <button
+                                className="btn-outline"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '0.78rem',
+                                  color: '#b91c1c',
+                                  borderColor: '#fca5a5',
+                                }}
+                                onClick={() => handleDeleteUser(u)}
+                                title="Xóa tài khoản người dùng"
+                              >
+                                Xóa
                               </button>
                             </div>
                           </td>

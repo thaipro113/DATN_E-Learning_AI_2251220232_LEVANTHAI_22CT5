@@ -125,3 +125,16 @@ admin_update_user_schema = extend_schema(
         404: OpenApiResponse(description='Không tìm thấy người dùng')
     }
 )
+
+admin_delete_user_schema = extend_schema(
+    tags=['Admin - User Management'],
+    summary='Xóa vĩnh viễn tài khoản người dùng (Admin only)',
+    description='Yêu cầu quyền Quản trị viên (ADMIN). Ngăn chặn tự xóa tài khoản của chính mình.',
+    responses={
+        200: OpenApiResponse(description='Xóa tài khoản thành công'),
+        400: OpenApiResponse(description='Không thể tự xóa tài khoản của chính mình'),
+        403: OpenApiResponse(description='Không có quyền thực hiện'),
+        404: OpenApiResponse(description='Không tìm thấy người dùng')
+    }
+)
+
