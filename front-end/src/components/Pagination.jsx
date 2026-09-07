@@ -2,12 +2,13 @@ import React from 'react';
 
 export default function Pagination({
   currentPage = 1,
-  totalPages = 1,
+  totalPages,
   totalItems = 0,
   itemsPerPage = 10,
   onPageChange,
 }) {
-  if (totalPages <= 1) return null;
+  const effectiveTotalPages = totalPages || (totalItems > 0 ? Math.ceil(totalItems / itemsPerPage) : 1);
+  if (effectiveTotalPages <= 1) return null;
 
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems || currentPage * itemsPerPage);
@@ -17,20 +18,20 @@ export default function Pagination({
     const pages = [];
     const maxVisible = 5;
 
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
+    if (effectiveTotalPages <= maxVisible) {
+      for (let i = 1; i <= effectiveTotalPages; i++) {
         pages.push(i);
       }
     } else {
       let start = Math.max(1, currentPage - 1);
-      let end = Math.min(totalPages, currentPage + 1);
+      let end = Math.min(effectiveTotalPages, currentPage + 1);
 
       if (currentPage <= 2) {
         start = 1;
         end = 3;
-      } else if (currentPage >= totalPages - 1) {
-        start = totalPages - 2;
-        end = totalPages;
+      } else if (currentPage >= effectiveTotalPages - 1) {
+        start = effectiveTotalPages - 2;
+        end = effectiveTotalPages;
       }
 
       if (start > 1) {
@@ -42,9 +43,9 @@ export default function Pagination({
         pages.push(i);
       }
 
-      if (end < totalPages) {
-        if (end < totalPages - 1) pages.push('...');
-        pages.push(totalPages);
+      if (end < effectiveTotalPages) {
+        if (end < effectiveTotalPages - 1) pages.push('...');
+        pages.push(effectiveTotalPages);
       }
     }
 
@@ -73,7 +74,7 @@ export default function Pagination({
           </span>
         ) : (
           <span>
-            Trang <strong>{currentPage}</strong> / <strong>{totalPages}</strong>
+            Trang <strong>{currentPage}</strong> / <strong>{effectiveTotalPages}</strong>
           </span>
         )}
       </div>
@@ -155,16 +156,16 @@ export default function Pagination({
         <button
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
+          disabled={currentPage >= effectiveTotalPages}
           style={{
             padding: '6px 12px',
             borderRadius: '6px',
             border: '1px solid var(--border-color)',
-            backgroundColor: currentPage >= totalPages ? 'var(--bg-subtle)' : 'var(--bg-surface)',
-            color: currentPage >= totalPages ? '#94a3b8' : 'var(--text-main)',
+            backgroundColor: currentPage >= effectiveTotalPages ? 'var(--bg-subtle)' : 'var(--bg-surface)',
+            color: currentPage >= effectiveTotalPages ? '#94a3b8' : 'var(--text-main)',
             fontSize: '0.82rem',
             fontWeight: '600',
-            cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+            cursor: currentPage >= effectiveTotalPages ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
@@ -178,3 +179,4 @@ export default function Pagination({
     </div>
   );
 }
+
