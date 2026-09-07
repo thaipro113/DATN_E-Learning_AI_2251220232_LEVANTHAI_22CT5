@@ -29,7 +29,7 @@ export default function AdminDashboardView() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeAdminNav, searchTerm]);
+  }, [activeAdminNav, searchTerm, analysisSearch, analysisLevelFilter]);
 
   // Edit User Modal State
   const [editingUserModal, setEditingUserModal] = useState({
@@ -1921,8 +1921,8 @@ export default function AdminDashboardView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {aiAnalyses
-                      .filter((a) => {
+                    {(() => {
+                      const filtered = aiAnalyses.filter((a) => {
                         const term = analysisSearch.toLowerCase();
                         const matchSearch =
                           !term ||
@@ -1934,94 +1934,131 @@ export default function AdminDashboardView() {
                           analysisLevelFilter === 'ALL' ||
                           (a.difficulty || '').toUpperCase() === analysisLevelFilter.toUpperCase();
                         return matchSearch && matchLevel;
-                      })
-                      .map((item) => (
-                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '12px 10px', maxWidth: '320px' }}>
-                            <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '3px', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                              {item.question_content}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <i className="fa-solid fa-book-open" style={{ fontSize: '0.7rem' }}></i>
-                              <span>{item.quiz_title || 'Đề kiểm tra trắc nghiệm'}</span>
-                            </div>
-                          </td>
+                      });
 
-                          <td style={{ padding: '12px 10px', maxWidth: '260px' }}>
-                            <div style={{ fontWeight: '800', color: '#4f46e5', fontSize: '0.84rem' }}>
-                              {item.topic}
-                            </div>
-                            {item.sub_topic && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', lineClamp: 1, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                {item.sub_topic}
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="6" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                              Không tìm thấy câu hỏi phân tích AI nào phù hợp với điều kiện tìm kiếm.
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered
+                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                        .map((item) => (
+                          <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '12px 10px', maxWidth: '320px' }}>
+                              <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '3px', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {item.question_content}
                               </div>
-                            )}
-                          </td>
-
-                          <td style={{ padding: '12px 10px' }}>
-                            <span
-                              style={{
-                                padding: '3px 8px',
-                                borderRadius: '4px',
-                                fontWeight: '800',
-                                fontSize: '0.78rem',
-                                backgroundColor:
-                                  item.difficulty === 'A1' || item.difficulty === 'A2' ? '#dcfce7' :
-                                  item.difficulty === 'B1' || item.difficulty === 'B2' ? '#e0f2fe' : '#fef3c7',
-                                color:
-                                  item.difficulty === 'A1' || item.difficulty === 'A2' ? '#15803d' :
-                                  item.difficulty === 'B1' || item.difficulty === 'B2' ? '#0369a1' : '#b45309',
-                              }}
-                            >
-                              {item.difficulty || 'B1'}
-                            </span>
-                          </td>
-
-                          <td style={{ padding: '12px 10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{ width: '50px', height: '6px', borderRadius: '3px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
-                                <div
-                                  style={{
-                                    height: '100%',
-                                    width: `${Math.round((parseFloat(item.confidence) || 0.95) * 100)}%`,
-                                    backgroundColor: (parseFloat(item.confidence) || 0) >= 0.85 ? '#10b981' : '#f59e0b',
-                                  }}
-                                ></div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <i className="fa-solid fa-book-open" style={{ fontSize: '0.7rem' }}></i>
+                                <span>{item.quiz_title || 'Đề kiểm tra trắc nghiệm'}</span>
                               </div>
-                              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: (parseFloat(item.confidence) || 0) >= 0.85 ? '#059669' : '#d97706' }}>
-                                {Math.round((parseFloat(item.confidence) || 0.95) * 100)}%
+                            </td>
+
+                            <td style={{ padding: '12px 10px', maxWidth: '260px' }}>
+                              <div style={{ fontWeight: '800', color: '#4f46e5', fontSize: '0.84rem' }}>
+                                {item.topic}
+                              </div>
+                              {item.sub_topic && (
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', lineClamp: 1, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                  {item.sub_topic}
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '12px 10px' }}>
+                              <span
+                                style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  fontWeight: '800',
+                                  fontSize: '0.78rem',
+                                  backgroundColor:
+                                    item.difficulty === 'A1' || item.difficulty === 'A2' ? '#dcfce7' :
+                                    item.difficulty === 'B1' || item.difficulty === 'B2' ? '#e0f2fe' : '#fef3c7',
+                                  color:
+                                    item.difficulty === 'A1' || item.difficulty === 'A2' ? '#15803d' :
+                                    item.difficulty === 'B1' || item.difficulty === 'B2' ? '#0369a1' : '#b45309',
+                                }}
+                              >
+                                {item.difficulty || 'B1'}
                               </span>
-                            </div>
-                          </td>
+                            </td>
 
-                          <td style={{ padding: '12px 10px', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                            {item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : 'Gần đây'}
-                          </td>
+                            <td style={{ padding: '12px 10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '50px', height: '6px', borderRadius: '3px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+                                  <div
+                                    style={{
+                                      height: '100%',
+                                      width: `${Math.round((parseFloat(item.confidence) || 0.95) * 100)}%`,
+                                      backgroundColor: (parseFloat(item.confidence) || 0) >= 0.85 ? '#10b981' : '#f59e0b',
+                                    }}
+                                  ></div>
+                                </div>
+                                <span style={{ fontSize: '0.78rem', fontWeight: '800', color: (parseFloat(item.confidence) || 0) >= 0.85 ? '#059669' : '#d97706' }}>
+                                  {Math.round((parseFloat(item.confidence) || 0.95) * 100)}%
+                                </span>
+                              </div>
+                            </td>
 
-                          <td style={{ padding: '12px 10px', textAlign: 'right' }}>
-                            <button
-                              className="btn-primary"
-                              style={{
-                                padding: '5px 10px',
-                                fontSize: '0.78rem',
-                                backgroundColor: '#6366f1',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                              }}
-                              onClick={() => setSelectedAnalysis(item)}
-                            >
-                              <i className="fa-solid fa-eye"></i>
-                              <span>Chi tiết AI</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            <td style={{ padding: '12px 10px', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                              {item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : 'Gần đây'}
+                            </td>
+
+                            <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                              <button
+                                className="btn-primary"
+                                style={{
+                                  padding: '5px 10px',
+                                  fontSize: '0.78rem',
+                                  backgroundColor: '#6366f1',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                                onClick={() => setSelectedAnalysis(item)}
+                              >
+                                <i className="fa-solid fa-eye"></i>
+                                <span>Chi tiết AI</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ));
+                    })()}
                   </tbody>
                 </table>
               </div>
+
+              {/* Phân trang */}
+              <Pagination
+                currentPage={currentPage}
+                totalItems={
+                  aiAnalyses.filter((a) => {
+                    const term = analysisSearch.toLowerCase();
+                    const matchSearch =
+                      !term ||
+                      (a.question_content || '').toLowerCase().includes(term) ||
+                      (a.topic || '').toLowerCase().includes(term) ||
+                      (a.sub_topic || '').toLowerCase().includes(term) ||
+                      (a.skill || '').toLowerCase().includes(term);
+                    const matchLevel =
+                      analysisLevelFilter === 'ALL' ||
+                      (a.difficulty || '').toUpperCase() === analysisLevelFilter.toUpperCase();
+                    return matchSearch && matchLevel;
+                  }).length
+                }
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
+
 
 
           {/* ==================== TAB 9: HỆ THỐNG & AI ENGINE QUOTA ==================== */}
