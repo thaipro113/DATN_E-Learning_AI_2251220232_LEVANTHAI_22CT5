@@ -347,17 +347,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
 
   const embedVideoUrl = getYouTubeEmbedUrl(activeLesson?.video_url);
 
-  // 1. NẾU ĐANG LÀM ĐỀ THI ÔN TẬP AI -> HIỂN THỊ MÀN HÌNH THI & KẾT QUẢ CHUYÊN BIỆT
-  if (activeTakingQuiz) {
-    return (
-      <AIProgressExamScreen
-        quiz={activeTakingQuiz}
-        onBackToLearning={() => setActiveTakingQuiz(null)}
-      />
-    );
-  }
-
-  // 1.5. NẾU ĐANG TẢI DỮ LIỆU KHÓA HỌC -> HIỂN THỊ SPINNER TẢI TRANG
+  // 1. NẾU ĐANG TẢI DỮ LIỆU KHÓA HỌC -> HIỂN THỊ SPINNER TẢI TRANG
   if (isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '100px 20px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', margin: '20px 0', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
