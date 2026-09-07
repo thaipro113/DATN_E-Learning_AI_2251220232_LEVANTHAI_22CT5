@@ -100,6 +100,8 @@ export const aiAPI = {
   // AI Phân tích học thuật chuyên sâu cho câu hỏi bằng LLM thật
   analyzeQuestion: (data) =>
     apiClient.post('ai/questions/analyze/', data),
+  getQuestionAnalyses: (params) =>
+    apiClient.get('ai/questions/analyze/', { params }),
 };
 
 export const recommendationAPI = {
