@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import CertificateModal from './CertificateModal';
 import StudentProgressQuizModal from './StudentProgressQuizModal';
-import AIProgressExamScreen from './AIProgressExamScreen';
-import { learningAPI, courseAPI } from '../services/api';
+import CourseQuizTakingModal from './CourseQuizTakingModal';
+import CourseQuizzesOverviewModal from './CourseQuizzesOverviewModal';
+import { learningAPI, courseAPI, assessmentAPI } from '../services/api';
 import { isYouTubeUrl, getYouTubeEmbedUrl, cleanCourseTitle } from '../utils/media';
 
 export default function MyLearningView({ user, currentCourse, onSelectCourseToLearn }) {
@@ -20,10 +21,11 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
   const [isLoading, setIsLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState(null);
 
-  // Trạng thái làm bài kiểm tra ôn tập AI trực tiếp
-  const [activeTakingQuiz, setActiveTakingQuiz] = useState(null);
-  const [userAnswers, setUserAnswers] = useState({});
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  // Quản lý Đề thi thực tế từ CSDL (gắn theo Khóa học, Chương học, Bài học)
+  const [courseQuizzes, setCourseQuizzes] = useState([]);
+  const [studentAttempts, setStudentAttempts] = useState([]);
+  const [takingQuiz, setTakingQuiz] = useState(null);
+  const [showCourseQuizzesOverview, setShowCourseQuizzesOverview] = useState(false);
 
   // Tự động ẩn thông báo sau 4 giây
   useEffect(() => {
@@ -106,6 +108,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
 
       if (courseData) {
         setCourseDetail(courseData);
+        fetchCourseQuizzes(courseData.id);
         const chapters = courseData.chapters || [];
         if (chapters.length > 0) {
           setActiveChapter(chapters[0]);
@@ -117,6 +120,87 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
       }
     } catch (e) {
       console.warn('Could not load course detail:', e);
+    }
+  };
+
+  // Tải danh sách đề thi và lịch sử làm bài của khóa học
+  const fetchCourseQuizzes = async (courseId) => {
+    if (!courseId) return;
+    try {
+      const [quizzesRes, attemptsRes] = await Promise.allSettled([
+        assessmentAPI.getQuizzes({ course_id: courseId, page_size: 100 }),
+        assessmentAPI.getMyAttempts(),
+      ]);
+
+      if (quizzesRes.status === 'fulfilled' && quizzesRes.value?.data) {
+        const list =
+          quizzesRes.value.data.results ||
+          quizzesRes.value.data.data?.results ||
+          quizzesRes.value.data.data ||
+          quizzesRes.value.data ||
+          [];
+        setCourseQuizzes(Array.isArray(list) ? list : []);
+      }
+
+      if (attemptsRes.status === 'fulfilled' && attemptsRes.value?.data) {
+        const aList =
+          attemptsRes.value.data.data ||
+          attemptsRes.value.data.results ||
+          attemptsRes.value.data ||
+          [];
+        setStudentAttempts(Array.isArray(aList) ? aList : []);
+      }
+    } catch (err) {
+      console.warn('Khong the tai de thi khoa hoc:', err);
+    }
+  };
+
+  // Helper lọc đề thi theo bài học
+  const getLessonQuizzes = (lessonId) => {
+    if (!lessonId) return [];
+    return courseQuizzes.filter(
+      (q) => String(q.lesson || q.lesson_id) === String(lessonId)
+    );
+  };
+
+  // Helper lọc đề thi theo chương
+  const getChapterQuizzes = (chapterId) => {
+    if (!chapterId) return [];
+    return courseQuizzes.filter(
+      (q) => String(q.chapter || q.chapter_id) === String(chapterId) && !q.lesson && !q.lesson_id
+    );
+  };
+
+  // Helper lọc đề thi toàn khóa
+  const getGeneralCourseQuizzes = () => {
+    return courseQuizzes.filter((q) => !q.chapter && !q.chapter_id && !q.lesson && !q.lesson_id);
+  };
+
+  // Lấy lần làm bài đạt điểm cao nhất của đề thi
+  const getQuizBestAttempt = (quizId) => {
+    const list = studentAttempts.filter((a) => String(a.quiz_id || a.quiz?.id || a.quiz) === String(quizId));
+    if (list.length === 0) return null;
+    return list.reduce((best, cur) => {
+      const curScore = Number(cur.percentage ?? (cur.score != null && cur.max_score ? (cur.score / cur.max_score) * 100 : 0));
+      const bestScore = Number(best.percentage ?? (best.score != null && best.max_score ? (best.score / best.max_score) * 100 : 0));
+      return curScore >= bestScore ? cur : best;
+    }, list[0]);
+  };
+
+  const currentLessonQuizzes = getLessonQuizzes(activeLesson?.id);
+  const currentLessonBestAttempt = currentLessonQuizzes.length > 0 ? getQuizBestAttempt(currentLessonQuizzes[0].id) : null;
+
+  const handleOpenQuiz = (quiz) => {
+    setTakingQuiz(quiz);
+  };
+
+  const handleStartGeneratedQuiz = (generatedQuiz) => {
+    setTakingQuiz(generatedQuiz);
+  };
+
+  const handleAttemptComplete = () => {
+    if (courseDetail?.id) {
+      fetchCourseQuizzes(courseDetail.id);
     }
   };
 
@@ -259,36 +343,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
     ? Math.round((completedLessonIds.length / allLessons.length) * 100)
     : 0;
 
-  // Xử lý làm bài kiểm tra ôn tập AI
-  const handleStartGeneratedQuiz = (quizData) => {
-    setActiveTakingQuiz(quizData);
-    setUserAnswers({});
-    setQuizSubmitted(false);
-  };
 
-  const handleSelectAnswer = (qId, optId) => {
-    if (quizSubmitted) return;
-    setUserAnswers({ ...userAnswers, [qId]: optId });
-  };
-
-  const handleSubmitQuiz = () => {
-    setQuizSubmitted(true);
-  };
-
-  const calculateScore = () => {
-    if (!activeTakingQuiz || !activeTakingQuiz.questions) return { correct: 0, total: 0, percentage: 0 };
-    let correct = 0;
-    activeTakingQuiz.questions.forEach((q) => {
-      const selectedOptId = userAnswers[q.id];
-      const correctOpt = q.options?.find((opt) => opt.is_correct);
-      if (selectedOptId && (selectedOptId === correctOpt?.id || selectedOptId === correctOpt?.content)) {
-        correct++;
-      }
-    });
-    const total = activeTakingQuiz.questions.length;
-    const percentage = total > 0 ? Math.round((correct / total) * 100) : 0;
-    return { correct, total, percentage };
-  };
 
   const embedVideoUrl = getYouTubeEmbedUrl(activeLesson?.video_url);
 
@@ -415,6 +470,25 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Nút Xem Danh Sách Toàn Bộ Đề Thi Của Khóa Học */}
+          <button
+            className="btn-primary"
+            onClick={() => setShowCourseQuizzesOverview(true)}
+            style={{
+              backgroundColor: '#0284c7',
+              padding: '8px 16px',
+              fontSize: '0.85rem',
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            title="Xem danh sách tất cả bài tập & đề thi của khóa học"
+          >
+            <i className="fa-solid fa-clipboard-list"></i>
+            <span>Đề thi khóa học ({courseQuizzes.length})</span>
+          </button>
+
           {/* Nút Kích Hoạt AI Sinh Đề Ôn Tập Tức Thì (UC_S7) */}
           <button
             className="btn-primary"
@@ -512,7 +586,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
               </h3>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 className="btn-outline"
                 onClick={() => handleNavigateLesson(-1)}
@@ -537,6 +611,32 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                 <i className={`fa-solid ${completedLessonIds.includes(activeLesson?.id) ? 'fa-circle-check' : 'fa-check'}`}></i>
                 <span>{completedLessonIds.includes(activeLesson?.id) ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}</span>
               </button>
+
+              {/* Nút Làm Đề Thi Của Bài Học Hiện Tại (nếu có đề thi) */}
+              {currentLessonQuizzes.length > 0 && (
+                <button
+                  className="btn-primary"
+                  onClick={() => handleOpenQuiz(currentLessonQuizzes[0])}
+                  style={{
+                    padding: '9px 18px',
+                    fontSize: '0.85rem',
+                    backgroundColor: currentLessonBestAttempt?.is_passed ? '#0284c7' : '#7c3aed',
+                    boxShadow: '0 2px 8px rgba(124, 58, 237, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontWeight: '700',
+                  }}
+                  title={currentLessonQuizzes[0].title}
+                >
+                  <i className="fa-solid fa-pen-to-square"></i>
+                  <span>
+                    {currentLessonBestAttempt
+                      ? `Làm lại đề bài học (${currentLessonBestAttempt.percentage ?? Math.round((currentLessonBestAttempt.score / currentLessonBestAttempt.max_score) * 100)}%)`
+                      : `Làm bài tập bài học (${currentLessonQuizzes.length})`}
+                  </span>
+                </button>
+              )}
 
               <button
                 className="btn-outline"
@@ -573,6 +673,13 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
             >
               <i className="fa-solid fa-pen-to-square"></i>
               <span>Ghi chú cá nhân</span>
+            </button>
+            <button
+              className={`tab-pill-btn ${activeTab === 'quizzes' ? 'active' : ''}`}
+              onClick={() => setActiveTab('quizzes')}
+            >
+              <i className="fa-solid fa-clipboard-question"></i>
+              <span>Bài tập & Đề thi ({currentLessonQuizzes.length})</span>
             </button>
           </div>
 
@@ -754,123 +861,149 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                 </div>
               </div>
             )}
-          </div>
 
-          {/* AI Progress Quiz Interactive Area */}
-          {activeTakingQuiz && (
-            <div
-              style={{
-                marginTop: '20px',
-                padding: '24px',
-                backgroundColor: 'var(--bg-surface)',
-                border: '2px solid #7c3aed',
-                borderRadius: 'var(--radius-lg)',
-                boxShadow: 'var(--shadow-md)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <div>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#7c3aed', textTransform: 'uppercase' }}>
-                    AI PROGRESS QUIZ (ĐANG LÀM BÀI ÔN TẬP)
+            {activeTab === 'quizzes' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                    <i className="fa-solid fa-clipboard-question" style={{ color: '#7c3aed', marginRight: '8px' }}></i>
+                    BÀI TẬP & ĐỀ THI CỦA BÀI HỌC
+                  </h4>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {activeLesson?.title}
                   </span>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', margin: '4px 0 0' }}>
-                    {activeTakingQuiz.title}
-                  </h3>
                 </div>
-                <button onClick={() => setActiveTakingQuiz(null)} style={{ fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <i className="fa-solid fa-xmark"></i>
-                </button>
-              </div>
 
-              {/* Questions List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {activeTakingQuiz.questions?.map((q, qIdx) => (
-                  <div key={q.id || qIdx} style={{ padding: '16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.92rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '12px' }}>
-                      Câu {qIdx + 1}: {q.content}
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
-                      {q.options?.map((opt, oIdx) => {
-                        const isSelected = userAnswers[q.id] === opt.id || userAnswers[q.id] === opt.content;
-                        let optionStyle = {
-                          padding: '10px 14px',
-                          borderRadius: '6px',
-                          border: isSelected ? '2px solid #7c3aed' : '1px solid var(--border-color)',
-                          backgroundColor: isSelected ? '#ede9fe' : 'var(--bg-surface)',
-                          cursor: quizSubmitted ? 'default' : 'pointer',
-                          textAlign: 'left',
-                          fontSize: '0.85rem',
-                          fontWeight: isSelected ? '700' : '500',
-                          color: isSelected ? '#6d28d9' : 'var(--text-main)',
-                        };
-
-                        if (quizSubmitted) {
-                          if (opt.is_correct) {
-                            optionStyle.backgroundColor = '#dcfce7';
-                            optionStyle.borderColor = '#16a34a';
-                            optionStyle.color = '#15803d';
-                          } else if (isSelected && !opt.is_correct) {
-                            optionStyle.backgroundColor = '#fee2e2';
-                            optionStyle.borderColor = '#dc2626';
-                            optionStyle.color = '#b91c1c';
-                          }
-                        }
-
-                        return (
-                          <button
-                            key={opt.id || oIdx}
-                            onClick={() => handleSelectAnswer(q.id, opt.id || opt.content)}
-                            style={optionStyle}
-                          >
-                            <span style={{ fontWeight: '800', marginRight: '8px' }}>
-                              {String.fromCharCode(65 + oIdx)}.
-                            </span>
-                            {opt.content}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {quizSubmitted && q.explanation && (
-                      <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '6px', backgroundColor: '#eff6ff', color: '#1e40af', fontSize: '0.82rem' }}>
-                        <strong>Giải thích:</strong> {q.explanation}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Submit Button & Score */}
-              <div style={{ marginTop: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                {!quizSubmitted ? (
-                  <button
-                    className="btn-primary"
-                    onClick={handleSubmitQuiz}
-                    style={{ backgroundColor: '#7c3aed', padding: '10px 24px' }}
+                {currentLessonQuizzes.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      padding: '36px 16px',
+                      backgroundColor: 'var(--bg-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px dashed var(--border-color)',
+                    }}
                   >
-                    <i className="fa-solid fa-paper-plane"></i>
-                    <span>Nộp Bài Chấm Điểm Tự Động</span>
-                  </button>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                    <div style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: '800', fontSize: '1rem' }}>
-                      Điểm số: {calculateScore().correct} / {calculateScore().total} ({calculateScore().percentage}%)
-                    </div>
+                    <i className="fa-solid fa-file-circle-question" style={{ fontSize: '2.2rem', color: 'var(--text-light)', marginBottom: '10px' }}></i>
+                    <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-secondary)', margin: '0 0 6px' }}>
+                      Bài học này hiện chưa có bộ đề trắc nghiệm riêng được biên soạn sẵn.
+                    </p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 16px' }}>
+                      Bạn có thể bấm vào nút "AI Sinh Đề Ôn Tập (UC_S7)" ở góc trên để AI tự động tạo đề thi thích ứng dựa trên bài học này!
+                    </p>
                     <button
-                      className="btn-outline"
-                      onClick={() => {
-                        setQuizSubmitted(false);
-                        setUserAnswers({});
-                      }}
+                      className="btn-primary"
+                      onClick={() => setShowProgressQuizModal(true)}
+                      style={{ padding: '8px 18px', fontSize: '0.85rem', backgroundColor: '#7c3aed' }}
                     >
-                      Làm lại đề này
+                      <i className="fa-solid fa-bolt"></i>
+                      <span>AI Sinh Đề Ôn Tập Cho Bài Này</span>
                     </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {currentLessonQuizzes.map((quiz) => {
+                      const bestAttempt = getQuizBestAttempt(quiz.id);
+                      const scorePct = bestAttempt ? Number(bestAttempt.percentage ?? Math.round((bestAttempt.score / bestAttempt.max_score) * 100)) : null;
+                      const isPassed = bestAttempt?.is_passed ?? (scorePct != null && scorePct >= (quiz.passing_score || 70));
+
+                      return (
+                        <div
+                          key={quiz.id}
+                          style={{
+                            padding: '16px',
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: 'var(--bg-subtle)',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                          }}
+                        >
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#ede9fe',
+                                  color: '#6d28d9',
+                                }}
+                              >
+                                CEFR {quiz.level || 'B1'}
+                              </span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {quiz.total_questions || 5} câu hỏi · {quiz.time_limit_minutes || 15} phút · Điểm đạt: {quiz.passing_score || 70}%
+                              </span>
+                            </div>
+                            <h5 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px' }}>
+                              {quiz.title}
+                            </h5>
+                            {quiz.description && (
+                              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+                                {quiz.description}
+                              </p>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {bestAttempt ? (
+                              <div style={{ textAlign: 'right' }}>
+                                <span
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: '800',
+                                    padding: '4px 10px',
+                                    borderRadius: 'var(--radius-full)',
+                                    backgroundColor: isPassed ? '#dcfce7' : '#fee2e2',
+                                    color: isPassed ? '#15803d' : '#b91c1c',
+                                    display: 'inline-block',
+                                  }}
+                                >
+                                  {isPassed ? `Đạt (${scorePct}%)` : `Chưa đạt (${scorePct}%)`}
+                                </span>
+                              </div>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: '0.75rem',
+                                  fontWeight: '700',
+                                  padding: '4px 10px',
+                                  borderRadius: 'var(--radius-full)',
+                                  backgroundColor: 'var(--bg-surface)',
+                                  color: 'var(--text-muted)',
+                                }}
+                              >
+                                Chưa làm
+                              </span>
+                            )}
+
+                            <button
+                              className="btn-primary"
+                              onClick={() => handleOpenQuiz(quiz)}
+                              style={{
+                                padding: '8px 18px',
+                                fontSize: '0.85rem',
+                                backgroundColor: isPassed ? '#0284c7' : '#7c3aed',
+                                fontWeight: '700',
+                              }}
+                            >
+                              <i className="fa-solid fa-pen-to-square"></i>
+                              <span>{bestAttempt ? 'Làm lại đề thi' : 'Bắt đầu làm bài'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Right Column: Course Curriculum Playlist */}
@@ -917,39 +1050,192 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                   {(ch.lessons || []).map((les, lIdx) => {
                     const isActive = activeLesson?.id === les.id;
                     const isCompleted = completedLessonIds.includes(les.id);
+                    const lessonQList = getLessonQuizzes(les.id);
+
+                    return (
+                      <div key={les.id || lIdx}>
+                        <div
+                          onClick={() => handleSelectLesson(les, ch)}
+                          style={{
+                            padding: '11px 14px',
+                            borderTop: '1px solid var(--border-color)',
+                            backgroundColor: isActive ? '#f0f9ff' : 'var(--bg-surface)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            transition: 'background 0.15s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <i
+                              className={isCompleted ? "fa-solid fa-circle-check" : (isActive ? "fa-regular fa-circle-play" : "fa-regular fa-circle")}
+                              style={{ color: isCompleted ? '#059669' : (isActive ? '#0284c7' : 'var(--text-light)'), fontSize: '0.95rem' }}
+                            ></i>
+                            <span style={{ fontSize: '0.84rem', fontWeight: isActive ? '700' : '500', color: isActive ? '#0284c7' : 'var(--text-main)' }}>
+                              {les.title}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                            {les.duration_minutes || 15}m
+                          </span>
+                        </div>
+
+                        {/* Đề thi trực tiếp gắn với bài học này */}
+                        {lessonQList.map((q) => {
+                          const attempt = getQuizBestAttempt(q.id);
+                          const scorePct = attempt ? Number(attempt.percentage ?? Math.round((attempt.score / attempt.max_score) * 100)) : null;
+                          const isPassed = attempt?.is_passed ?? (scorePct != null && scorePct >= (q.passing_score || 70));
+
+                          return (
+                            <div
+                              key={q.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenQuiz(q);
+                              }}
+                              style={{
+                                padding: '7px 14px 7px 38px',
+                                backgroundColor: '#f8fafc',
+                                borderTop: '1px dashed var(--border-color)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: 'pointer',
+                                fontSize: '0.78rem',
+                              }}
+                              title={`Làm bài tập: ${q.title}`}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6d28d9', fontWeight: '600', minWidth: 0, flex: 1, marginRight: '8px' }}>
+                                <i className="fa-solid fa-pen-to-square" style={{ flexShrink: 0 }}></i>
+                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  Đề thi: {q.title}
+                                </span>
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: '0.7rem',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: attempt ? (isPassed ? '#dcfce7' : '#fee2e2') : '#ede9fe',
+                                  color: attempt ? (isPassed ? '#15803d' : '#b91c1c') : '#6d28d9',
+                                  fontWeight: '700',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {attempt ? `${scorePct}%` : 'Làm bài'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+
+                  {/* Đề kiểm tra đánh giá theo chương */}
+                  {getChapterQuizzes(ch.id).map((cq) => {
+                    const attempt = getQuizBestAttempt(cq.id);
+                    const scorePct = attempt ? Number(attempt.percentage ?? Math.round((attempt.score / attempt.max_score) * 100)) : null;
+                    const isPassed = attempt?.is_passed ?? (scorePct != null && scorePct >= (cq.passing_score || 70));
+
                     return (
                       <div
-                        key={les.id || lIdx}
-                        onClick={() => handleSelectLesson(les, ch)}
+                        key={cq.id}
+                        onClick={() => handleOpenQuiz(cq)}
                         style={{
-                          padding: '11px 14px',
+                          padding: '10px 14px',
                           borderTop: '1px solid var(--border-color)',
-                          backgroundColor: isActive ? '#f0f9ff' : 'var(--bg-surface)',
-                          cursor: 'pointer',
+                          backgroundColor: '#faf5ff',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          transition: 'background 0.15s ease',
+                          cursor: 'pointer',
+                          gap: '8px',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <i
-                            className={isCompleted ? "fa-solid fa-circle-check" : (isActive ? "fa-regular fa-circle-play" : "fa-regular fa-circle")}
-                            style={{ color: isCompleted ? '#059669' : (isActive ? '#0284c7' : 'var(--text-light)'), fontSize: '0.95rem' }}
-                          ></i>
-                          <span style={{ fontSize: '0.84rem', fontWeight: isActive ? '700' : '500', color: isActive ? '#0284c7' : 'var(--text-main)' }}>
-                            {les.title}
-                          </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                          <i className="fa-solid fa-layer-group" style={{ color: '#7c3aed', flexShrink: 0 }}></i>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#6d28d9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              Kiểm tra chương: {cq.title}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              {cq.total_questions || 5} câu · {cq.time_limit_minutes || 15} phút
+                            </div>
+                          </div>
                         </div>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                          {les.duration_minutes || 15}m
-                        </span>
+                        <button
+                          className="btn-primary"
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '0.75rem',
+                            backgroundColor: attempt ? (isPassed ? '#059669' : '#0284c7') : '#7c3aed',
+                            flexShrink: 0,
+                            fontWeight: '700',
+                          }}
+                        >
+                          {attempt ? `${scorePct}% (Làm lại)` : 'Làm bài'}
+                        </button>
                       </div>
                     );
                   })}
                 </div>
               </div>
             ))}
+
+            {/* Đề thi tổng kết toàn khóa học */}
+            {getGeneralCourseQuizzes().length > 0 && (
+              <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#166534', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <i className="fa-solid fa-award"></i>
+                  <span>ĐỀ THI TỔNG KẾT KHÓA HỌC</span>
+                </div>
+                {getGeneralCourseQuizzes().map((gq) => {
+                  const attempt = getQuizBestAttempt(gq.id);
+                  const scorePct = attempt ? Number(attempt.percentage ?? Math.round((attempt.score / attempt.max_score) * 100)) : null;
+                  const isPassed = attempt?.is_passed ?? (scorePct != null && scorePct >= (gq.passing_score || 70));
+
+                  return (
+                    <div
+                      key={gq.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        backgroundColor: '#ffffff',
+                        borderRadius: '6px',
+                        border: '1px solid #86efac',
+                        marginTop: '6px',
+                        gap: '8px',
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#14532d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {gq.title}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {gq.total_questions || 10} câu · {gq.time_limit_minutes || 30} phút
+                        </div>
+                      </div>
+                      <button
+                        className="btn-primary"
+                        onClick={() => handleOpenQuiz(gq)}
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '0.75rem',
+                          backgroundColor: '#16a34a',
+                          flexShrink: 0,
+                          fontWeight: '700',
+                        }}
+                      >
+                        {attempt ? `${scorePct}% (Thi lại)` : 'Vào thi'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -972,6 +1258,24 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
         completedLessons={completedLessonsList}
         activeLesson={activeLesson}
         onStartQuiz={handleStartGeneratedQuiz}
+      />
+
+      {/* Modal 3: Làm bài thi trực tiếp trong phòng học */}
+      <CourseQuizTakingModal
+        quiz={takingQuiz}
+        isOpen={Boolean(takingQuiz)}
+        onClose={() => setTakingQuiz(null)}
+        onAttemptComplete={handleAttemptComplete}
+      />
+
+      {/* Modal 4: Tổng hợp danh sách đề thi của khóa học */}
+      <CourseQuizzesOverviewModal
+        isOpen={showCourseQuizzesOverview}
+        onClose={() => setShowCourseQuizzesOverview(false)}
+        courseTitle={courseDetail?.title || selectedCourse?.title || 'Khóa học'}
+        quizzes={courseQuizzes}
+        attempts={studentAttempts}
+        onSelectQuiz={handleOpenQuiz}
       />
     </div>
   );

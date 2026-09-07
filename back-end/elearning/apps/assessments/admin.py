@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Quiz, Question, AnswerOption, QuizAttempt, StudentAnswer
+from .models import Quiz, Question, AnswerOption, QuizAttempt, StudentAnswer, QuestionAIAnalysis
 
 
 class AnswerOptionInline(admin.TabularInline):
@@ -63,6 +63,18 @@ class AnswerOptionAdmin(admin.ModelAdmin):
 
 @admin.register(StudentAnswer)
 class StudentAnswerAdmin(admin.ModelAdmin):
-    list_display = ('attempt', 'question', 'selected_option', 'is_correct', 'score_earned')
-    list_filter = ('is_correct',)
+    list_display = ('attempt', 'question', 'selected_option', 'is_correct', 'is_resolved', 'score_earned')
+    list_filter = ('is_correct', 'is_resolved')
     search_fields = ('attempt__student__email', 'question__content')
+
+
+@admin.register(QuestionAIAnalysis)
+class QuestionAIAnalysisAdmin(admin.ModelAdmin):
+    list_display = ('get_short_question', 'topic', 'difficulty', 'skill', 'confidence', 'created_at')
+    list_filter = ('difficulty', 'skill', 'topic')
+    search_fields = ('topic', 'sub_topic', 'reason', 'question__content')
+    readonly_fields = ('confidence', 'created_at', 'updated_at')
+
+    @admin.display(description='Câu hỏi')
+    def get_short_question(self, obj):
+        return obj.question.content[:60] + "..." if len(obj.question.content) > 60 else obj.question.content

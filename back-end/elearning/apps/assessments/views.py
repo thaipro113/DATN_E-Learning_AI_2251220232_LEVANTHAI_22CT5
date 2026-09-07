@@ -51,6 +51,8 @@ class QuizListCreateAPIView(APIView):
             'quiz_type': request.query_params.get('quiz_type'),
             'level': request.query_params.get('level'),
             'course_id': request.query_params.get('course_id'),
+            'chapter_id': request.query_params.get('chapter_id'),
+            'lesson_id': request.query_params.get('lesson_id'),
             'search': request.query_params.get('search'),
         }
 
