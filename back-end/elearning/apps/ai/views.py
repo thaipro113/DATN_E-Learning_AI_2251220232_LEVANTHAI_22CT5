@@ -336,9 +336,72 @@ class GenerateCourseDescriptionAPIView(APIView):
 class QuestionAnalysisAPIView(APIView):
     """
     API Endpoint: Phân tích học thuật chuyên sâu cho câu hỏi kiểm tra bằng LLM thật.
-    Nhận ID câu hỏi hoặc nội dung câu hỏi, trả về phân tích JSON (topic, sub_topic, skill, difficulty, reason, confidence).
+    - GET: Lấy danh sách tất cả các bản ghi phân tích học thuật AI phục vụ Admin Hub.
+    - POST: Nhận ID câu hỏi hoặc nội dung câu hỏi, gọi LLM phân tích JSON (topic, sub_topic, skill, difficulty, reason, confidence).
     """
     permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Lấy danh sách các câu hỏi đã được phân tích bằng AI kèm chi tiết học thuật, đáp án và độ tin cậy.
+        """
+        from apps.assessments.models import QuestionAIAnalysis
+        from django.db.models import Q
+
+        queryset = QuestionAIAnalysis.objects.select_related(
+            'question',
+            'question__quiz',
+            'question__quiz__course'
+        ).prefetch_related('question__options').order_by('-created_at')
+
+        search = request.query_params.get('search', '').strip()
+        difficulty = request.query_params.get('difficulty', '').strip()
+
+        if search:
+            queryset = queryset.filter(
+                Q(topic__icontains=search) |
+                Q(sub_topic__icontains=search) |
+                Q(question__content__icontains=search) |
+                Q(reason__icontains=search)
+            )
+
+        if difficulty and difficulty.upper() != 'ALL':
+            queryset = queryset.filter(difficulty__iexact=difficulty)
+
+        data = []
+        for item in queryset:
+            opts = [
+                {
+                    'id': str(opt.id),
+                    'content': opt.content,
+                    'is_correct': opt.is_correct,
+                    'order_index': opt.order_index
+                }
+                for opt in item.question.options.all()
+            ]
+            data.append({
+                'id': str(item.id),
+                'question_id': str(item.question.id),
+                'question_content': item.question.content,
+                'quiz_id': str(item.question.quiz.id) if item.question.quiz else None,
+                'quiz_title': item.question.quiz.title if item.question.quiz else 'Bài tập ôn tập',
+                'course_title': item.question.quiz.course.title if (item.question.quiz and item.question.quiz.course) else 'Khóa học hệ thống',
+                'topic': item.topic,
+                'sub_topic': item.sub_topic,
+                'skill': item.skill,
+                'difficulty': item.difficulty,
+                'reason': item.reason,
+                'confidence': item.confidence,
+                'raw_response': item.raw_response,
+                'options': opts,
+                'created_at': item.created_at.isoformat() if item.created_at else None,
+            })
+
+        return success_response(
+            data=data,
+            message="Lấy danh sách phân tích học thuật AI thành công!",
+            status_code=status.HTTP_200_OK
+        )
 
     def post(self, request):
         question_id = request.data.get('question_id')
