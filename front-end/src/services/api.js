@@ -28,6 +28,7 @@ export const authAPI = {
   changePassword: (data) => apiClient.post('auth/change-password/', data),
   getUsers: (params) => apiClient.get('auth/users/', { params }),
   updateUser: (userId, data) => apiClient.patch(`auth/users/${userId}/`, data),
+  deleteUser: (userId) => apiClient.delete(`auth/users/${userId}/`),
 };
 
 export const courseAPI = {

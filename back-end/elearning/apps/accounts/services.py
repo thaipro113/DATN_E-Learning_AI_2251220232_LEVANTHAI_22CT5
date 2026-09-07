@@ -138,3 +138,11 @@ class UserService:
             setattr(target_user, attr, value)
         target_user.save()
         return target_user
+
+    @staticmethod
+    def admin_delete_user(target_user: CustomUser) -> None:
+        """
+        Admin xóa vĩnh viễn tài khoản người dùng khỏi hệ thống.
+        """
+        target_user.delete()
+
