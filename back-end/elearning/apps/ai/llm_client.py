@@ -477,11 +477,11 @@ class GroqLLMProvider(BaseLLMProvider):
             "Nhiệm vụ của bạn là dựa vào tiêu đề khóa học, danh mục và trình độ CEFR để soạn thảo "
             "bài mô tả khóa học súc tích, vừa đủ (khoảng 150 - 200 từ) bằng tiếng Việt cho giảng viên. "
             "BẮT BUỘC cách đoạn rõ ràng bằng 2 dấu xuống dòng (\\n\\n) giữa các phần:\n\n"
-            "🎯 **TỔNG QUAN & Ý NGHĨA KHÓA HỌC:** (2-3 câu ngắn gọn về trọng tâm bài học)\n\n"
-            "🚀 **MỤC TIÊU ĐẦU RA (CEFR {level}):** (2-3 gạch đầu dòng kỹ năng đạt được)\n\n"
-            "📚 **PHƯƠNG PHÁP HỌC TẬP & TRỢ LÝ AI:** (1-2 câu về ứng dụng thực hành & AI hỗ trợ)\n\n"
-            "👥 **ĐỐI TƯỢNG PHÙ HỢP:** (1 câu ngắn gọn)\n\n"
-            "⭐ **LỜI KHUYÊN TỪ GIẢNG VIÊN:** (1 câu truyền cảm hứng)\n\n"
+            "**TỔNG QUAN & Ý NGHĨA KHÓA HỌC:** (2-3 câu ngắn gọn về trọng tâm bài học)\n\n"
+            "**MỤC TIÊU ĐẦU RA (CEFR {level}):** (2-3 gạch đầu dòng kỹ năng đạt được)\n\n"
+            "**PHƯƠNG PHÁP HỌC TẬP & TRỢ LÝ AI:** (1-2 câu về ứng dụng thực hành & AI hỗ trợ)\n\n"
+            "**ĐỐI TƯỢNG PHÙ HỢP:** (1 câu ngắn gọn)\n\n"
+            "**LỜI KHUYÊN TỪ GIẢNG VIÊN:** (1 câu truyền cảm hứng)\n\n"
             "Tuyệt đối không viết liền tù tì thành một khối văn bản."
         )
 
