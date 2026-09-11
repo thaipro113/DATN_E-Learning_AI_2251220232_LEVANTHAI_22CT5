@@ -29,6 +29,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
   const [isConfirming, setIsConfirming] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [currentBatchId, setCurrentBatchId] = useState(null);
+  const [uploadedFile, setUploadedFile] = useState(null);
   
   // Scope & Cascading state
   const [scopeType, setScopeType] = useState('COURSE'); // 'COURSE' | 'CHAPTER' | 'LESSON' | 'INDEPENDENT'
@@ -170,8 +171,24 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
       const formData = new FormData();
       formData.append('title', newQuizTitle || 'Phiên nhập đề thi nhanh');
       formData.append('source_type', sourceType);
-      formData.append('raw_text', rawText);
       formData.append('use_ai', useAI);
+
+      if (sourceType === 'RAW_TEXT') {
+        if (!rawText.trim()) {
+          alert('Vui lòng nhập nội dung đề thi vào ô văn bản!');
+          setIsLoading(false);
+          return;
+        }
+        formData.append('raw_text', rawText);
+      } else {
+        if (!uploadedFile) {
+          alert(`Vui lòng chọn tệp đề thi (${sourceType === 'CSV' ? 'Excel / CSV' : 'Word .docx'}) trước khi bắt đầu bóc tách!`);
+          setIsLoading(false);
+          return;
+        }
+        formData.append('file', uploadedFile);
+        formData.append('raw_text', '');
+      }
 
       const res = await quizImportAPI.uploadBatch(formData);
       const batch = res.data?.data || res.data;
@@ -462,15 +479,24 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
 
           {/* 3. Định dạng nguồn */}
           <div>
-            <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
-              2. Chọn định dạng tệp tải lên:
-            </label>
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                2. Chọn định dạng tệp tải lên:
+              </label>
+              <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                Hỗ trợ bóc tách đề thi tự động qua AI & Regex
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
               {['RAW_TEXT', 'CSV', 'DOCX'].map((type) => (
                 <button
                   key={type}
                   type="button"
-                  onClick={() => setSourceType(type)}
+                  onClick={() => {
+                    setSourceType(type);
+                    setUploadedFile(null);
+                  }}
                   style={{
                     padding: '8px 16px',
                     borderRadius: '6px',
@@ -481,11 +507,89 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
                     backgroundColor: sourceType === type ? '#e0f2fe' : 'var(--bg-surface)',
                     color: sourceType === type ? '#0284c7' : 'var(--text-secondary)',
                     cursor: 'pointer',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   {type === 'RAW_TEXT' ? 'Văn bản trực tiếp' : type === 'CSV' ? 'Tệp Excel / CSV' : 'Tệp Word (.docx)'}
                 </button>
               ))}
+            </div>
+
+            {/* HỘP TẢI TỆP MẪU CHUẨN (EXCEL / WORD) CHO GIẢNG VIÊN */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                gap: '12px',
+                flexWrap: 'wrap',
+                marginBottom: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <i className="fa-solid fa-file-arrow-down" style={{ fontSize: '1.2rem', color: '#0284c7' }}></i>
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>
+                    Tải tệp mẫu câu hỏi chuẩn (Templates):
+                  </div>
+                  <div style={{ fontSize: '0.73rem', color: '#64748b' }}>
+                    Tải mẫu có sẵn câu hỏi trắc nghiệm, chỉ cần thêm câu hỏi rồi tải lên lại
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <a
+                  href="/templates/Mau_De_Thi_Trac_Nghiem_Excel_CSV.csv"
+                  download="Mau_De_Thi_Trac_Nghiem_Excel_CSV.csv"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #86efac',
+                    color: '#15803d',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Tải tệp mẫu Excel / CSV chuẩn định dạng UTF-8"
+                >
+                  <i className="fa-solid fa-file-csv" style={{ color: '#16a34a' }}></i>
+                  <span>Tải Mẫu Excel / CSV</span>
+                </a>
+
+                <a
+                  href="/templates/Mau_De_Thi_Trac_Nghiem_Word.docx"
+                  download="Mau_De_Thi_Trac_Nghiem_Word.docx"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#eff6ff',
+                    border: '1px solid #93c5fd',
+                    color: '#1d4ed8',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Tải tệp mẫu Word (.docx) chuẩn định dạng"
+                >
+                  <i className="fa-solid fa-file-word" style={{ color: '#2563eb' }}></i>
+                  <span>Tải Mẫu Word (.docx)</span>
+                </a>
+              </div>
             </div>
           </div>
 
@@ -510,12 +614,29 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
               />
             </div>
           ) : (
-            <div style={{ border: '2px dashed #0284c7', borderRadius: 'var(--radius-md)', padding: '24px', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
-              <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: '2rem', color: '#0284c7', marginBottom: '8px' }}></i>
-              <p style={{ fontSize: '0.88rem', color: '#0f172a', fontWeight: '700', margin: 0 }}>
+            <div style={{ border: '2px dashed #0284c7', borderRadius: 'var(--radius-md)', padding: '22px', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
+              <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: '2rem', color: '#0284c7', marginBottom: '6px' }}></i>
+              <p style={{ fontSize: '0.88rem', color: '#0f172a', fontWeight: '700', margin: '0 0 4px' }}>
                 Kéo thả hoặc chọn tệp đề thi ({sourceType === 'CSV' ? 'Excel / CSV' : 'Word .docx'})
               </p>
-              <input type="file" style={{ marginTop: '10px', fontSize: '0.8rem' }} />
+              <p style={{ fontSize: '0.74rem', color: '#64748b', margin: '0 0 10px' }}>
+                {sourceType === 'CSV' ? 'Hỗ trợ định dạng: .csv, .xlsx, .xls' : 'Hỗ trợ định dạng: .docx'}
+              </p>
+              <input
+                type="file"
+                accept={sourceType === 'CSV' ? '.csv, .xlsx, .xls' : '.docx'}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setUploadedFile(file);
+                }}
+                style={{ fontSize: '0.8rem' }}
+              />
+              {uploadedFile && (
+                <div style={{ marginTop: '10px', padding: '6px 12px', borderRadius: '6px', backgroundColor: '#e0f2fe', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#0369a1', fontWeight: '700' }}>
+                  <i className="fa-solid fa-circle-check" style={{ color: '#0284c7' }}></i>
+                  <span>Đã chọn: {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)</span>
+                </div>
+              )}
             </div>
           )}
 
