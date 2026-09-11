@@ -82,43 +82,43 @@ class QuizImportService:
     def _execute_parsing(cls, batch: QuizImportBatch) -> List[Dict[str, Any]]:
         """
         Lựa chọn parser phù hợp theo định dạng nguồn và tùy chọn AI.
+        Bắt buộc ưu tiên trích xuất từ tệp tải lên (file) nếu có.
         """
-        # 1. Nếu bật cờ AI -> Ưu tiên AI Smart Parser
+        # 1. NẾU CÓ TỆP TẢI LÊN (CSV / DOCX / XLSX), BẮT BUỘC ĐỌC TỪ TỆP
+        if batch.file and batch.source_type != ImportSourceType.RAW_TEXT:
+            try:
+                batch.file.seek(0)
+                file_bytes = batch.file.read()
+            except Exception as e:
+                logger.error(f"Cannot read uploaded file: {e}")
+                file_bytes = b""
+
+            if batch.source_type == ImportSourceType.DOCX:
+                text_content = DocxQuizParser.extract_text_from_docx(file_bytes)
+                if batch.use_ai:
+                    ai_parsed = AIQuizExtractionParser().parse(text_content)
+                    if ai_parsed:
+                        return ai_parsed
+                return RawTextQuizParser().parse(text_content)
+
+            elif batch.source_type in [ImportSourceType.CSV, ImportSourceType.XLSX]:
+                csv_str = file_bytes.decode('utf-8-sig', errors='ignore')
+                csv_parsed = CSVQuizParser().parse(csv_str)
+                if csv_parsed:
+                    return csv_parsed
+                if batch.use_ai:
+                    ai_parsed = AIQuizExtractionParser().parse(csv_str)
+                    if ai_parsed:
+                        return ai_parsed
+                return RawTextQuizParser().parse(csv_str)
+
+        # 2. NẾU KHÔNG CÓ TỆP HOẶC LÀ VĂN BẢN THÔ (RAW_TEXT)
+        text_to_parse = batch.raw_text or ""
         if batch.use_ai:
-            text_to_parse = batch.raw_text
-            if batch.file and not text_to_parse:
-                # Đọc nội dung file dạng text
-                file_bytes = batch.file.read()
-                if batch.source_type == ImportSourceType.DOCX:
-                    text_to_parse = DocxQuizParser.extract_text_from_docx(file_bytes)
-                else:
-                    text_to_parse = file_bytes.decode('utf-8', errors='ignore')
-            return AIQuizExtractionParser().parse(text_to_parse)
-
-        # 2. Phân tích theo bộ Parser chuyên biệt từng định dạng
-        if batch.source_type == ImportSourceType.RAW_TEXT:
-            return RawTextQuizParser().parse(batch.raw_text)
-
-        elif batch.source_type == ImportSourceType.CSV:
-            if not batch.file:
-                return CSVQuizParser().parse(batch.raw_text)
-            csv_content = batch.file.read().decode('utf-8', errors='ignore')
-            return CSVQuizParser().parse(csv_content)
-
-        elif batch.source_type == ImportSourceType.DOCX:
-            if not batch.file:
-                return RawTextQuizParser().parse(batch.raw_text)
-            file_bytes = batch.file.read()
-            return DocxQuizParser().parse(file_bytes)
-
-        elif batch.source_type == ImportSourceType.XLSX:
-            # Nếu là file Excel, thử đọc dạng CSV text hoặc văn bản
-            if batch.file:
-                file_bytes = batch.file.read()
-                return RawTextQuizParser().parse(file_bytes.decode('utf-8', errors='ignore'))
-            return RawTextQuizParser().parse(batch.raw_text)
-
-        return RawTextQuizParser().parse(batch.raw_text)
+            ai_parsed = AIQuizExtractionParser().parse(text_to_parse)
+            if ai_parsed:
+                return ai_parsed
+        return RawTextQuizParser().parse(text_to_parse)
 
     @classmethod
     def confirm_and_import_to_quiz(

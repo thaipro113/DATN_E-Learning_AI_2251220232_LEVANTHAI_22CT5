@@ -193,45 +193,21 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
       const res = await quizImportAPI.uploadBatch(formData);
       const batch = res.data?.data || res.data;
       setCurrentBatchId(batch?.id);
-      setPreviewData(batch?.parsed_data || []);
+      const questions = batch?.parsed_data || [];
+      setPreviewData(questions);
       if (batch?.error_log) {
         setErrorLog(batch.error_log);
       }
-      setStatusMessage(`✓ Đã bóc tách thành công ${batch?.total_parsed || (batch?.parsed_data || []).length} câu hỏi! Hãy xác nhận thông tin để lưu vào CSDL.`);
+      if (questions.length > 0) {
+        setStatusMessage(`✓ Đã bóc tách thành công ${questions.length} câu hỏi từ tệp tải lên! Hãy xác nhận thông tin để lưu vào CSDL.`);
+      } else {
+        setStatusMessage('Không tìm thấy câu hỏi hợp lệ trong tệp tải lên. Vui lòng kiểm tra định dạng theo tệp mẫu.');
+      }
     } catch (err) {
       console.error('Parse error:', err);
-      if (err.response?.data?.error_log || err.response?.data?.error) {
-        setErrorLog(err.response?.data?.error_log || err.response?.data?.error);
-      }
-      // Fallback parser demo for quick test
-      const fallbackParsed = [
-        {
-          content: 'Which tense is used for habitual actions?',
-          skill: 'GRAMMAR',
-          level: 'B1',
-          explanation: 'The Present Simple expresses daily routines or habits.',
-          options: [
-            { content: 'Present Continuous', is_correct: false },
-            { content: 'Present Simple', is_correct: true },
-            { content: 'Past Simple', is_correct: false },
-            { content: 'Future Simple', is_correct: false },
-          ],
-        },
-        {
-          content: 'What is the synonym of "vital"?',
-          skill: 'VOCABULARY',
-          level: 'B1',
-          explanation: 'Vital means extremely important or essential.',
-          options: [
-            { content: 'Minor', is_correct: false },
-            { content: 'Crucial', is_correct: true },
-            { content: 'Optional', is_correct: false },
-            { content: 'Secondary', is_correct: false },
-          ],
-        },
-      ];
-      setPreviewData(fallbackParsed);
-      setStatusMessage('✓ Đã phân tích cú pháp câu hỏi thành công! Vui lòng xác nhận lưu vào đề thi.');
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Lỗi khi bóc tách tệp đề thi!';
+      setErrorLog(errMsg);
+      setStatusMessage(`Lỗi bóc tách: ${errMsg}`);
     } finally {
       setIsLoading(false);
     }
