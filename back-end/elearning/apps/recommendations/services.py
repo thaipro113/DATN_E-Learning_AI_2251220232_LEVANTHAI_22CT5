@@ -151,6 +151,8 @@ class CourseRecommendationService:
         Backend xác thực course_id và lưu vào CSDL.
         """
         enrolled_course_ids = Enrollment.objects.filter(student=student).values_list('course_id', flat=True)
+        # Loại bỏ các đề xuất của những khóa học mà học viên ĐÃ ĐĂNG KÝ
+        CourseRecommendation.objects.filter(student=student, course_id__in=enrolled_course_ids).delete()
 
         candidate_courses_qs = Course.objects.filter(
             status='PUBLISHED'
@@ -227,10 +229,12 @@ class CourseRecommendationService:
                     )
                     recommendations.append(db_rec)
 
+        # Sắp xếp khóa học có độ tương thích cao nhất lên đầu
+        recommendations.sort(key=lambda x: x.relevance_score, reverse=True)
         return recommendations
 
     @staticmethod
-    def generate_course_recommendations(student: CustomUser, limit: int = 5) -> List[CourseRecommendation]:
+    def generate_course_recommendations(student: CustomUser, limit: int = 6) -> List[CourseRecommendation]:
         """
         Đề xuất khóa học từ LLM thật dựa trên Learning Analytics hiện tại của học viên.
         """

@@ -212,7 +212,12 @@ Your task is to analyze the learner's profile, learning goals, CEFR level, skill
 CRITICAL INSTRUCTIONS:
 1. You MUST ONLY recommend courses from the provided Candidate Courses list.
 2. DO NOT invent or hallucinate course IDs or course titles. Every course_id in your response MUST exist in the provided candidate list.
-3. Rank the courses by relevance and provide an honest match_score (between 0.0 and 1.0) and a concise, persuasive pedagogical reason in Vietnamese explaining why the course fits the learner's specific goals, skill gaps, and schedule.
+3. You MUST evaluate and return ALL candidate courses (up to 6 courses) sorted by match_score DESCENDING.
+4. CEFR LEVEL MATCHING:
+   - If a course directly matches the learner's self-assessed CEFR level (e.g., if self_level is B2 and the course level is B2) or matches their target skill priorities, it MUST receive a high match_score (0.80 to 0.98) and rank at the top.
+   - If a course is below their level (e.g., A1/A2 when learner is B2), assign a lower score (0.20 to 0.50) and explain that while it can serve as a quick review, it may be too basic for their current CEFR level.
+   - If a course is slightly above (e.g., C1 when learner is B2), assign an intermediate score (0.50 to 0.70) as an ambitious stretch goal.
+5. Provide a concise, persuasive pedagogical reason in Vietnamese for EACH course explaining how it aligns with their level, skill gaps, and goals.
 
 Return ONLY a single valid JSON object following this schema:
 {

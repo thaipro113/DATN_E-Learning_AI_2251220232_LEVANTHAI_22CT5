@@ -57,10 +57,21 @@ class AuthService:
     def update_profile(user: CustomUser, validated_data: Dict[str, Any]) -> CustomUser:
         """
         Cập nhật thông tin hồ sơ cá nhân của người dùng.
+        Nếu học viên đổi trình độ CEFR, tự động dọn dẹp các đề xuất khóa học cũ
+        để AI tính toán lại các khóa học tối ưu cho trình độ mới.
         """
+        old_level = user.level
         for attr, value in validated_data.items():
             setattr(user, attr, value)
         user.save()
+
+        if 'level' in validated_data and validated_data['level'] != old_level:
+            try:
+                from apps.recommendations.models import CourseRecommendation
+                CourseRecommendation.objects.filter(student=user).delete()
+            except Exception:
+                pass
+
         return user
 
     @staticmethod

@@ -133,7 +133,7 @@ class CourseRecommendationListAPIView(APIView):
     @list_course_recommendations_schema
     def get(self, request):
         recs = CourseRecommendationService.generate_course_recommendations(student=request.user)
-        active_recs = [r for r in recs if not r.is_dismissed]
+        active_recs = sorted([r for r in recs if not r.is_dismissed], key=lambda x: x.relevance_score, reverse=True)
         serializer = CourseRecommendationSerializer(active_recs, many=True)
         return success_response(
             data=serializer.data,

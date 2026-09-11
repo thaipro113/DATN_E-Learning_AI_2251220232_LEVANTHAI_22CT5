@@ -9,28 +9,35 @@ export default function RecommendedCoursesSection({
   onSelectCourse,
   onNavigateToLearning,
 }) {
-  // Kết hợp đề xuất AI và các khóa học phong phú (gồm cả Miễn phí và Trả phí)
+  // Ưu tiên hiển thị các khóa học do AI đề xuất (loại trừ các khóa học học viên ĐÃ ĐĂNG KÝ)
   let displayCourses = [];
 
-  if (recommendations.length > 0) {
-    displayCourses = recommendations.map((r) => ({
-      ...r.course,
-      recommendation_reason: r.reason,
-      relevance_score: r.relevance_score,
-    }));
+  if (recommendations && recommendations.length > 0) {
+    displayCourses = recommendations
+      .filter((r) => r.course && !isCourseEnrolled(r.course, myCourses))
+      .map((r) => ({
+        ...r.course,
+        recommendation_reason: r.reason,
+        relevance_score: r.relevance_score,
+      }));
+  }
 
-    // Bổ sung thêm khóa học miễn phí từ danh sách nếu chưa có trong đề xuất
-    const freeCourse = courses.find(
-      (c) => (c.is_free || Number(c.price) === 0) && !displayCourses.some((d) => d.id === c.id)
+  // Nếu danh sách chưa đủ 4 khóa học, bổ sung thêm các khóa học chưa đăng ký từ catalog
+  if (displayCourses.length < 4 && courses.length > 0) {
+    const unenrolledCourses = courses.filter(
+      (c) => !isCourseEnrolled(c, myCourses) && !displayCourses.some((d) => d.id === c.id)
     );
-    if (freeCourse) {
+    for (const c of unenrolledCourses) {
+      if (displayCourses.length >= 4) break;
       displayCourses.push({
-        ...freeCourse,
-        recommendation_reason: 'Khóa học nền tảng miễn phí 100% giúp ôn luyện kiến thức cốt lõi.',
+        ...c,
+        recommendation_reason: `Khóa học mở rộng trình độ CEFR ${c.level} giúp nâng cao toàn diện kỹ năng.`,
       });
     }
-  } else {
-    displayCourses = courses.slice(0, 4);
+  }
+
+  if (displayCourses.length === 0) {
+    displayCourses = courses.filter((c) => !isCourseEnrolled(c, myCourses)).slice(0, 4);
   }
 
   return (
