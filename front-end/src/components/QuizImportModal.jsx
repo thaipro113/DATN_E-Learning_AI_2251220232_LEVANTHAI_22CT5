@@ -515,33 +515,33 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
               ))}
             </div>
 
-            {/* HỘP TẢI TỆP MẪU CHUẨN (EXCEL / WORD) CHO GIẢNG VIÊN */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                gap: '12px',
-                flexWrap: 'wrap',
-                marginBottom: '12px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <i className="fa-solid fa-file-arrow-down" style={{ fontSize: '1.2rem', color: '#0284c7' }}></i>
-                <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>
-                    Tải tệp mẫu câu hỏi chuẩn (Templates):
-                  </div>
-                  <div style={{ fontSize: '0.73rem', color: '#64748b' }}>
-                    Tải mẫu có sẵn câu hỏi trắc nghiệm, chỉ cần thêm câu hỏi rồi tải lên lại
+            {/* HỘP TẢI TỆP MẪU CHUẨN DÀNH RIÊNG THEO ĐỊNH DẠNG ĐƯỢC CHỌN */}
+            {sourceType === 'CSV' && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  marginBottom: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <i className="fa-solid fa-file-csv" style={{ fontSize: '1.4rem', color: '#16a34a' }}></i>
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#14532d' }}>
+                      Tệp Mẫu Bảng Điểm Excel / CSV (.csv chuẩn UTF-8):
+                    </div>
+                    <div style={{ fontSize: '0.73rem', color: '#166534' }}>
+                      Có sẵn các cột: Question, Option A/B/C/D, Correct Answer, Explanation, Skill, Points
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
                 <a
                   href="/templates/Mau_De_Thi_Trac_Nghiem_Excel_CSV.csv"
                   download="Mau_De_Thi_Trac_Nghiem_Excel_CSV.csv"
@@ -549,23 +549,51 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    padding: '6px 12px',
+                    padding: '8px 16px',
                     borderRadius: '6px',
-                    backgroundColor: '#f0fdf4',
-                    border: '1px solid #86efac',
-                    color: '#15803d',
-                    fontSize: '0.78rem',
+                    backgroundColor: '#16a34a',
+                    color: '#ffffff',
+                    fontSize: '0.8rem',
                     fontWeight: '700',
                     textDecoration: 'none',
                     cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                     transition: 'all 0.15s ease',
                   }}
                   title="Tải tệp mẫu Excel / CSV chuẩn định dạng UTF-8"
                 >
-                  <i className="fa-solid fa-file-csv" style={{ color: '#16a34a' }}></i>
+                  <i className="fa-solid fa-download"></i>
                   <span>Tải Mẫu Excel / CSV</span>
                 </a>
+              </div>
+            )}
 
+            {sourceType === 'DOCX' && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  marginBottom: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <i className="fa-solid fa-file-word" style={{ fontSize: '1.4rem', color: '#2563eb' }}></i>
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#1e3a8a' }}>
+                      Tệp Mẫu Đề Thi Microsoft Word (.docx):
+                    </div>
+                    <div style={{ fontSize: '0.73rem', color: '#1e40af' }}>
+                      Soạn thảo theo cú pháp: Question 1, các lựa chọn A/B/C/D, Answer và Explanation
+                    </div>
+                  </div>
+                </div>
                 <a
                   href="/templates/Mau_De_Thi_Trac_Nghiem_Word.docx"
                   download="Mau_De_Thi_Trac_Nghiem_Word.docx"
@@ -573,24 +601,24 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    padding: '6px 12px',
+                    padding: '8px 16px',
                     borderRadius: '6px',
-                    backgroundColor: '#eff6ff',
-                    border: '1px solid #93c5fd',
-                    color: '#1d4ed8',
-                    fontSize: '0.78rem',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    fontSize: '0.8rem',
                     fontWeight: '700',
                     textDecoration: 'none',
                     cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                     transition: 'all 0.15s ease',
                   }}
                   title="Tải tệp mẫu Word (.docx) chuẩn định dạng"
                 >
-                  <i className="fa-solid fa-file-word" style={{ color: '#2563eb' }}></i>
+                  <i className="fa-solid fa-download"></i>
                   <span>Tải Mẫu Word (.docx)</span>
                 </a>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Text Area hoặc File Upload */}
