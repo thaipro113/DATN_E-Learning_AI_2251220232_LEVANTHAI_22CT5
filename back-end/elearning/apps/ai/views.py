@@ -271,7 +271,7 @@ class GenerateCourseDescriptionAPIView(APIView):
     """
     API Endpoint cho phép Giáo viên / Admin sinh mô tả khóa học chi tiết và tự động tư duy theo Tiêu đề + Trình độ CEFR.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, IsTeacherUserRole]
 
     def post(self, request):
         from .llm_client import get_llm_provider
@@ -339,7 +339,7 @@ class QuestionAnalysisAPIView(APIView):
     - GET: Lấy danh sách tất cả các bản ghi phân tích học thuật AI phục vụ Admin Hub.
     - POST: Nhận ID câu hỏi hoặc nội dung câu hỏi, gọi LLM phân tích JSON (topic, sub_topic, skill, difficulty, reason, confidence).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsTeacherUserRole]
 
     def get(self, request):
         """
