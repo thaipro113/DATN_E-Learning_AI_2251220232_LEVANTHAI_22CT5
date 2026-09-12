@@ -57,7 +57,17 @@ export default function TeacherAIQuizModal({
 
       if (list.length === 0) {
         try {
-          const res = await courseAPI.getCourses();
+          const savedUserStr = localStorage.getItem('user_info');
+          let currentUser = null;
+          try {
+            currentUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+          } catch (e) {}
+
+          const isTeacher = currentUser?.role === 'TEACHER';
+          const res = isTeacher
+            ? await courseAPI.getTeachingCourses().catch(() => courseAPI.getCourses())
+            : await courseAPI.getCourses();
+
           const fetched = res.data?.data?.results || res.data?.results || res.data?.data || res.data || [];
           if (Array.isArray(fetched) && fetched.length > 0) {
             list = fetched;

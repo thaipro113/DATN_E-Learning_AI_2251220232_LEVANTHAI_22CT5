@@ -74,22 +74,40 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
   const fetchQuizzesAndCourses = async () => {
     setIsLoading(true);
     try {
+      const savedUserStr = localStorage.getItem('user_info');
+      let currentUser = null;
+      try {
+        currentUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+      } catch (e) {}
+
+      const isTeacher = currentUser?.role === 'TEACHER';
+
       const [quizzesRes, coursesRes] = await Promise.allSettled([
-        assessmentAPI.getQuizzes(),
+        assessmentAPI.getQuizzes(isTeacher ? { my_quizzes: 'true' } : {}),
         courseAPI.getTeachingCourses(),
       ]);
 
-      if (quizzesRes.status === 'fulfilled' && quizzesRes.value.data) {
-        const list = quizzesRes.value.data.results || quizzesRes.value.data.data?.results || quizzesRes.value.data.data || quizzesRes.value.data || [];
-        if (Array.isArray(list)) {
-          setQuizzes(list);
+      let cList = [];
+      if (coursesRes.status === 'fulfilled' && coursesRes.value.data) {
+        cList = coursesRes.value.data.data || coursesRes.value.data.results || coursesRes.value.data || [];
+        if (Array.isArray(cList)) {
+          setCourses(cList);
         }
       }
 
-      if (coursesRes.status === 'fulfilled' && coursesRes.value.data) {
-        const cList = coursesRes.value.data.data || coursesRes.value.data.results || coursesRes.value.data || [];
-        if (Array.isArray(cList)) {
-          setCourses(cList);
+      if (quizzesRes.status === 'fulfilled' && quizzesRes.value.data) {
+        let list = quizzesRes.value.data.results || quizzesRes.value.data.data?.results || quizzesRes.value.data.data || quizzesRes.value.data || [];
+        if (Array.isArray(list)) {
+          // Lọc chính xác đề thi do giáo viên đang đăng nhập tạo hoặc thuộc khóa học của giáo viên
+          if (isTeacher && currentUser) {
+            const teacherCourseIds = new Set(cList.map((c) => String(c.id)));
+            list = list.filter((q) =>
+              String(q.created_by) === String(currentUser.id) ||
+              q.creator_name === currentUser.full_name ||
+              (q.course && teacherCourseIds.has(String(q.course)))
+            );
+          }
+          setQuizzes(list);
         }
       }
     } catch (err) {
