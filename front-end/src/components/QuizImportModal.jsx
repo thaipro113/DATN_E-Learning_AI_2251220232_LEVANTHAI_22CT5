@@ -239,11 +239,17 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
       setPreviewData(questions);
       if (batch?.error_log) {
         setErrorLog(batch.error_log);
+      } else {
+        setErrorLog(null);
       }
       if (questions.length > 0) {
-        setStatusMessage(`✓ Đã bóc tách thành công ${questions.length} câu hỏi từ tệp tải lên! Hãy xác nhận thông tin để lưu vào CSDL.`);
+        if (batch?.error_log) {
+          setStatusMessage(`Đã bóc tách được ${questions.length} câu hỏi. Lưu ý: Phát hiện một số cảnh báo định dạng bên dưới, vui lòng kiểm tra trước khi lưu.`);
+        } else {
+          setStatusMessage(`✓ Đã bóc tách thành công ${questions.length} câu hỏi chuẩn xác! Hãy xác nhận thông tin để lưu vào CSDL.`);
+        }
       } else {
-        setStatusMessage('Không tìm thấy câu hỏi hợp lệ trong tệp tải lên. Vui lòng kiểm tra định dạng theo tệp mẫu.');
+        setStatusMessage('Cảnh báo: Tệp đề thi không đúng định dạng mẫu chuẩn! Không trích xuất được câu hỏi nào.');
       }
     } catch (err) {
       console.error('Parse error:', err);
@@ -728,20 +734,72 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
           </button>
 
           {statusMessage && (
-            <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', fontSize: '0.82rem', fontWeight: '700' }}>
-              {statusMessage}
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: '6px',
+                backgroundColor: previewData?.length > 0 ? '#f0fdf4' : '#fef2f2',
+                color: previewData?.length > 0 ? '#15803d' : '#dc2626',
+                border: `1px solid ${previewData?.length > 0 ? '#bbf7d0' : '#fecaca'}`,
+                fontSize: '0.84rem',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <i className={`fa-solid ${previewData?.length > 0 ? 'fa-circle-check' : 'fa-triangle-exclamation'}`}></i>
+              <span>{statusMessage}</span>
             </div>
           )}
 
-          {errorLog && (
-            <div style={{ padding: '10px 14px', borderRadius: '6px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', fontSize: '0.8rem' }}>
-              <div style={{ fontWeight: '800', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <i className="fa-solid fa-triangle-exclamation" style={{ color: '#dc2626' }}></i>
-                <span>Chi tiết lỗi bóc tách:</span>
+          {/* Cảnh báo nghiêm trọng khi tệp không đúng định dạng mẫu chuẩn (0 câu hỏi) */}
+          {errorLog && (!previewData || previewData.length === 0) && (
+            <div style={{ padding: '14px 16px', borderRadius: '8px', backgroundColor: '#fef2f2', border: '1.5px solid #f87171', color: '#991b1b', fontSize: '0.82rem' }}>
+              <div style={{ fontWeight: '800', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                <i className="fa-solid fa-triangle-exclamation" style={{ color: '#dc2626', fontSize: '1.1rem' }}></i>
+                <span>CẢNH BÁO: TỆP ĐỀ THI KHÔNG ĐÚNG ĐỊNH DẠNG MẪU!</span>
               </div>
-              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+              <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontFamily: 'inherit', margin: '4px 0 10px', padding: '10px 12px', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #fecaca', fontSize: '0.8rem', color: '#7f1d1d' }}>
                 {typeof errorLog === 'object' ? JSON.stringify(errorLog, null, 2) : String(errorLog)}
-              </pre>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+                <span style={{ fontSize: '0.78rem', color: '#7f1d1d', fontWeight: '600' }}>
+                  Vui lòng tải tệp mẫu chuẩn bên dưới để kiểm tra các cột hoặc cấu trúc câu hỏi:
+                </span>
+                <a
+                  href={sourceType === 'CSV' ? '/templates/Mau_De_Thi_Trac_Nghiem_Excel_CSV.csv' : '/templates/Mau_De_Thi_Trac_Nghiem_Word.docx'}
+                  download
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    backgroundColor: '#dc2626',
+                    color: '#ffffff',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <i className="fa-solid fa-download"></i>
+                  <span>Tải Tệp Mẫu {sourceType === 'CSV' ? 'Excel / CSV' : 'Word (.docx)'} Chuẩn</span>
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Cảnh báo lưu ý khi bóc tách được nhưng có một số dòng chưa chuẩn quy cách */}
+          {errorLog && previewData && previewData.length > 0 && (
+            <div style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: '#fffbeb', border: '1.5px solid #fcd34d', color: '#92400e', fontSize: '0.82rem' }}>
+              <div style={{ fontWeight: '800', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+                <i className="fa-solid fa-circle-exclamation" style={{ color: '#d97706', fontSize: '1rem' }}></i>
+                <span>LƯU Ý & CẢNH BÁO VỀ ĐỊNH DẠNG TỆP:</span>
+              </div>
+              <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.45', fontFamily: 'inherit', margin: '4px 0 0', padding: '8px 12px', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #fde68a', fontSize: '0.8rem', color: '#78350f' }}>
+                {typeof errorLog === 'object' ? JSON.stringify(errorLog, null, 2) : String(errorLog)}
+              </div>
             </div>
           )}
 

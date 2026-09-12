@@ -47,6 +47,8 @@ class BaseQuizParser(ABC):
     """
     Interface cơ sở cho các bộ phân tích đề thi.
     """
+    def __init__(self):
+        self.warnings: List[str] = []
 
     @abstractmethod
     def parse(self, raw_input: Any) -> List[Dict[str, Any]]:
@@ -68,26 +70,43 @@ class RawTextQuizParser(BaseQuizParser):
     Answer / Đáp án: C
     Explanation / Giải thích: Lý do đúng
     """
+    def __init__(self):
+        super().__init__()
 
     def parse(self, text: str) -> List[Dict[str, Any]]:
+        self.warnings = []
         if not text or not text.strip():
+            self.warnings.append("Nội dung tệp hoặc văn bản bị rỗng.")
             return []
 
         questions = []
         # Tách các khối câu hỏi dựa trên số thứ tự câu (VD: "1.", "Câu 1:", "Question 1:")
         raw_blocks = re.split(r'\n\s*(?=(?:Câu\s*\d+[:.]|\d+[:.]|Question\s*\d+[:.]))\s*', text.strip())
 
-        for block in raw_blocks:
+        # Kiểm tra nếu toàn bộ văn bản không khớp số thứ tự câu hỏi nào
+        if len(raw_blocks) <= 1 and not re.match(r'^(?:Câu\s*\d+[:.]|\d+[:.]|Question\s*\d+[:.])', text.strip()):
+            self.warnings.append(
+                "Không nhận diện được số thứ tự câu hỏi (cần có định dạng 'Question 1:' hoặc 'Câu 1:' hoặc '1.')."
+            )
+
+        for block_idx, block in enumerate(raw_blocks, start=1):
             if not block.strip():
                 continue
 
-            parsed_q = self._parse_single_block(block.strip())
+            parsed_q = self._parse_single_block(block.strip(), block_idx)
             if parsed_q:
                 questions.append(parsed_q)
 
+        if not questions:
+            self.warnings.append(
+                "Tệp Word / Văn bản không đúng mẫu quy chuẩn. "
+                "Cần cấu trúc: 'Question 1: ...', 'A. ...', 'B. ...', 'Answer: A'. "
+                "Vui lòng tải 'Tệp Mẫu Word (.docx)' để đối chiếu."
+            )
+
         return questions
 
-    def _parse_single_block(self, block: str) -> Optional[Dict[str, Any]]:
+    def _parse_single_block(self, block: str, block_idx: int = 1) -> Optional[Dict[str, Any]]:
         lines = [line.strip() for line in block.split('\n') if line.strip()]
         if not lines:
             return None
@@ -96,6 +115,9 @@ class RawTextQuizParser(BaseQuizParser):
         first_line = lines[0]
         # Loại bỏ tiền tố "1.", "Câu 1:", "Question 1."
         q_content = re.sub(r'^(?:Câu\s*\d+[:.]|\d+[:.]|Question\s*\d+[:.])\s*', '', first_line).strip()
+        if not q_content:
+            self.warnings.append(f"Khối câu số {block_idx}: Nội dung câu hỏi bị để trống.")
+            return None
 
         options = []
         explanation = ""
@@ -145,9 +167,17 @@ class RawTextQuizParser(BaseQuizParser):
                 if opt.get('char') in specified_answer_char:
                     opt['is_correct'] = True
 
-        # Đảm bảo có ít nhất 1 đáp án đúng nếu có options
+        # Cảnh báo thiếu đáp án đúng
         if options and not any(opt['is_correct'] for opt in options):
+            self.warnings.append(
+                f"Câu {block_idx} ('{q_content[:30]}...'): Chưa chỉ định đáp án đúng (thiếu dòng 'Answer: [A/B/C/D]' hoặc ký tự '*'). Hệ thống tạm chọn phương án A."
+            )
             options[0]['is_correct'] = True
+
+        if len(options) > 0 and len(options) < 2:
+            self.warnings.append(
+                f"Câu {block_idx} ('{q_content[:30]}...'): Chỉ tìm thấy {len(options)} phương án (quy chuẩn trắc nghiệm cần tối thiểu 2 phương án A, B)."
+            )
 
         # Làm sạch cấu trúc trả về
         clean_options = [
@@ -158,9 +188,12 @@ class RawTextQuizParser(BaseQuizParser):
         if not clean_options:
             q_type = QuestionType.FILL_IN_THE_BLANK
             clean_options = [{'content': 'answer', 'is_correct': True}]
+            self.warnings.append(
+                f"Câu {block_idx} ('{q_content[:30]}...'): Không tìm thấy các phương án A/B/C/D. Tạm chuyển thành câu tự luận điền từ."
+            )
 
         return {
-            'content': q_content or block[:100],
+            'content': q_content,
             'question_type': q_type,
             'skill': skill,
             'points': points,
@@ -171,42 +204,79 @@ class RawTextQuizParser(BaseQuizParser):
 
 class CSVQuizParser(BaseQuizParser):
     """
-    Bộ phân tích bảng câu hỏi từ tệp CSV.
+    Bộ phân tích bảng câu hỏi từ tệp CSV/Excel.
     Cột chuẩn: Question, Option A, Option B, Option C, Option D, Correct Answer, Explanation, Skill, Points
     """
+    def __init__(self):
+        super().__init__()
 
     def parse(self, csv_content: str) -> List[Dict[str, Any]]:
+        self.warnings = []
+        if not csv_content or not csv_content.strip():
+            self.warnings.append("Tệp CSV/Excel bị rỗng, không có dữ liệu để phân tích.")
+            return []
+
         questions = []
         reader = csv.DictReader(io.StringIO(csv_content))
+        if not reader.fieldnames:
+            self.warnings.append("Không nhận diện được dòng tiêu đề cột của tệp bảng tính CSV/Excel.")
+            return []
 
-        for row in reader:
-            # Chuẩn hóa tên cột không phân biệt hoa thường
-            row_normalized = {k.strip().lower(): v.strip() for k, v in row.items() if k}
+        normalized_headers = [h.strip().lower() for h in reader.fieldnames if h]
+
+        # 1. Kiểm tra cột bắt buộc: Câu hỏi
+        has_q_col = any(h in ['question', 'câu hỏi', 'content', 'cau hoi'] for h in normalized_headers)
+        if not has_q_col:
+            self.warnings.append("Thiếu cột bắt buộc 'Question' (hoặc 'Câu hỏi'). Cột này dùng để chứa nội dung câu hỏi.")
+
+        # 2. Kiểm tra các cột phương án
+        has_opt_cols = any(('option' in h) or (h in ['a', 'b', 'c', 'd', 'đáp án a', 'đáp án b']) for h in normalized_headers)
+        if not has_opt_cols:
+            self.warnings.append("Thiếu các cột phương án trả lời ('Option A', 'Option B', 'Option C', 'Option D').")
+
+        # 3. Kiểm tra cột đáp án đúng
+        has_ans_col = any(h in ['correct answer', 'đáp án', 'dap an', 'answer', 'key', 'đáp án đúng'] for h in normalized_headers)
+        if not has_ans_col:
+            self.warnings.append("Thiếu cột 'Correct Answer' (Đáp án đúng). Hệ thống sẽ tự động chọn phương án A làm đáp án đúng.")
+
+        for row_idx, row in enumerate(reader, start=2):
+            row_normalized = {k.strip().lower(): (v.strip() if v else '') for k, v in row.items() if k}
 
             content = row_normalized.get('question') or row_normalized.get('câu hỏi') or row_normalized.get('content')
             if not content:
+                if any(row_normalized.values()):
+                    self.warnings.append(f"Dòng {row_idx}: Bị bỏ qua vì nội dung câu hỏi bị để trống.")
                 continue
 
-            opt_a = row_normalized.get('option a') or row_normalized.get('a') or ''
-            opt_b = row_normalized.get('option b') or row_normalized.get('b') or ''
-            opt_c = row_normalized.get('option c') or row_normalized.get('c') or ''
-            opt_d = row_normalized.get('option d') or row_normalized.get('d') or ''
-            correct = (row_normalized.get('correct answer') or row_normalized.get('đáp án') or 'A').upper()
+            opt_a = row_normalized.get('option a') or row_normalized.get('a') or row_normalized.get('đáp án a') or ''
+            opt_b = row_normalized.get('option b') or row_normalized.get('b') or row_normalized.get('đáp án b') or ''
+            opt_c = row_normalized.get('option c') or row_normalized.get('c') or row_normalized.get('đáp án c') or ''
+            opt_d = row_normalized.get('option d') or row_normalized.get('d') or row_normalized.get('đáp án d') or ''
+            correct_raw = row_normalized.get('correct answer') or row_normalized.get('đáp án') or row_normalized.get('đáp án đúng') or row_normalized.get('answer') or ''
+            correct = correct_raw.upper().strip()
             explanation = row_normalized.get('explanation') or row_normalized.get('giải thích') or ''
             skill = row_normalized.get('skill', 'GRAMMAR').upper()
             points_val = float(row_normalized.get('points') or 10.0)
 
             options = []
             if opt_a:
-                options.append({'content': opt_a, 'is_correct': 'A' in correct or opt_a == correct})
+                options.append({'content': opt_a, 'is_correct': 'A' in correct or opt_a == correct_raw})
             if opt_b:
-                options.append({'content': opt_b, 'is_correct': 'B' in correct or opt_b == correct})
+                options.append({'content': opt_b, 'is_correct': 'B' in correct or opt_b == correct_raw})
             if opt_c:
-                options.append({'content': opt_c, 'is_correct': 'C' in correct or opt_c == correct})
+                options.append({'content': opt_c, 'is_correct': 'C' in correct or opt_c == correct_raw})
             if opt_d:
-                options.append({'content': opt_d, 'is_correct': 'D' in correct or opt_d == correct})
+                options.append({'content': opt_d, 'is_correct': 'D' in correct or opt_d == correct_raw})
 
-            if not any(o['is_correct'] for o in options) and options:
+            if len(options) < 2:
+                self.warnings.append(f"Dòng {row_idx}: Câu '{content[:30]}...' chỉ có {len(options)} phương án (tối thiểu 2 phương án). Dòng này bị loại bỏ.")
+                continue
+
+            if not any(o['is_correct'] for o in options):
+                if correct_raw:
+                    self.warnings.append(f"Dòng {row_idx}: Đáp án đúng '{correct_raw}' không khớp với các lựa chọn A/B/C/D. Tự động chọn phương án đầu tiên.")
+                else:
+                    self.warnings.append(f"Dòng {row_idx}: Chưa chỉ định đáp án đúng. Tự động chọn phương án A.")
                 options[0]['is_correct'] = True
 
             questions.append({
@@ -218,6 +288,9 @@ class CSVQuizParser(BaseQuizParser):
                 'options': options
             })
 
+        if not questions and not self.warnings:
+            self.warnings.append("Không tìm thấy dòng câu hỏi hợp lệ nào trong tệp bảng tính CSV/Excel.")
+
         return questions
 
 
@@ -225,10 +298,20 @@ class DocxQuizParser(BaseQuizParser):
     """
     Bộ bóc tách văn bản từ tệp Word (.docx) thông qua cấu trúc XML gốc.
     """
+    def __init__(self):
+        super().__init__()
 
     def parse(self, file_bytes: bytes) -> List[Dict[str, Any]]:
+        self.warnings = []
         text_content = self.extract_text_from_docx(file_bytes)
-        return RawTextQuizParser().parse(text_content)
+        if not text_content.strip():
+            self.warnings.append("Không thể đọc nội dung văn bản từ tệp Word (.docx). Vui lòng đảm bảo tệp không bị lỗi hoặc rỗng.")
+            return []
+
+        raw_parser = RawTextQuizParser()
+        result = raw_parser.parse(text_content)
+        self.warnings.extend(raw_parser.warnings)
+        return result
 
     @staticmethod
     def extract_text_from_docx(file_bytes: bytes) -> str:
@@ -255,9 +338,13 @@ class AIQuizExtractionParser(BaseQuizParser):
     Bộ trích xuất đề thi thông minh sử dụng Google Gemini LLM Engine.
     Có thể bóc tách mọi dạng văn bản đề thi tự do, không theo khuôn mẫu.
     """
+    def __init__(self):
+        super().__init__()
 
     def parse(self, text: str) -> List[Dict[str, Any]]:
+        self.warnings = []
         if not text or not text.strip():
+            self.warnings.append("Nội dung cung cấp cho AI bị rỗng.")
             return []
 
         provider = get_llm_provider()

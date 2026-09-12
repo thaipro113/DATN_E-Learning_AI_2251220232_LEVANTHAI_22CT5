@@ -61,29 +61,41 @@ class QuizImportService:
         )
 
         try:
-            parsed_questions = cls._execute_parsing(batch)
+            parsed_questions, warnings = cls._execute_parsing(batch)
+            batch.parsed_data = parsed_questions or []
+            batch.total_parsed = len(parsed_questions) if parsed_questions else 0
+
             if parsed_questions:
-                batch.parsed_data = parsed_questions
-                batch.total_parsed = len(parsed_questions)
                 batch.status = BatchStatus.PARSED
-                batch.error_log = ""
+                if warnings:
+                    batch.error_log = "LƯU Ý & CẢNH BÁO ĐỊNH DẠNG TỆP:\n" + "\n".join(f"• {w}" for w in warnings)
+                else:
+                    batch.error_log = ""
             else:
                 batch.status = BatchStatus.FAILED
-                batch.error_log = "Không tìm thấy hoặc không bóc tách được câu hỏi nào từ nguồn cung cấp."
+                err_msg = "CẢNH BÁO: TỆP KHÔNG ĐÚNG ĐỊNH DẠNG MẪU CHUẨN!\n"
+                if warnings:
+                    err_msg += "\n".join(f"• {w}" for w in warnings)
+                else:
+                    err_msg += "• Không tìm thấy câu hỏi hợp lệ nào từ tệp. Vui lòng đối chiếu với tệp mẫu chuẩn."
+                batch.error_log = err_msg
         except Exception as e:
             logger.error(f"Error while parsing QuizImportBatch {batch.id}: {e}", exc_info=True)
             batch.status = BatchStatus.FAILED
-            batch.error_log = str(e)
+            batch.error_log = f"Lỗi hệ thống khi bóc tách tệp: {str(e)}"
 
         batch.save()
         return batch
 
     @classmethod
-    def _execute_parsing(cls, batch: QuizImportBatch) -> List[Dict[str, Any]]:
+    def _execute_parsing(cls, batch: QuizImportBatch) -> Tuple[List[Dict[str, Any]], List[str]]:
         """
         Lựa chọn parser phù hợp theo định dạng nguồn và tùy chọn AI.
         Bắt buộc ưu tiên trích xuất từ tệp tải lên (file) nếu có.
+        Trả về cặp (questions, warnings).
         """
+        warnings: List[str] = []
+
         # 1. NẾU CÓ TỆP TẢI LÊN (CSV / DOCX / XLSX), BẮT BUỘC ĐỌC TỪ TỆP
         if batch.file and batch.source_type != ImportSourceType.RAW_TEXT:
             try:
@@ -92,33 +104,50 @@ class QuizImportService:
             except Exception as e:
                 logger.error(f"Cannot read uploaded file: {e}")
                 file_bytes = b""
+                warnings.append(f"Không thể đọc nội dung tệp tải lên: {str(e)}")
 
             if batch.source_type == ImportSourceType.DOCX:
-                text_content = DocxQuizParser.extract_text_from_docx(file_bytes)
+                docx_parser = DocxQuizParser()
+                parsed_docx = docx_parser.parse(file_bytes)
+                warnings.extend(docx_parser.warnings)
+
                 if batch.use_ai:
-                    ai_parsed = AIQuizExtractionParser().parse(text_content)
+                    ai_parser = AIQuizExtractionParser()
+                    text_content = DocxQuizParser.extract_text_from_docx(file_bytes)
+                    ai_parsed = ai_parser.parse(text_content)
                     if ai_parsed:
-                        return ai_parsed
-                return RawTextQuizParser().parse(text_content)
+                        return ai_parsed, docx_parser.warnings
+                return parsed_docx, warnings
 
             elif batch.source_type in [ImportSourceType.CSV, ImportSourceType.XLSX]:
                 csv_str = file_bytes.decode('utf-8-sig', errors='ignore')
-                csv_parsed = CSVQuizParser().parse(csv_str)
+                csv_parser = CSVQuizParser()
+                csv_parsed = csv_parser.parse(csv_str)
+                warnings.extend(csv_parser.warnings)
+
                 if csv_parsed:
-                    return csv_parsed
+                    return csv_parsed, warnings
+
                 if batch.use_ai:
-                    ai_parsed = AIQuizExtractionParser().parse(csv_str)
+                    ai_parser = AIQuizExtractionParser()
+                    ai_parsed = ai_parser.parse(csv_str)
                     if ai_parsed:
-                        return ai_parsed
-                return RawTextQuizParser().parse(csv_str)
+                        return ai_parsed, warnings
+
+                return csv_parsed, warnings
 
         # 2. NẾU KHÔNG CÓ TỆP HOẶC LÀ VĂN BẢN THÔ (RAW_TEXT)
         text_to_parse = batch.raw_text or ""
         if batch.use_ai:
-            ai_parsed = AIQuizExtractionParser().parse(text_to_parse)
+            ai_parser = AIQuizExtractionParser()
+            ai_parsed = ai_parser.parse(text_to_parse)
             if ai_parsed:
-                return ai_parsed
-        return RawTextQuizParser().parse(text_to_parse)
+                return ai_parsed, []
+
+        raw_parser = RawTextQuizParser()
+        raw_parsed = raw_parser.parse(text_to_parse)
+        warnings.extend(raw_parser.warnings)
+        return raw_parsed, warnings
 
     @classmethod
     def confirm_and_import_to_quiz(
