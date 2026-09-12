@@ -48,21 +48,49 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
   const [statusMessage, setStatusMessage] = useState('');
   const [errorLog, setErrorLog] = useState(null);
 
-  // Load danh sách khóa học và đề thi hiện có
+  // Load danh sách khóa học và đề thi hiện có (chỉ hiển thị khóa học & đề thi của giảng viên đang đăng nhập)
   useEffect(() => {
     if (!isOpen) return;
 
     const loadData = async () => {
       try {
+        const savedUserStr = localStorage.getItem('user_info');
+        let currentUser = null;
+        try {
+          currentUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+        } catch (err) {}
+
+        const isTeacher = currentUser?.role === 'TEACHER';
+
+        // Lấy danh sách khóa học: Nếu là giảng viên, ưu tiên gọi getTeachingCourses()
+        const coursePromise = isTeacher
+          ? courseAPI.getTeachingCourses().catch(() => courseAPI.getCourses())
+          : courseAPI.getCourses();
+
+        // Lấy danh sách đề thi: truyền my_quizzes để backend chỉ trả về đề thi của giảng viên
+        const quizPromise = assessmentAPI.getQuizzes(isTeacher ? { my_quizzes: 'true' } : {});
+
         const [cRes, qRes] = await Promise.allSettled([
-          courseAPI.getCourses(),
-          assessmentAPI.getQuizzes(),
+          coursePromise,
+          quizPromise,
         ]);
 
         let cList = [];
         if (cRes.status === 'fulfilled' && cRes.value.data) {
-          cList = cRes.value.data.results || cRes.value.data.data?.results || cRes.value.data.data || cRes.value.data || [];
+          cList = cRes.value.data.data?.results || cRes.value.data.results || cRes.value.data.data || cRes.value.data || [];
           if (Array.isArray(cList)) {
+            // Lọc chính xác khóa học thuộc về giảng viên đăng nhập
+            if (isTeacher && currentUser) {
+              const teacherFiltered = cList.filter(
+                (c) =>
+                  String(c.teacher?.id) === String(currentUser.id) ||
+                  c.teacher?.email === currentUser.email ||
+                  String(c.instructor) === String(currentUser.id)
+              );
+              if (teacherFiltered.length > 0) {
+                cList = teacherFiltered;
+              }
+            }
             setCourses(cList);
             const targetCourse = initialCourse || (cList.length > 0 ? cList[0] : null);
             if (targetCourse) {
@@ -74,10 +102,24 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
         }
 
         if (qRes.status === 'fulfilled' && qRes.value.data) {
-          const qList = qRes.value.data.results || qRes.value.data.data?.results || qRes.value.data.data || [];
+          let qList = qRes.value.data.results || qRes.value.data.data?.results || qRes.value.data.data || qRes.value.data || [];
           if (Array.isArray(qList)) {
+            // Lọc danh sách đề thi: chỉ lấy đề thi do giảng viên tạo hoặc gắn với khóa học của giảng viên
+            if (isTeacher && currentUser) {
+              const teacherCourseIds = new Set(cList.map((c) => String(c.id)));
+              qList = qList.filter(
+                (q) =>
+                  String(q.created_by) === String(currentUser.id) ||
+                  q.creator_name === currentUser.full_name ||
+                  (q.course && teacherCourseIds.has(String(q.course)))
+              );
+            }
             setQuizzes(qList);
-            if (qList.length > 0) setTargetQuizId(qList[0].id);
+            if (qList.length > 0) {
+              setTargetQuizId(qList[0].id);
+            } else {
+              setTargetQuizId('');
+            }
           }
         }
       } catch (e) {
@@ -240,6 +282,12 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
 
         const quizRes = await assessmentAPI.createQuiz(quizPayload);
         finalQuizId = quizRes.data?.data?.id || quizRes.data?.id;
+      } else {
+        if (!finalQuizId) {
+          alert('Vui lòng chọn một đề thi có sẵn của bạn để thêm câu hỏi!');
+          setIsConfirming(false);
+          return;
+        }
       }
 
       if (currentBatchId && finalQuizId) {
@@ -382,7 +430,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                   <i className="fa-solid fa-graduation-cap" style={{ color: '#0284c7' }}></i>
-                  <span>Khóa học nhận đề thi:</span>
+                  <span>Khóa học phụ trách nhận đề thi:</span>
                 </label>
                 <select
                   value={selectedCourseId}
@@ -390,7 +438,7 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: '600' }}
                 >
                   {courses.length === 0 ? (
-                    <option value="">(Chưa có khóa học nào)</option>
+                    <option value="">(Bạn chưa có khóa học phụ trách nào)</option>
                   ) : (
                     courses.map((c) => (
                       <option key={c.id || c.slug} value={c.id || c.slug}>
@@ -743,19 +791,25 @@ export default function QuizImportModal({ isOpen, onClose, onImportSuccess, init
                 ) : (
                   <div>
                     <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                      Chọn đề thi đích trong CSDL:
+                      Chọn đề thi của bạn trong CSDL:
                     </label>
-                    <select
-                      value={targetQuizId}
-                      onChange={(e) => setTargetQuizId(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem', fontWeight: '600' }}
-                    >
-                      {quizzes.map((q) => (
-                        <option key={q.id} value={q.id}>
-                          {q.title} (CEFR {q.level || 'B1'})
-                        </option>
-                      ))}
-                    </select>
+                    {quizzes.length === 0 ? (
+                      <div style={{ fontSize: '0.8rem', color: '#b45309', padding: '6px 0', fontWeight: '600' }}>
+                        (Bạn chưa có đề thi nào trong CSDL. Vui lòng chọn "+ Tự động tạo Đề thi mới" ở trên để tạo đề thi mới)
+                      </div>
+                    ) : (
+                      <select
+                        value={targetQuizId}
+                        onChange={(e) => setTargetQuizId(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem', fontWeight: '600' }}
+                      >
+                        {quizzes.map((q) => (
+                          <option key={q.id} value={q.id}>
+                            {q.title} (CEFR {q.level || 'B1'})
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 )}
               </div>

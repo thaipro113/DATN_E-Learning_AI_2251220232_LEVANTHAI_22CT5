@@ -193,6 +193,7 @@ class QuizListSerializer(serializers.ModelSerializer):
             'chapter_title',
             'lesson',
             'lesson_title',
+            'created_by',
             'creator_name',
             'created_at',
             'updated_at'

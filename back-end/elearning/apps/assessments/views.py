@@ -54,6 +54,7 @@ class QuizListCreateAPIView(APIView):
             'chapter_id': request.query_params.get('chapter_id'),
             'lesson_id': request.query_params.get('lesson_id'),
             'search': request.query_params.get('search'),
+            'my_quizzes': request.query_params.get('my_quizzes'),
         }
 
         quizzes = QuizService.list_quizzes(user=request.user, filters=filters)

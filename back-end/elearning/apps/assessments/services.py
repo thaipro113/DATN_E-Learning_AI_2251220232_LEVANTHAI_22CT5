@@ -36,6 +36,10 @@ class QuizService:
         if not is_admin_or_teacher:
             queryset = queryset.filter(is_published=True)
 
+        my_quizzes = filters.get('my_quizzes')
+        if my_quizzes in ['true', 'True', True, '1'] and user and user.is_authenticated:
+            queryset = queryset.filter(Q(created_by=user) | Q(course__teacher=user))
+
         quiz_type = filters.get('quiz_type')
         if quiz_type:
             queryset = queryset.filter(quiz_type=quiz_type.upper())
