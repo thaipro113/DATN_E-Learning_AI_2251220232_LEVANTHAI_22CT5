@@ -986,7 +986,7 @@ class FallbackMockLLMProvider(BaseLLMProvider):
         raise RuntimeError("Hệ thống yêu cầu LLM thật (Groq/Gemini) để sinh đề thi luyện tập điểm yếu. Không sử dụng Mock trong luồng chính.")
 
     def recommend_courses_with_llm(self, student_profile: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
-        raise RuntimeError("Hệ thống yêu cầu LLM thật (Groq/Gemini) để xếp hạng gợi ý khóa học. Không sử dụng Mock trong luồng chính.")
+        return {'recommended_courses': []}
 
 
 def get_llm_provider() -> BaseLLMProvider:

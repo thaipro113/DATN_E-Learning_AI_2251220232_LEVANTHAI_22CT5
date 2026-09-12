@@ -9,10 +9,10 @@ export default function CourseRecommendationWizardModal({
   myCourses = [],
 }) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [goal, setGoal] = useState('Luyen thi TOEIC 650+');
+  const [goal, setGoal] = useState('Luyện thi TOEIC 650+');
   const [selfLevel, setSelfLevel] = useState('B1');
-  const [prioritySkill, setPrioritySkill] = useState('Ngu phap & Tu vung');
-  const [dailyTime, setDailyTime] = useState('30 phut');
+  const [prioritySkill, setPrioritySkill] = useState('Ngữ pháp & Cấu trúc');
+  const [dailyTime, setDailyTime] = useState('30 phút/ngày');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -55,10 +55,10 @@ export default function CourseRecommendationWizardModal({
       if (Array.isArray(data) && data.length > 0) {
         setRecommendations(data);
       } else {
-        setErrorMsg('Hien chua tim thay khoa hoc phu hop trong kho CSDL. Vui long chon lai tieu chi khac.');
+        setErrorMsg('Hiện chưa tìm thấy khóa học phù hợp trong kho CSDL. Vui lòng chọn lại tiêu chí khác.');
       }
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Loi khi ket noi toi he thong AI Recommendation.';
+      const msg = err.response?.data?.message || err.message || 'Lỗi khi kết nối tới hệ thống gợi ý khóa học AI.';
       setErrorMsg(msg);
     } finally {
       setIsLoading(false);
@@ -127,7 +127,7 @@ export default function CourseRecommendationWizardModal({
               AI Course Recommendation Wizard
             </span>
             <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main, #0f172a)' }}>
-              Khao sat tim khoa hoc phu hop nhat bang AI
+              Khảo sát tìm khóa học phù hợp nhất bằng AI
             </h3>
           </div>
 
@@ -160,10 +160,10 @@ export default function CourseRecommendationWizardModal({
             }}
           >
             {[
-              { step: 1, label: '1. Muc tieu' },
-              { step: 2, label: '2. Trinh do' },
-              { step: 3, label: '3. Uu tien' },
-              { step: 4, label: '4. Thoi gian' },
+              { step: 1, label: '1. Mục tiêu' },
+              { step: 2, label: '2. Trình độ' },
+              { step: 3, label: '3. Ưu tiên' },
+              { step: 4, label: '4. Thời gian' },
             ].map((s) => (
               <div
                 key={s.step}
@@ -187,10 +187,10 @@ export default function CourseRecommendationWizardModal({
           {isLoading && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted, #64748b)' }}>
               <div style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '8px' }}>
-                AI dang truy van danh sach khoa hoc tu PostgreSQL va tinh toan diem tuong thich...
+                AI đang truy vấn danh sách khóa học từ PostgreSQL và tính toán độ tương thích...
               </div>
               <p style={{ fontSize: '0.86rem', margin: 0 }}>
-                Mo hinh LLM dang danh gia tung khoa hoc that de lua chon nhung chuong trinh phu hop nhat voi ban.
+                Mô hình LLM đang đánh giá từng khóa học thực tế để lựa chọn những chương trình phù hợp nhất với bạn.
               </p>
             </div>
           )}
@@ -220,7 +220,7 @@ export default function CourseRecommendationWizardModal({
                   cursor: 'pointer',
                 }}
               >
-                Lam lai khao sat
+                Làm lại khảo sát
               </button>
             </div>
           )}
@@ -232,19 +232,19 @@ export default function CourseRecommendationWizardModal({
               {currentStep === 1 && (
                 <div>
                   <h4 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-main, #0f172a)' }}>
-                    Buoc 1: Muc tieu hoc tap cua ban la gi?
+                    Bước 1: Mục tiêu học tập của bạn là gì?
                   </h4>
                   <p style={{ fontSize: '0.86rem', color: 'var(--text-muted, #64748b)', marginBottom: '16px' }}>
-                    Chon dinh huong ro rang de AI goi y khoa hoc sat nhat voi mong muon cua ban.
+                    Chọn định hướng rõ ràng để AI gợi ý khóa học sát nhất với mong muốn của bạn.
                   </p>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
                     {[
-                      { val: 'Luyen thi TOEIC 650+', desc: 'Chinh phuc chung chi TOEIC de tot nghiep va di lam' },
-                      { val: 'Luyen thi IELTS 6.5+', desc: 'Ren luyen 4 ky nang hoc thuat de du hoc hoac dinh cu' },
-                      { val: 'Tieng Anh Giao tiep & Cong viec', desc: 'Tu tin thuyet trinh, viet email va dam thoan thuc te' },
-                      { val: 'Lay lai nen tang can ban', desc: 'Xoa mat goc ngu phap va tu vung co ban tu con so 0' },
-                      { val: 'Nang cao ngu phap chuyen sau', desc: 'Nam chac moi cau truc ngu phap phuc tap va tranh bay thi' },
+                      { val: 'Luyện thi TOEIC 650+', desc: 'Chinh phục chứng chỉ TOEIC để tốt nghiệp và đi làm' },
+                      { val: 'Luyện thi IELTS 6.5+', desc: 'Rèn luyện 4 kỹ năng học thuật để du học hoặc định cư' },
+                      { val: 'Tiếng Anh Giao tiếp & Công việc', desc: 'Tự tin thuyết trình, viết email và đàm thoại thực tế' },
+                      { val: 'Lấy lại nền tảng căn bản', desc: 'Xóa mất gốc ngữ pháp và từ vựng cơ bản từ con số 0' },
+                      { val: 'Nâng cao ngữ pháp chuyên sâu', desc: 'Nắm chắc mọi cấu trúc ngữ pháp phức tạp và tránh bẫy đề thi' },
                     ].map((item) => (
                       <div
                         key={item.val}
@@ -274,19 +274,19 @@ export default function CourseRecommendationWizardModal({
               {currentStep === 2 && (
                 <div>
                   <h4 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-main, #0f172a)' }}>
-                    Buoc 2: Trinh do tieng Anh hien tai ban tu danh gia?
+                    Bước 2: Trình độ tiếng Anh hiện tại bạn tự đánh giá?
                   </h4>
                   <p style={{ fontSize: '0.86rem', color: 'var(--text-muted, #64748b)', marginBottom: '16px' }}>
-                    Chon cap do CEFR phu hop voi cam nhan thuc te cua ban.
+                    Chọn cấp độ CEFR phù hợp với cảm nhận thực tế của bạn.
                   </p>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                     {[
-                      { level: 'A1', title: 'A1 - Beginner', desc: 'Biet cac tu don gian, can nguoi huong dan ti mi' },
-                      { level: 'A2', title: 'A2 - Elementary', desc: 'Giao tiep co ban, biet cac thi don gian' },
-                      { level: 'B1', title: 'B1 - Intermediate', desc: 'Hieu y chinh cac doan van, noi chuyen tuong doi' },
-                      { level: 'B2', title: 'B2 - Upper-Intermediate', desc: 'Tu tin thao luan nhieu de tai, ngu phap tot' },
-                      { level: 'C1', title: 'C1 - Advanced', desc: 'Su dung ngon ngu linh hoat, luu loat va hoc thuat' },
+                      { level: 'A1', title: 'A1 - Người mới bắt đầu (Beginner)', desc: 'Biết các từ đơn giản, cần người hướng dẫn tỉ mỉ' },
+                      { level: 'A2', title: 'A2 - Sơ cấp (Elementary)', desc: 'Giao tiếp cơ bản, biết các thì và mẫu câu đơn giản' },
+                      { level: 'B1', title: 'B1 - Trung cấp (Intermediate)', desc: 'Hiểu ý chính các đoạn văn, đàm thoại tự tin mức khá' },
+                      { level: 'B2', title: 'B2 - Trung cao cấp (Upper-Intermediate)', desc: 'Tự tin thảo luận nhiều đề tài, ngữ pháp vững chắc' },
+                      { level: 'C1', title: 'C1 - Cao cấp (Advanced)', desc: 'Sử dụng ngôn ngữ linh hoạt, lưu loát và chuẩn học thuật' },
                     ].map((item) => (
                       <div
                         key={item.level}
@@ -315,21 +315,21 @@ export default function CourseRecommendationWizardModal({
               {currentStep === 3 && (
                 <div>
                   <h4 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-main, #0f172a)' }}>
-                    Buoc 3: Ky nang nao ban muon tap trung uu tien cai thien?
+                    Bước 3: Kỹ năng nào bạn muốn tập trung ưu tiên cải thiện?
                   </h4>
                   <p style={{ fontSize: '0.86rem', color: 'var(--text-muted, #64748b)', marginBottom: '16px' }}>
-                    AI se tim kiem cac khoa hoc co noi dung chuyen sau ve ky nang nay.
+                    AI sẽ tìm kiếm các khóa học có nội dung chuyên sâu về kỹ năng này.
                   </p>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
                     {[
-                      'Ngu phap & Cau truc',
-                      'Tu vung & Cum tu',
-                      'Ky nang Nghe (Listening)',
-                      'Ky nang Noi & Phat am (Speaking)',
-                      'Ky nang Doc hieu (Reading)',
-                      'Ky nang Viet luan (Writing)',
-                      'Tong hop toan dien 4 ky nang',
+                      'Ngữ pháp & Cấu trúc',
+                      'Từ vựng & Cụm từ',
+                      'Kỹ năng Nghe (Listening)',
+                      'Kỹ năng Nói & Phát âm (Speaking)',
+                      'Kỹ năng Đọc hiểu (Reading)',
+                      'Kỹ năng Viết luận (Writing)',
+                      'Tổng hợp toàn diện 4 kỹ năng',
                     ].map((sk) => (
                       <div
                         key={sk}
@@ -360,18 +360,18 @@ export default function CourseRecommendationWizardModal({
               {currentStep === 4 && (
                 <div>
                   <h4 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-main, #0f172a)' }}>
-                    Buoc 4: Thoi gian ban co the danh de hoc moi ngay?
+                    Bước 4: Thời gian bạn có thể dành để học mỗi ngày?
                   </h4>
                   <p style={{ fontSize: '0.86rem', color: 'var(--text-muted, #64748b)', marginBottom: '16px' }}>
-                    AI se can doi luong kien thuc va do dai bai giang phu hop nhat voi quy thoi gian cua ban.
+                    AI sẽ cân đối lượng kiến thức và độ dài bài giảng phù hợp nhất với quỹ thời gian của bạn.
                   </p>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
                     {[
-                      { time: '15 phut/ngay', desc: 'Hoc micro-learning nhe nhang' },
-                      { time: '30 phut/ngay', desc: 'Muc do tieu chuan, de duy tri' },
-                      { time: '45 phut/ngay', desc: 'Tien do nhanh, hieu qua cao' },
-                      { time: '60+ phut/ngay', desc: 'Hoc cap toc va chuyen sau' },
+                      { time: '15 phút/ngày', desc: 'Học micro-learning nhẹ nhàng' },
+                      { time: '30 phút/ngày', desc: 'Mức độ tiêu chuẩn, dễ duy trì' },
+                      { time: '45 phút/ngày', desc: 'Tiến độ nhanh, hiệu quả cao' },
+                      { time: '60+ phút/ngày', desc: 'Học cấp tốc và chuyên sâu' },
                     ].map((t) => (
                       <div
                         key={t.time}
@@ -411,10 +411,10 @@ export default function CourseRecommendationWizardModal({
                 }}
               >
                 <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#166534', marginBottom: '4px' }}>
-                  Ket qua de xuat tu AI Advisor (Dua tren CSDL PostgreSQL):
+                  Kết quả đề xuất từ Trợ lý AI (Dựa trên CSDL PostgreSQL):
                 </div>
                 <div style={{ fontSize: '0.82rem', color: '#15803d' }}>
-                  Muc tieu: {goal} | Trinh do: {selfLevel} | Uu tien: {prioritySkill} | Thoi gian: {dailyTime}
+                  Mục tiêu: {goal} | Trình độ: {selfLevel} | Ưu tiên: {prioritySkill} | Thời gian: {dailyTime}
                 </div>
               </div>
 
@@ -462,7 +462,7 @@ export default function CourseRecommendationWizardModal({
                               color: '#15803d',
                             }}
                           >
-                            Do phu hop AI: {Math.round(rec.relevance_score || 90)}%
+                            Độ phù hợp AI: {Math.round(rec.relevance_score || 90)}%
                           </span>
                         </div>
 
@@ -476,7 +476,7 @@ export default function CourseRecommendationWizardModal({
 
                       <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
                         <span style={{ fontSize: '1rem', fontWeight: '800', color: enrolled ? '#059669' : isFree ? '#0284c7' : '#ea580c' }}>
-                          {enrolled ? 'Da dang ky' : isFree ? 'Mien phi 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} d`}
+                          {enrolled ? 'Đã đăng ký' : isFree ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
                         </span>
 
                         <div style={{ display: 'flex', gap: '8px' }}>
@@ -495,7 +495,7 @@ export default function CourseRecommendationWizardModal({
                               cursor: 'pointer',
                             }}
                           >
-                            Xem chi tiet
+                            Xem chi tiết
                           </button>
 
                           {!enrolled && onEnroll && (
@@ -515,7 +515,7 @@ export default function CourseRecommendationWizardModal({
                                 cursor: 'pointer',
                               }}
                             >
-                              {isFree ? 'Dang ky hoc' : 'Mua ngay'}
+                              {isFree ? 'Đăng ký học' : 'Mua ngay'}
                             </button>
                           )}
                         </div>
@@ -534,7 +534,7 @@ export default function CourseRecommendationWizardModal({
                         lineHeight: 1.5,
                       }}
                     >
-                      <strong style={{ color: '#0369a1' }}>Ly do AI de xuat: </strong>
+                      <strong style={{ color: '#0369a1' }}>Lý do AI đề xuất: </strong>
                       {rec.reason}
                     </div>
                   </div>
@@ -569,7 +569,7 @@ export default function CourseRecommendationWizardModal({
                 cursor: 'pointer',
               }}
             >
-              Khao sat lai
+              Khảo sát lại
             </button>
           ) : (
             <button
@@ -587,7 +587,7 @@ export default function CourseRecommendationWizardModal({
                 opacity: currentStep === 1 ? 0.5 : 1,
               }}
             >
-              Quay lai
+              Quay lại
             </button>
           )}
 
@@ -605,7 +605,7 @@ export default function CourseRecommendationWizardModal({
                 cursor: 'pointer',
               }}
             >
-              Dong
+              Đóng
             </button>
 
             {!recommendations && (
@@ -622,7 +622,7 @@ export default function CourseRecommendationWizardModal({
                   cursor: 'pointer',
                 }}
               >
-                {currentStep === 4 ? 'AI Tim Khoa Hoc Phuc Hop' : 'Tiep theo'}
+                {currentStep === 4 ? 'AI Tìm Khóa Học Phù Hợp' : 'Tiếp theo'}
               </button>
             )}
           </div>

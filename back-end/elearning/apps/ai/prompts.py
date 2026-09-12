@@ -213,11 +213,23 @@ CRITICAL INSTRUCTIONS:
 1. You MUST ONLY recommend courses from the provided Candidate Courses list.
 2. DO NOT invent or hallucinate course IDs or course titles. Every course_id in your response MUST exist in the provided candidate list.
 3. You MUST evaluate and return ALL candidate courses (up to 6 courses) sorted by match_score DESCENDING.
-4. CEFR LEVEL MATCHING:
-   - If a course directly matches the learner's self-assessed CEFR level (e.g., if self_level is B2 and the course level is B2) or matches their target skill priorities, it MUST receive a high match_score (0.80 to 0.98) and rank at the top.
-   - If a course is below their level (e.g., A1/A2 when learner is B2), assign a lower score (0.20 to 0.50) and explain that while it can serve as a quick review, it may be too basic for their current CEFR level.
-   - If a course is slightly above (e.g., C1 when learner is B2), assign an intermediate score (0.50 to 0.70) as an ambitious stretch goal.
-5. Provide a concise, persuasive pedagogical reason in Vietnamese for EACH course explaining how it aligns with their level, skill gaps, and goals.
+4. RANKING PRIORITY HIERARCHY:
+   - PRIORITY 1: PRIMARY LEARNING GOAL (Mục tiêu học tập - Highest Weight):
+     * If the student's goal is 'Luyện thi TOEIC', TOEIC-specific courses MUST be ranked at the very top (match_score 0.88 - 0.98).
+     * If the student's goal is 'Luyện thi IELTS', IELTS-specific courses MUST be ranked at the very top (match_score 0.88 - 0.98).
+     * If the student's goal is 'Lấy lại nền tảng căn bản' or 'Xóa mất gốc', foundational beginner courses (A1/A2, cơ bản, lấy gốc) MUST be ranked at the very top (match_score 0.90 - 0.98).
+     * If the student's goal is 'Nâng cao ngữ pháp chuyên sâu', grammar-specific courses (Ngữ pháp B2, Ngữ pháp C1) MUST be ranked at the very top.
+     * If the student's goal is 'Tiếng Anh Giao tiếp & Công việc', communication/speaking/workplace courses MUST be ranked at the very top.
+     NEVER rank a generic course above a course that directly matches the specific target certification/goal (e.g. do not rank a generic grammar course above a TOEIC course when the student explicitly requested TOEIC).
+
+   - PRIORITY 2: CEFR LEVEL APPROPRIATENESS:
+     * A course matching the student's self-assessed level (difference = 0) or 1 level higher (difference = +1, good stretch goal) receives the highest level score.
+     * Courses 2+ levels higher or lower must have lower match scores (0.25 - 0.55), with reasons explaining the difficulty disparity.
+
+   - PRIORITY 3: PRIORITY SKILL & DAILY TIME:
+     * Fine-tune rankings among courses with the same goal by looking at the requested skill (e.g. Ngữ pháp, Từ vựng, Nghe, Nói, Đọc, Viết) and daily commitment (e.g. 15 phút, 30 phút, 60 phút).
+
+5. Provide a concise, persuasive pedagogical reason in Vietnamese for EACH course explaining how it aligns with their exact goal, CEFR level, and chosen priority skill.
 
 Return ONLY a single valid JSON object following this schema:
 {
@@ -225,7 +237,7 @@ Return ONLY a single valid JSON object following this schema:
     {
       "course_id": "exact-uuid-from-candidate-list",
       "match_score": 0.92,
-      "reason": "Giải thích sư phạm súc tích bằng tiếng Việt vì sao khóa học này tối ưu cho mục tiêu và điểm yếu của học viên..."
+      "reason": "Giải thích sư phạm súc tích bằng tiếng Việt vì sao khóa học này tối ưu cho mục tiêu và trình độ của học viên..."
     }
   ]
 }"""
