@@ -479,7 +479,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
             <span>Đề thi khóa học ({courseQuizzes.length})</span>
           </button>
 
-          {/* Nút Kích Hoạt AI Sinh Đề Ôn Tập Tức Thì (UC_S7) */}
+          {/* Tạm thời ẩn nút AI Sinh Đề Ôn Tập trong phòng học để tập trung vào Luyện Lỗi Sai AI
           <button
             className="btn-primary"
             onClick={() => setShowProgressQuizModal(true)}
@@ -493,6 +493,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
             <i className="fa-solid fa-bolt"></i>
             <span>AI Sinh Đề Ôn Tập (UC_S7)</span>
           </button>
+          */}
 
           {/* Nút Nhận Chứng Chỉ */}
           <button
@@ -693,6 +694,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                   </p>
                 </div>
 
+                {/* Tạm thời ẩn nút tạo bài tập AI về bài học này
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button
                     className="btn-outline"
@@ -703,6 +705,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                     <span>Tạo bài tập AI về bài này</span>
                   </button>
                 </div>
+                */}
               </div>
             )}
 
@@ -875,20 +878,9 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                     }}
                   >
                     <i className="fa-solid fa-file-circle-question" style={{ fontSize: '2.2rem', color: 'var(--text-light)', marginBottom: '10px' }}></i>
-                    <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-secondary)', margin: '0 0 6px' }}>
-                      Bài học này hiện chưa có bộ đề trắc nghiệm riêng được biên soạn sẵn.
+                    <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-secondary)', margin: '0' }}>
+                      Bài học này hiện chưa có bài tập trắc nghiệm riêng. Vui lòng tiếp tục các bài học tiếp theo hoặc vào mục "Luyện Lỗi Sai AI" để củng cố kiến thức!
                     </p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 16px' }}>
-                      Bạn có thể bấm vào nút "AI Sinh Đề Ôn Tập (UC_S7)" ở góc trên để AI tự động tạo đề thi thích ứng dựa trên bài học này!
-                    </p>
-                    <button
-                      className="btn-primary"
-                      onClick={() => setShowProgressQuizModal(true)}
-                      style={{ padding: '8px 18px', fontSize: '0.85rem', backgroundColor: '#7c3aed' }}
-                    >
-                      <i className="fa-solid fa-bolt"></i>
-                      <span>AI Sinh Đề Ôn Tập Cho Bài Này</span>
-                    </button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

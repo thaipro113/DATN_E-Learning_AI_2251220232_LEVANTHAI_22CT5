@@ -245,6 +245,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Tạm thời ẩn nút AI Sinh đề để tập trung tính năng Import Đề thi
           <button
             className="btn-primary"
             onClick={() => {
@@ -256,6 +257,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             <i className="fa-solid fa-wand-magic-sparkles"></i>
             <span>AI Sinh Đề Thi (UC_T4)</span>
           </button>
+          */}
 
           <button
             className="btn-primary"
@@ -514,6 +516,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                             <span>Quản lý giáo trình (Chi tiết)</span>
                           </button>
 
+                          {/* Tạm thời ẩn nút tạo đề thi AI cho từng khóa
                           <button
                             className="btn-primary"
                             onClick={() => {
@@ -525,6 +528,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                           >
                             <i className="fa-solid fa-wand-magic-sparkles"></i>
                           </button>
+                          */}
                         </div>
                       </div>
                     </div>
@@ -857,6 +861,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                   <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
                     Mô tả khóa học:
                   </label>
+                  {/* Tạm thời ẩn nút AI Viết mô tả chi tiết
                   <button
                     type="button"
                     onClick={handleGenerateAIDescription}
@@ -880,10 +885,11 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                     <i className={`fa-solid ${isGeneratingDesc ? 'fa-circle-notch fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
                     <span>{isGeneratingDesc ? 'AI đang viết mô tả...' : 'AI Viết mô tả chi tiết'}</span>
                   </button>
+                  */}
                 </div>
                 <textarea
                   rows={5}
-                  placeholder="Nhập mô tả khóa học hoặc bấm nút 'AI Viết mô tả chi tiết' ở trên để AI tự động soạn giáo án, mục tiêu đầu ra và đối tượng học viên..."
+                  placeholder="Nhập mô tả khóa học, mục tiêu đầu ra và nội dung giảng dạy..."
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   style={{

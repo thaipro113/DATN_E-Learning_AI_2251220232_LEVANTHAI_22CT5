@@ -1,7 +1,27 @@
 """
-Bộ System Prompts & Context Builder cho Hệ thống Trợ lý Gia sư AI E-Learning.
-Tối ưu hóa phản xạ sư phạm, đàm thoại tự nhiên, linh hoạt song ngữ Việt - Anh.
+=============================================================================
+HỆ THỐNG PROMPTS TRÍ TUỆ NHÂN TẠO (AI SYSTEM PROMPTS ENGINE)
+ĐỒ ÁN TỐT NGHIỆP: NỀN TẢNG E-LEARNING TIẾNG ANH CHUẨN CEFR
+=============================================================================
+Hệ thống prompts được chuẩn hóa thành 3 nhóm phục vụ thuyết minh & phản biện:
+
+NHÓM 1 (HỌC VIÊN - TRỌNG TÂM 1): AI HỘI THOẠI & SOÁT LỖI NGỮ PHÁP 1-1
+- build_system_prompt: Tạo prompt gia sư đàm thoại thích ứng CEFR A1-C1
+- GRAMMAR_ANALYZER_SYSTEM_PROMPT: Trích xuất lỗi sai ngữ pháp, câu sửa & lời giải
+
+NHÓM 2 (HỌC VIÊN - TRỌNG TÂM 2): CHẨN ĐOÁN LỖI SAI & SINH ĐỀ THÍCH ỨNG
+- QUESTION_ANALYSIS_SYSTEM_PROMPT: Phân tích cú pháp câu trắc nghiệm làm sai
+- WEAK_TOPIC_QUIZ_SYSTEM_PROMPT: Sinh 5 câu trắc nghiệm mới ôn luyện điểm yếu
+
+NHÓM 3 (TIỆN ÍCH PHỤ TRỢ): HỖ TRỢ ĐỀ THI & GỢI Ý KHÓA HỌC
+- QUIZ_GENERATOR_SYSTEM_PROMPT: Tạo câu hỏi trắc nghiệm theo bài học
+- COURSE_RECOMMENDATION_SYSTEM_PROMPT: Đánh giá độ phù hợp khóa học theo CSDL
+=============================================================================
 """
+
+# =============================================================================
+# NHÓM 1: AI HỘI THOẠI & SOÁT LỖI NGỮ PHÁP 1-1 (TRỌNG TÂM HỌC VIÊN)
+# =============================================================================
 
 CEFR_LEVEL_INSTRUCTIONS = {
     'A1': "- Trình độ A1 (Beginner): Dùng từ ngữ rất đơn giản, câu ngắn, giải thích bằng tiếng Việt dễ hiểu.",
@@ -147,8 +167,11 @@ def build_quiz_generation_prompt(
         )
 
 
-# ==================== QUESTION ANALYSIS PROMPT (REAL LLM) ====================
+# =============================================================================
+# NHÓM 2: CHẨN ĐOÁN LỖI SAI & SINH ĐỀ THÍCH ỨNG (TRỌNG TÂM HỌC VIÊN)
+# =============================================================================
 
+# 1. Prompt phân tích cú pháp & trích xuất chủ đề lỗi sai từ bài kiểm tra
 QUESTION_ANALYSIS_SYSTEM_PROMPT = """You are an English language assessment expert and CEFR curriculum specialist.
 Your task is to analyze the given English test question, answer options, correct answer, student response, and explanation, and return a structured academic JSON object.
 
@@ -172,8 +195,7 @@ You must return ONLY a single valid JSON object adhering strictly to this schema
 If there is insufficient information to be absolutely certain, determine the best-fit topic and assign a lower confidence value. Do not invent non-existent rules."""
 
 
-# ==================== WEAK-TOPIC QUIZ GENERATOR PROMPT ====================
-
+# 2. Prompt sinh 5 câu trắc nghiệm mới bám sát chủ đề điểm yếu để khắc phục
 WEAK_TOPIC_QUIZ_SYSTEM_PROMPT = """You are a senior English exam creator and CEFR curriculum designer.
 Your task is to generate completely brand new, original, high-quality multiple-choice practice questions targeting a specific weak grammar/vocabulary topic and sub-topic.
 
@@ -204,7 +226,9 @@ Return ONLY a single valid JSON object following this schema:
 }"""
 
 
-# ==================== COURSE RECOMMENDATION PROMPT ====================
+# =============================================================================
+# NHÓM 3: CÁC TIỆN ÍCH PHỤ TRỢ (HELPER FEATURES)
+# =============================================================================
 
 COURSE_RECOMMENDATION_SYSTEM_PROMPT = """You are an academic learning advisor and AI course consultant for an English E-Learning platform.
 Your task is to analyze the learner's profile, learning goals, CEFR level, skill gaps, and daily commitment, and evaluate a list of CANDIDATE COURSES retrieved directly from the database.

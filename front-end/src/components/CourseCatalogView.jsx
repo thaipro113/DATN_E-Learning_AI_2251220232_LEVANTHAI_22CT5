@@ -229,8 +229,9 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
           </p>
         </div>
 
-        {/* Search & AI Wizard Actions */}
+        {/* Search & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Tạm thời ẩn nút Wizard khảo sát 4 bước để tập trung vào 3 tính năng cốt lõi
           <button
             type="button"
             onClick={() => setIsWizardOpen(true)}
@@ -253,6 +254,7 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
             <i className="fa-solid fa-wand-magic-sparkles"></i>
             <span>Tìm khóa học phù hợp cùng AI (4 bước)</span>
           </button>
+          */}
 
           <div style={{ position: 'relative', width: '260px' }}>
             <input
