@@ -159,15 +159,38 @@ class ProgressService:
             enrollment.refresh_from_db()
 
             certificate = None
-            # Nếu khóa học đã hoàn thành 100% thì tự động cấp Chứng chỉ nếu chưa có
+            # Nếu khóa học đã hoàn thành 100% bài học:
             if enrollment.progress_percent >= 100.0:
-                certificate = Certificate.objects.filter(enrollment=enrollment).first()
-                if not certificate:
-                    cert_code = Certificate.generate_unique_code(course.slug)
-                    certificate = Certificate.objects.create(
-                        enrollment=enrollment,
-                        certificate_code=cert_code
-                    )
+                from apps.assessments.models import Quiz, QuizAttempt
+                # Kiểm tra khóa học có Đề thi toàn khóa hay không
+                has_final_quizzes = Quiz.objects.filter(
+                    course=course,
+                    chapter__isnull=True,
+                    lesson__isnull=True,
+                    is_published=True
+                ).exists()
+
+                should_issue_cert = True
+                if has_final_quizzes:
+                    # Học viên phải có lần thi đạt (is_passed=True) đề thi toàn khóa
+                    passed_final = QuizAttempt.objects.filter(
+                        student=student,
+                        quiz__course=course,
+                        quiz__chapter__isnull=True,
+                        quiz__lesson__isnull=True,
+                        is_passed=True
+                    ).exists()
+                    if not passed_final:
+                        should_issue_cert = False
+
+                if should_issue_cert:
+                    certificate = Certificate.objects.filter(enrollment=enrollment).first()
+                    if not certificate:
+                        cert_code = Certificate.generate_unique_code(course.slug)
+                        certificate = Certificate.objects.create(
+                            enrollment=enrollment,
+                            certificate_code=cert_code
+                        )
 
         return True, "Đánh dấu hoàn thành bài học thành công!", progress, enrollment, certificate
 

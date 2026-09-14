@@ -343,6 +343,18 @@ class GradingService:
             attempt.completed_at = timezone.now()
             attempt.save()
 
+            # Nếu đây là bài thi toàn khóa và học viên thi đỗ, kiểm tra cấp chứng chỉ nếu đã học xong 100% bài học
+            if is_passed and quiz.course and not quiz.chapter and not quiz.lesson:
+                from apps.learning.models import Enrollment, Certificate
+                enrollment = Enrollment.objects.filter(student=student, course=quiz.course).first()
+                if enrollment and enrollment.progress_percent >= 100.0:
+                    if not Certificate.objects.filter(enrollment=enrollment).exists():
+                        cert_code = Certificate.generate_unique_code(quiz.course.slug)
+                        Certificate.objects.create(
+                            enrollment=enrollment,
+                            certificate_code=cert_code
+                        )
+
         return True, "Nộp bài và chấm điểm thành công!", attempt
 
     @staticmethod

@@ -248,6 +248,48 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
   const allLessons = (courseDetail?.chapters || []).flatMap((ch) => ch.lessons || []);
   const currentLessonIndex = allLessons.findIndex((l) => l.id === activeLesson?.id);
 
+  // 1. Kiểm tra đã học xong 100% tất cả các bài học trong toàn bộ các chương chưa
+  const areAllLessonsCompleted =
+    allLessons.length > 0 &&
+    allLessons.every((l) => completedLessonIds.includes(l.id));
+
+  // 2. Danh sách bài tập trắc nghiệm gắn với bài học hoặc chương (không tính đề thi toàn khóa)
+  const lessonAndChapterQuizzes = courseQuizzes.filter(
+    (q) => q.lesson || q.lesson_id || q.chapter || q.chapter_id
+  );
+
+  // 3. Kiểm tra đã hoàn thành toàn bộ bài tập của khóa chưa (đã nộp bài)
+  const areAllExercisesCompleted =
+    lessonAndChapterQuizzes.length === 0 ||
+    lessonAndChapterQuizzes.every((q) => {
+      const bestAttempt = getQuizBestAttempt(q.id);
+      return bestAttempt !== null;
+    });
+
+  // 4. Điều kiện hiển thị ĐỀ THI TOÀN KHÓA:
+  // Học viên phải học hết toàn bộ các chương và các bài tập của khóa đó mới hiển thị
+  const isEligibleForFinalExam = areAllLessonsCompleted && areAllExercisesCompleted;
+
+  // 5. Danh sách đề thi toàn khóa
+  const generalCourseQuizzes = getGeneralCourseQuizzes();
+
+  // 6. Kiểm tra đã hoàn thành bài thi toàn khóa (đạt điểm qua) chưa
+  const isFinalExamCompleted =
+    generalCourseQuizzes.length === 0
+      ? true
+      : generalCourseQuizzes.every((gq) => {
+          const attempt = getQuizBestAttempt(gq.id);
+          const scorePct = attempt
+            ? Number(attempt.percentage ?? Math.round((attempt.score / attempt.max_score) * 100))
+            : null;
+          const isPassed = attempt?.is_passed ?? (scorePct != null && scorePct >= (gq.passing_score || 70));
+          return attempt !== null && isPassed;
+        });
+
+  // 7. Điều kiện hiển thị CHỨNG CHỈ KHÓA HỌC:
+  // Hoàn thành xong toàn bộ các chương, các bài học VÀ hoàn thành bài thi toàn khóa mới hiển thị
+  const isCertificateEligible = isEligibleForFinalExam && isFinalExamCompleted;
+
   // Xử lý chuyển sang bài học tiếp theo / trước đó
   const handleNavigateLesson = (direction) => {
     if (currentLessonIndex === -1 || allLessons.length === 0) return;
@@ -277,11 +319,11 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
       }
 
       const resData = res.data?.data || res.data;
-      if (resData?.is_course_completed && resData?.certificate) {
+      if (resData?.is_course_completed && resData?.certificate && isCertificateEligible) {
         setCertificateData(resData.certificate);
         setToastMsg({
           type: 'success',
-          text: 'Chúc mừng! Bạn đã hoàn thành 100% khóa học và nhận được Chứng chỉ tốt nghiệp!',
+          text: 'Chúc mừng! Bạn đã hoàn thành 100% khóa học và bài thi để nhận Chứng chỉ tốt nghiệp!',
         });
       } else {
         setToastMsg({
@@ -307,32 +349,48 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
 
   // Xem chứng chỉ tốt nghiệp từ CSDL
   const handleOpenCertificate = async () => {
+    if (!isCertificateEligible) {
+      setToastMsg({
+        type: 'error',
+        text: 'Bạn cần hoàn thành tất cả các bài học và đạt bài thi toàn khóa để nhận Chứng chỉ!',
+      });
+      return;
+    }
+
     try {
       const res = await learningAPI.getMyCertificates();
       const list = res.data?.data || res.data || [];
-      if (Array.isArray(list) && list.length > 0) {
-        setCertificateData(list[0]);
-      } else if (!certificateData) {
+      const currentCourseId = String(selectedCourse?.id || courseDetail?.id || '');
+      const currentSlug = selectedCourse?.slug || courseDetail?.slug || '';
+
+      const match = list.find(
+        (c) =>
+          String(c.course_id || c.course?.id) === currentCourseId ||
+          c.course_slug === currentSlug ||
+          c.course_title === (selectedCourse?.title || courseDetail?.title)
+      );
+
+      if (match) {
+        setCertificateData(match);
+      } else {
         setCertificateData({
           certificate_code: `CERT-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`,
           student_name: user?.full_name || 'Lê Văn Thái',
-          course_title: selectedCourse?.title || 'Ngữ Pháp Tiếng Anh Nền Tảng (CEFR A1-A2)',
-          course_level: selectedCourse?.level || 'A2',
-          teacher_name: selectedCourse?.teacher?.full_name || 'Thầy Nguyễn Văn An',
+          course_title: selectedCourse?.title || courseDetail?.title || 'Khóa học Tiếng Anh',
+          course_level: selectedCourse?.level || courseDetail?.level || 'B1',
+          teacher_name: selectedCourse?.teacher?.full_name || courseDetail?.teacher?.full_name || 'TL-ENGLISH Teacher',
           issued_at: new Date().toISOString(),
         });
       }
     } catch (e) {
-      if (!certificateData) {
-        setCertificateData({
-          certificate_code: `CERT-2026-${Math.floor(100000 + Math.random() * 900000)}`,
-          student_name: user?.full_name || 'Lê Văn Thái',
-          course_title: selectedCourse?.title || 'Ngữ Pháp Tiếng Anh Nền Tảng (CEFR A1-A2)',
-          course_level: selectedCourse?.level || 'A2',
-          teacher_name: selectedCourse?.teacher?.full_name || 'Thầy Nguyễn Văn An',
-          issued_at: new Date().toISOString(),
-        });
-      }
+      setCertificateData({
+        certificate_code: `CERT-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`,
+        student_name: user?.full_name || 'Lê Văn Thái',
+        course_title: selectedCourse?.title || courseDetail?.title || 'Khóa học Tiếng Anh',
+        course_level: selectedCourse?.level || courseDetail?.level || 'B1',
+        teacher_name: selectedCourse?.teacher?.full_name || courseDetail?.teacher?.full_name || 'TL-ENGLISH Teacher',
+        issued_at: new Date().toISOString(),
+      });
     }
     setShowCertificate(true);
   };
@@ -495,20 +553,25 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
           </button>
           */}
 
-          {/* Nút Nhận Chứng Chỉ */}
-          <button
-            className="btn-primary"
-            onClick={handleOpenCertificate}
-            style={{
-              backgroundColor: '#d97706',
-              padding: '8px 16px',
-              fontSize: '0.85rem',
-              boxShadow: '0 2px 8px rgba(217, 119, 6, 0.25)',
-            }}
-          >
-            <i className="fa-solid fa-award"></i>
-            <span>Chứng chỉ khóa học</span>
-          </button>
+          {/* Nút Nhận Chứng Chỉ: CHỈ HIỂN THỊ KHI ĐÃ HOÀN THÀNH TẤT CẢ CÁC CHƯƠNG, BÀI HỌC VÀ BÀI THI TOÀN KHÓA */}
+          {isCertificateEligible && (
+            <button
+              className="btn-primary"
+              onClick={handleOpenCertificate}
+              style={{
+                backgroundColor: '#d97706',
+                padding: '8px 16px',
+                fontSize: '0.85rem',
+                boxShadow: '0 2px 8px rgba(217, 119, 6, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <i className="fa-solid fa-award"></i>
+              <span>Chứng chỉ khóa học</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1165,8 +1228,8 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
               </div>
             ))}
 
-            {/* Đề thi tổng kết toàn khóa học */}
-            {getGeneralCourseQuizzes().length > 0 && (
+            {/* Đề thi tổng kết toàn khóa học: CHỈ HIỂN THỊ KHI ĐÃ HỌC HẾT CÁC CHƯƠNG VÀ BÀI TẬP */}
+            {getGeneralCourseQuizzes().length > 0 && isEligibleForFinalExam && (
               <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
                 <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#166534', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <i className="fa-solid fa-award"></i>
@@ -1258,6 +1321,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
         quizzes={courseQuizzes}
         attempts={studentAttempts}
         onSelectQuiz={handleOpenQuiz}
+        isEligibleForFinalExam={isEligibleForFinalExam}
       />
     </div>
   );

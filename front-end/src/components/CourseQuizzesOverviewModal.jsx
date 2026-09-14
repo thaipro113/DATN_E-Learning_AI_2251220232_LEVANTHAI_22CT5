@@ -7,6 +7,7 @@ export default function CourseQuizzesOverviewModal({
   quizzes = [],
   attempts = [],
   onSelectQuiz,
+  isEligibleForFinalExam = true,
 }) {
   if (!isOpen) return null;
 
@@ -29,6 +30,9 @@ export default function CourseQuizzesOverviewModal({
     const scorePct = bestAttempt ? Number(bestAttempt.percentage ?? Math.round((bestAttempt.score / bestAttempt.max_score) * 100)) : null;
     const isPassed = bestAttempt?.is_passed ?? (scorePct != null && scorePct >= (quiz.passing_score || 70));
 
+    const isCourseLevelQuiz = !quiz.chapter && !quiz.chapter_id && !quiz.lesson && !quiz.lesson_id;
+    const isLocked = isCourseLevelQuiz && !isEligibleForFinalExam;
+
     return (
       <div
         key={quiz.id}
@@ -37,11 +41,13 @@ export default function CourseQuizzesOverviewModal({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 16px',
-          backgroundColor: 'var(--bg-surface)',
+          backgroundColor: isLocked ? '#f8fafc' : 'var(--bg-surface)',
           borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-color)',
+          border: '1px solid',
+          borderColor: isLocked ? '#e2e8f0' : 'var(--border-color)',
           gap: '12px',
           flexWrap: 'wrap',
+          opacity: isLocked ? 0.85 : 1,
         }}
       >
         <div style={{ flex: 1, minWidth: '220px' }}>
@@ -68,8 +74,26 @@ export default function CourseQuizzesOverviewModal({
                 Chương: {quiz.chapter_title}
               </span>
             )}
+            {isLocked && (
+              <span
+                style={{
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  backgroundColor: '#fee2e2',
+                  color: '#b91c1c',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <i className="fa-solid fa-lock"></i>
+                <span>Chưa mở khóa</span>
+              </span>
+            )}
           </div>
-          <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '700', color: 'var(--text-main)' }}>
+          <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '700', color: isLocked ? '#64748b' : 'var(--text-main)' }}>
             {quiz.title}
           </h5>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -106,22 +130,44 @@ export default function CourseQuizzesOverviewModal({
             </span>
           )}
 
-          <button
-            className="btn-primary"
-            onClick={() => {
-              onClose();
-              onSelectQuiz(quiz);
-            }}
-            style={{
-              padding: '7px 14px',
-              fontSize: '0.82rem',
-              backgroundColor: isPassed ? '#0284c7' : '#7c3aed',
-              fontWeight: '700',
-            }}
-          >
-            <i className="fa-solid fa-pen-to-square"></i>
-            <span>{bestAttempt ? 'Làm lại' : 'Làm bài'}</span>
-          </button>
+          {isLocked ? (
+            <button
+              disabled
+              style={{
+                padding: '7px 14px',
+                fontSize: '0.82rem',
+                backgroundColor: '#f1f5f9',
+                color: '#94a3b8',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                fontWeight: '700',
+                cursor: 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <i className="fa-solid fa-lock"></i>
+              <span>Khóa</span>
+            </button>
+          ) : (
+            <button
+              className="btn-primary"
+              onClick={() => {
+                onClose();
+                onSelectQuiz(quiz);
+              }}
+              style={{
+                padding: '7px 14px',
+                fontSize: '0.82rem',
+                backgroundColor: isPassed ? '#0284c7' : '#7c3aed',
+                fontWeight: '700',
+              }}
+            >
+              <i className="fa-solid fa-pen-to-square"></i>
+              <span>{bestAttempt ? 'Làm lại' : 'Làm bài'}</span>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -273,16 +319,40 @@ export default function CourseQuizzesOverviewModal({
                     style={{
                       fontSize: '0.95rem',
                       fontWeight: '800',
-                      color: '#16a34a',
+                      color: isEligibleForFinalExam ? '#16a34a' : '#64748b',
                       marginBottom: '10px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
                     }}
                   >
-                    <i className="fa-solid fa-award"></i>
-                    <span>ĐỀ THI TỔNG KẾT & ĐÁNH GIÁ TOÀN KHÓA HỌC ({courseLevelQuizzes.length})</span>
+                    <i className={`fa-solid ${isEligibleForFinalExam ? 'fa-award' : 'fa-lock'}`}></i>
+                    <span>
+                      ĐỀ THI TỔNG KẾT & ĐÁNH GIÁ TOÀN KHÓA HỌC ({courseLevelQuizzes.length})
+                      {!isEligibleForFinalExam && ' (ĐANG KHÓA)'}
+                    </span>
                   </h4>
+                  {!isEligibleForFinalExam && (
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#fffbeb',
+                        border: '1px solid #fde68a',
+                        borderRadius: '6px',
+                        color: '#92400e',
+                        fontSize: '0.8rem',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <i className="fa-solid fa-circle-info" style={{ color: '#d97706' }}></i>
+                      <span>
+                        Bạn cần học hết toàn bộ các chương và hoàn thành các bài tập trong khóa để mở khóa Đề thi toàn khóa.
+                      </span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {courseLevelQuizzes.map((q) => renderQuizItem(q))}
                   </div>
