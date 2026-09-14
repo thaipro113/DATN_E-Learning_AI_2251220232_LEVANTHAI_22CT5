@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Pagination from './Pagination';
+import LearningRoadmapTimeline from './LearningRoadmapTimeline';
 import { cleanCourseTitle } from '../utils/media';
 
 export default function GuestUdemyHomeView({
@@ -153,8 +154,11 @@ export default function GuestUdemyHomeView({
         </div>
       </section>
 
+      {/* ==================== 1.5. LEARNING ROADMAP TIMELINE (LỘ TRÌNH PHÁT TRIỂN NĂNG LỰC) ==================== */}
+      <LearningRoadmapTimeline onExploreClick={onExploreClick} />
+
       {/* ==================== 2. COURSE SECTION (REDESIGNED TÔNG XANH / TRẮNG) ==================== */}
-      <section className="landing-courses-section">
+      <section className="landing-courses-section" id="courses-section">
         <div className="landing-section-header">
           <div>
             <span className="landing-section-pill">KHO HỌC LIỆU CHẤT LƯỢNG CAO</span>

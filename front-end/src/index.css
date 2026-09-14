@@ -1641,6 +1641,212 @@ textarea {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+/* ==================== 1.5. LEARNING ROADMAP TIMELINE (GIAO DIỆN ĐI XUỐNG DẠNG LỘ TRÌNH) ==================== */
+.landing-timeline-section {
+  margin-top: 36px;
+  margin-bottom: 48px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 44px 40px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.landing-timeline-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 48px;
+  align-items: flex-start;
+}
+
+.timeline-sticky-sidebar {
+  position: sticky;
+  top: 90px;
+}
+
+.timeline-sidebar-badges {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.timeline-sidebar-badge-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.timeline-sidebar-badge-item i {
+  color: #059669;
+  font-size: 0.95rem;
+}
+
+.timeline-track {
+  position: relative;
+  padding-left: 36px;
+}
+
+/* Static background vertical line */
+.timeline-track-bg-line {
+  position: absolute;
+  top: 14px;
+  bottom: 24px;
+  left: 7px;
+  width: 2px;
+  background-color: #e2e8f0;
+  border-radius: 2px;
+}
+
+/* Dynamic active progress line with smooth height transition */
+.timeline-track-progress-line {
+  position: absolute;
+  top: 14px;
+  left: 7px;
+  width: 2px;
+  background: linear-gradient(180deg, #f59e0b 0%, #0284c7 65%, #10b981 100%);
+  border-radius: 2px;
+  transition: height 0.65s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+  z-index: 1;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 44px;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Round dot milestone */
+.timeline-item-dot {
+  position: absolute;
+  top: 6px;
+  left: -36px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #cbd5e1;
+  box-shadow: 0 0 0 3px rgba(203, 213, 225, 0.4);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(0.8);
+  z-index: 2;
+}
+
+/* Active dot state when reached */
+.timeline-item.is-visible .timeline-item-dot {
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.25), 0 2px 8px rgba(245, 158, 11, 0.4);
+  transform: scale(1.15);
+}
+
+/* Pulsing effect for the latest reached milestone */
+@keyframes dotPulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7), 0 2px 8px rgba(245, 158, 11, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0), 0 2px 8px rgba(245, 158, 11, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0), 0 2px 8px rgba(245, 158, 11, 0.4);
+  }
+}
+
+.timeline-item.is-current .timeline-item-dot {
+  animation: dotPulseRing 2.2s infinite ease-in-out;
+}
+
+/* Text content reveal with scroll */
+.timeline-item-content {
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1), transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.timeline-item.is-visible .timeline-item-content {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.timeline-item-phase {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f59e0b;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-item-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main, #0f172a);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px 0;
+  line-height: 1.35;
+}
+
+.timeline-item-desc {
+  font-size: 0.94rem;
+  line-height: 1.68;
+  color: var(--text-muted, #475569);
+  margin: 0 0 12px 0;
+}
+
+.timeline-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.timeline-item-tag {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0369a1;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 3px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: transform 0.2s ease;
+}
+
+.timeline-item-tag:hover {
+  transform: translateY(-2px);
+}
+
+/* Responsive breakpoint */
+@media (max-width: 992px) {
+  .landing-timeline-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .timeline-sticky-sidebar {
+    position: static;
+  }
+  .landing-timeline-section {
+    padding: 32px 20px;
+  }
+}
+
 /* 2. REDESIGNED COURSE SECTION */
 .landing-courses-section {
   margin-top: 8px;
