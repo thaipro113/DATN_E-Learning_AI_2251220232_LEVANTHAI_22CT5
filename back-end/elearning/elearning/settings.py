@@ -80,9 +80,26 @@ TEMPLATES = [
 WSGI_APPLICATION = 'elearning.wsgi.application'
 
 
-# Database Configuration (PostgreSQL with SQLite fallback for initial setup if needed)
+# Database Configuration (PostgreSQL, MSSQL SQL Server, or SQLite fallback)
+DB_ENGINE = os.environ.get('DB_ENGINE', 'postgresql').lower()
 DB_NAME = os.environ.get('DB_NAME')
-if DB_NAME:
+
+if DB_ENGINE in ('mssql', 'sqlserver'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'mssql',
+            'NAME': os.environ.get('MSSQL_DB_NAME', 'DATN_ELearning_DB'),
+            'HOST': os.environ.get('MSSQL_HOST', '.\\SQLEXPRESS'),
+            'USER': '',
+            'PASSWORD': '',
+            'PORT': '',
+            'OPTIONS': {
+                'driver': 'ODBC Driver 17 for SQL Server',
+                'extra_params': 'TrustServerCertificate=yes',
+            },
+        }
+    }
+elif DB_NAME:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
