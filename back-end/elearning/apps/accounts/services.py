@@ -65,12 +65,6 @@ class AuthService:
             setattr(user, attr, value)
         user.save()
 
-        if 'level' in validated_data and validated_data['level'] != old_level:
-            try:
-                from apps.recommendations.models import CourseRecommendation
-                CourseRecommendation.objects.filter(student=user).delete()
-            except Exception:
-                pass
 
         return user
 

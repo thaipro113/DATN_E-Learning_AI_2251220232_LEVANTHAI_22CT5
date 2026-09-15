@@ -9,9 +9,6 @@ from apps.learning.models import Enrollment, LessonProgress, EnrollmentStatus
 from apps.assessments.models import (
     Quiz, Question, AnswerOption, QuizType, QuestionType, SkillType
 )
-from apps.recommendations.models import (
-    SkillGapAnalysis, CourseRecommendation, LearningPath, LearningPathStep, LearningPathStatus, StepType
-)
 
 
 class Command(BaseCommand):

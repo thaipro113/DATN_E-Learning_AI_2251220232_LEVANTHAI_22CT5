@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import CourseDetailModal from './CourseDetailModal';
-import CourseRecommendationWizardModal from './CourseRecommendationWizardModal';
 import Pagination from './Pagination';
 import { cleanCourseTitle, isCourseEnrolled } from '../utils/media';
 
@@ -10,7 +9,6 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
   const [selectedLevel, setSelectedLevel] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingCourse, setViewingCourse] = useState(null);
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
@@ -633,13 +631,6 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
         onNavigateToLearning={onNavigateToLearning}
       />
 
-      {/* AI 4-Step Course Recommendation Wizard Modal */}
-      <CourseRecommendationWizardModal
-        isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-        onEnroll={onEnroll}
-        onNavigateToLearning={onNavigateToLearning}
-      />
     </div>
   );
 }
