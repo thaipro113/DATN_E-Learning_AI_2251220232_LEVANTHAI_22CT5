@@ -132,18 +132,23 @@ class StudentMistakeAnalysisAPIView(APIView):
                 topics_counter[topic_key]['sub_topics'].add(sub_topic)
 
             mistakes_list.append({
+                'id': str(ans.id),
                 'mistake_id': str(ans.id),
                 'question_id': str(q.id),
+                'question_content': q.content,
                 'question_text': q.content,
                 'quiz_title': ans.attempt.quiz.title,
                 'student_choice': student_opt,
+                'student_selected': student_opt,
                 'correct_choice': correct_opt,
+                'correct_answer': correct_opt,
                 'options': options_data,
                 'topic': topic,
                 'sub_topic': sub_topic,
                 'difficulty': difficulty,
                 'reason': reason,
-                'attempted_at': ans.created_at.strftime('%d/%m/%Y %H:%M')
+                'attempted_at': ans.created_at.strftime('%d/%m/%Y %H:%M'),
+                'attempt_date': ans.created_at.strftime('%d/%m/%Y %H:%M')
             })
 
         # Danh sách chủ đề tổng hợp
@@ -153,6 +158,7 @@ class StudentMistakeAnalysisAPIView(APIView):
                 'topic': t_info['topic'],
                 'count': t_info['count'],
                 'sub_topics': list(t_info['sub_topics']),
+                'sub_topic': ", ".join(list(t_info['sub_topics'])[:3]),
                 'sample_reason': t_info['sample_reason']
             })
 
@@ -164,6 +170,7 @@ class StudentMistakeAnalysisAPIView(APIView):
                 'has_quiz_attempts': has_quiz_attempts,
                 'total_mistakes': len(mistakes_list),
                 'mistakes': mistakes_list,
+                'weak_topics': weak_topics_summary,
                 'weak_topics_summary': weak_topics_summary
             },
             message="Lấy danh sách lỗi sai và phân tích thành công!"
@@ -173,23 +180,43 @@ class StudentMistakeAnalysisAPIView(APIView):
 class ResolveStudentMistakeAPIView(APIView):
     """
     API Endpoint: Đánh dấu câu hỏi sai đã được học viên luyện tập và xóa khỏi danh sách.
+    Hỗ trợ xóa từng câu đơn lẻ (URL param) hoặc xóa hàng loạt (Body JSON).
     """
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, mistake_id):
+    def post(self, request, mistake_id=None):
         from apps.assessments.models import StudentAnswer
+
+        target_ids = []
+        if mistake_id:
+            target_ids.append(mistake_id)
+
+        body_ids = request.data.get('mistake_ids', []) if isinstance(request.data, dict) else []
+        if isinstance(body_ids, list):
+            target_ids.extend(body_ids)
+
+        # Loại bỏ trùng lặp
+        target_ids = list(set(target_ids))
+
+        if not target_ids:
+            return error_response(
+                message="Vui lòng cung cấp mã câu hỏi sai cần xóa.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
         updated = StudentAnswer.objects.filter(
-            id=mistake_id,
+            id__in=target_ids,
             attempt__student=request.user
         ).update(is_resolved=True)
-        if updated:
+
+        if updated > 0:
             return success_response(
-                data={"mistake_id": str(mistake_id), "resolved": True},
-                message="Đã xóa câu hỏi sai khỏi danh sách cần khắc phục!",
+                data={"resolved_count": updated, "resolved": True},
+                message=f"Đã khắc phục và xóa thành công {updated} câu hỏi sai!",
                 status_code=status.HTTP_200_OK
             )
         return error_response(
-            message="Không tìm thấy câu trả lời tương ứng.",
+            message="Không tìm thấy câu trả lời tương ứng hoặc đã được khắc phục.",
             status_code=status.HTTP_404_NOT_FOUND
         )
 

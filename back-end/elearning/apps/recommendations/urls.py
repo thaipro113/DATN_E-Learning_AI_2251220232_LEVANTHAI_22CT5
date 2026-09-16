@@ -21,6 +21,7 @@ urlpatterns = [
 
     # 2. Phân tích Lỗ hổng Kỹ năng & Lỗi sai trắc nghiệm (Mistake & Skill Gap Analysis)
     path('mistakes/', StudentMistakeAnalysisAPIView.as_view(), name='student_mistakes'),
+    path('mistakes/resolve/', ResolveStudentMistakeAPIView.as_view(), name='resolve_student_mistakes_batch'),
     path('mistakes/<uuid:mistake_id>/resolve/', ResolveStudentMistakeAPIView.as_view(), name='resolve_student_mistake'),
     path('skill-gaps/', SkillGapAnalysisAPIView.as_view(), name='skill_gaps'),
     path('weak-topics/generate-quiz/', WeakTopicQuizGenerateAPIView.as_view(), name='generate_weak_topic_quiz'),

@@ -30,22 +30,38 @@ export default function AdaptivePathView({
     practicingMistakeId: null,
   });
 
+  const [isResolving, setIsResolving] = useState(false);
+
   const fetchMistakes = async () => {
     setIsLoading(true);
     try {
       const res = await recommendationAPI.getStudentMistakes();
       const data = res.data?.data || res.data || {};
+      const rawMistakes = data.mistakes || [];
+      const normalizedMistakes = rawMistakes.map((m) => ({
+        ...m,
+        id: m.id || m.mistake_id,
+        mistake_id: m.id || m.mistake_id,
+        question_content: m.question_content || m.question_text || '',
+        student_selected: m.student_selected || m.student_choice || '',
+        correct_answer: m.correct_answer || m.correct_choice || '',
+        attempt_date: m.attempt_date || m.attempted_at || '',
+      }));
+      const rawTopics = data.weak_topics_summary || data.weak_topics || [];
+      const normalizedTopics = rawTopics.map((t) => ({
+        ...t,
+        sub_topic: Array.isArray(t.sub_topics) ? t.sub_topics.join(', ') : (t.sub_topic || ''),
+      }));
+
       setMistakeData({
         has_enrolled_courses: data.has_enrolled_courses || (myCourses && myCourses.length > 0),
         has_quiz_attempts: data.has_quiz_attempts || (myAttempts && myAttempts.length > 0),
-        total_mistakes: data.total_mistakes || 0,
-        weak_topics: data.weak_topics || [],
-        mistakes: data.mistakes || [],
+        total_mistakes: data.total_mistakes || normalizedMistakes.length,
+        weak_topics: normalizedTopics,
+        mistakes: normalizedMistakes,
       });
       // Mặc định chọn tất cả các câu sai để tiện luyện tập
-      if (Array.isArray(data.mistakes)) {
-        setSelectedMistakeIds(new Set(data.mistakes.map((m) => m.id)));
-      }
+      setSelectedMistakeIds(new Set(normalizedMistakes.map((m) => m.id)));
     } catch (err) {
       console.warn('Lỗi khi tải dữ liệu phân tích lỗi sai:', err);
     } finally {
@@ -56,6 +72,102 @@ export default function AdaptivePathView({
   useEffect(() => {
     fetchMistakes();
   }, []);
+
+  // Đánh dấu đã hoàn thành / xóa 1 câu hỏi sai đơn lẻ
+  const handleResolveSingleMistake = async (mistakeId) => {
+    if (!mistakeId || isResolving) return;
+    setIsResolving(true);
+    try {
+      await recommendationAPI.resolveMistake(mistakeId);
+
+      setMistakeData((prev) => {
+        const remainingMistakes = (prev.mistakes || []).filter(
+          (item) => item.id !== mistakeId && item.mistake_id !== mistakeId
+        );
+        const topicsMap = {};
+        remainingMistakes.forEach((item) => {
+          if (!topicsMap[item.topic]) {
+            topicsMap[item.topic] = {
+              topic: item.topic,
+              sub_topic: item.sub_topic,
+              count: 0,
+              difficulty: item.difficulty,
+              skill: item.skill,
+              sample_reason: item.reason,
+            };
+          }
+          topicsMap[item.topic].count += 1;
+        });
+        const updatedTopics = Object.values(topicsMap).sort((a, b) => b.count - a.count);
+
+        return {
+          ...prev,
+          total_mistakes: remainingMistakes.length,
+          mistakes: remainingMistakes,
+          weak_topics: updatedTopics,
+        };
+      });
+
+      setSelectedMistakeIds((prev) => {
+        const next = new Set(prev);
+        next.delete(mistakeId);
+        return next;
+      });
+    } catch (err) {
+      console.warn('Lỗi khi đánh dấu hoàn thành câu hỏi:', err);
+      alert('Không thể cập nhật trạng thái câu hỏi. Vui lòng thử lại!');
+    } finally {
+      setIsResolving(false);
+    }
+  };
+
+  // Đánh dấu đã hoàn thành nhiều câu hỏi sai đã chọn
+  const handleResolveSelectedMistakes = async () => {
+    if (selectedMistakeIds.size === 0 || isResolving) return;
+    const idsToResolve = Array.from(selectedMistakeIds);
+    if (!window.confirm(`Bạn có chắc muốn đánh dấu đã hoàn thành và xóa ${idsToResolve.length} câu hỏi sai đã chọn?`)) {
+      return;
+    }
+    setIsResolving(true);
+    try {
+      await recommendationAPI.resolveBatchMistakes(idsToResolve);
+
+      setMistakeData((prev) => {
+        const remainingMistakes = (prev.mistakes || []).filter(
+          (item) => !selectedMistakeIds.has(item.id) && !selectedMistakeIds.has(item.mistake_id)
+        );
+        const topicsMap = {};
+        remainingMistakes.forEach((item) => {
+          if (!topicsMap[item.topic]) {
+            topicsMap[item.topic] = {
+              topic: item.topic,
+              sub_topic: item.sub_topic,
+              count: 0,
+              difficulty: item.difficulty,
+              skill: item.skill,
+              sample_reason: item.reason,
+            };
+          }
+          topicsMap[item.topic].count += 1;
+        });
+        const updatedTopics = Object.values(topicsMap).sort((a, b) => b.count - a.count);
+
+        return {
+          ...prev,
+          total_mistakes: remainingMistakes.length,
+          mistakes: remainingMistakes,
+          weak_topics: updatedTopics,
+        };
+      });
+
+      setSelectedMistakeIds(new Set());
+    } catch (err) {
+      console.warn('Lỗi khi xóa danh sách câu hỏi sai:', err);
+      alert('Không thể cập nhật danh sách câu hỏi. Vui lòng thử lại!');
+    } finally {
+      setIsResolving(false);
+    }
+  };
 
   // Lọc danh sách câu hỏi làm sai theo chủ đề và từ khóa tìm kiếm
   const filteredMistakes = useMemo(() => {
@@ -731,6 +843,34 @@ export default function AdaptivePathView({
                 >
                   {selectedMistakeIds.size === filteredMistakes.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                 </button>
+
+                {/* Nút đánh dấu đã hoàn thành các câu đã chọn */}
+                {selectedMistakeIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleResolveSelectedMistakes}
+                    disabled={isResolving}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      backgroundColor: '#10b981',
+                      color: '#ffffff',
+                      fontSize: '0.82rem',
+                      fontWeight: '800',
+                      cursor: isResolving ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                      transition: 'all 0.2s ease',
+                    }}
+                    title="Đánh dấu đã hiểu và xóa các câu hỏi đã chọn khỏi danh sách lỗi sai"
+                  >
+                    <i className="fa-solid fa-check-double"></i>
+                    <span>Xóa {selectedMistakeIds.size} câu đã chọn</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -778,7 +918,7 @@ export default function AdaptivePathView({
                           Câu {idx + 1}
                         </span>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          • {m.quiz_title} ({m.attempt_date})
+                          • {m.quiz_title} {m.attempt_date ? `(${m.attempt_date})` : ''}
                         </span>
                       </div>
 
@@ -820,7 +960,7 @@ export default function AdaptivePathView({
                         lineHeight: 1.5,
                       }}
                     >
-                      {m.question_content}
+                      {m.question_content || m.question_text}
                     </div>
 
                     {/* Đối chiếu Đáp án bạn đã chọn vs Đáp án đúng */}
@@ -845,7 +985,7 @@ export default function AdaptivePathView({
                           ĐÁP ÁN BẠN ĐÃ CHỌN (SAI):
                         </div>
                         <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#991b1b' }}>
-                          {m.student_selected || '(Chưa chọn đáp án)'}
+                          {m.student_selected || m.student_choice || '(Chưa chọn đáp án)'}
                         </div>
                       </div>
 
@@ -862,13 +1002,13 @@ export default function AdaptivePathView({
                           ĐÁP ÁN CHÍNH XÁC:
                         </div>
                         <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#166534' }}>
-                          {m.correct_answer}
+                          {m.correct_answer || m.correct_choice || '(Chưa có đáp án chính xác)'}
                         </div>
                       </div>
                     </div>
 
                     {/* Phân tích học thuật của AI */}
-                    {m.reason && (
+                    {(m.reason || m.explanation) && (
                       <div
                         style={{
                           backgroundColor: 'var(--bg-subtle)',
@@ -885,12 +1025,37 @@ export default function AdaptivePathView({
                           <i className="fa-solid fa-lightbulb" style={{ marginRight: '6px' }}></i>
                           Giải thích chuyên sâu từ AI:
                         </strong>
-                        {m.reason}
+                        {m.reason || m.explanation}
                       </div>
                     )}
 
-                    {/* Nút Luyện câu này */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    {/* Hàng nút hành động: Đánh dấu đã hoàn thành & Luyện câu này */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleResolveSingleMistake(m.id || m.mistake_id)}
+                        disabled={isResolving}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: '6px',
+                          backgroundColor: '#10b981',
+                          color: '#ffffff',
+                          border: 'none',
+                          fontWeight: '800',
+                          fontSize: '0.82rem',
+                          cursor: isResolving ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
+                        }}
+                        title="Đánh dấu đã hiểu rõ và xóa câu này khỏi danh sách lỗi sai"
+                      >
+                        <i className="fa-solid fa-circle-check"></i>
+                        <span>Đã Hoàn Thành (Xóa Câu Này)</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handlePracticeSingleMistake(m)}
@@ -901,7 +1066,7 @@ export default function AdaptivePathView({
                           color: '#ea580c',
                           border: '1px solid #ea580c',
                           fontWeight: '800',
-                          fontSize: '0.8rem',
+                          fontSize: '0.82rem',
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',

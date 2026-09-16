@@ -117,6 +117,7 @@ export const recommendationAPI = {
   getStudentMistakes: () => apiClient.get('recommendations/mistakes/'),
   // Xóa / Đánh dấu lỗi sai đã được học viên luyện tập khắc phục
   resolveMistake: (mistakeId) => apiClient.post(`recommendations/mistakes/${mistakeId}/resolve/`),
+  resolveBatchMistakes: (mistakeIds) => apiClient.post('recommendations/mistakes/resolve/', { mistake_ids: mistakeIds }),
   // AI Luyện tập điểm yếu & Lỗi sai: Sinh câu hỏi mới toanh bám sát lỗi sai
   generateWeakTopicQuiz: (topic, subTopic = '', level = 'B1', quantity = 5, topics = []) => {
     if (typeof topic === 'object' && topic !== null) {
