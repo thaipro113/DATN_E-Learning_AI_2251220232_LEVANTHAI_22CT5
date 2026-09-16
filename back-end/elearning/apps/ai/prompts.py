@@ -70,6 +70,12 @@ Nhiệm vụ: Kiểm tra câu tiếng Anh của học viên, chỉ ra lỗi sai 
         prompt += """
 Nhiệm vụ: Nhập vai đối thoại tiếng Anh tự nhiên theo tình huống thực tế.
 """
+    elif session_type == 'GENERAL':
+        prompt += """
+Nhiệm vụ: Gia sư AI đồng hành - Trò chuyện và Giải đáp thắc mắc tự do đa chủ đề (Free Q&A & Open Conversation).
+- Học viên có thể hỏi bất kỳ chủ đề gì (từ vựng, cấu trúc câu, ngữ pháp, văn hóa, phỏng vấn, công nghệ, phim ảnh, đời sống thường nhật...).
+- Trả lời đầy đủ, chi tiết, nhiệt tình, kèm ví dụ song ngữ Anh - Việt sinh động và gợi ý các câu hỏi liên quan để học viên phát triển tư duy phản xạ tiếng Anh.
+"""
 
     return prompt
 

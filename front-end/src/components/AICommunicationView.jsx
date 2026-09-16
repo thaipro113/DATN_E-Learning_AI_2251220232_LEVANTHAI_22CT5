@@ -4,6 +4,22 @@ import ConfirmModal from './ConfirmModal';
 
 const SCENARIOS = [
   {
+    id: 'free_talk',
+    icon: 'fa-wand-magic-sparkles',
+    color: '#4f46e5',
+    bg: '#eef2ff',
+    title: 'Trò chuyện & Hỏi đáp tự do',
+    subtitle: 'Free Q&A & Open Conversation',
+    level: 'A1 - C2',
+    starterPrompt: "Hi there! I'm your open-ended AI English tutor & speaking partner. You can ask me any question, discuss any topic (daily life, science, movies, grammar, work, culture...), or practice free conversation. What would you like to talk about today?",
+    suggestions: [
+      "Can you explain the difference between 'present perfect' and 'past simple' with examples?",
+      "Let's have a casual conversation about favorite movies and hobbies.",
+      "How can I improve my English speaking fluency and pronunciation effectively?",
+      "Can you check if this sentence sounds natural: 'I look forward to hear from you'?",
+    ],
+  },
+  {
     id: 'daily',
     icon: 'fa-mug-hot',
     color: '#0284c7',
@@ -324,7 +340,7 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
     try {
       const res = await aiAPI.createSession({
         title: `${selectedScenario.title} (${targetLevel})`,
-        session_type: 'ROLEPLAY',
+        session_type: selectedScenario.id === 'free_talk' ? 'GENERAL' : 'ROLEPLAY',
         target_level: targetLevel,
         initial_message: selectedScenario.starterPrompt,
       });
@@ -422,7 +438,7 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
         if (!activeSessionId) {
           const createRes = await aiAPI.createSession({
             title: `${selectedScenario.title}: ${textToSend.slice(0, 20)}...`,
-            session_type: 'ROLEPLAY',
+            session_type: selectedScenario.id === 'free_talk' ? 'GENERAL' : 'ROLEPLAY',
             target_level: targetLevel,
             initial_message: selectedScenario.starterPrompt,
           });
@@ -641,11 +657,23 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
                       <i className={`fa-solid ${sc.icon}`}></i>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'block' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
+                        <strong style={{ fontSize: '0.84rem', color: 'var(--text-main)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {sc.title}
                         </strong>
-                        <span style={{ fontSize: '0.65rem', fontWeight: '700', color: sc.color, backgroundColor: 'white', padding: '1px 6px', borderRadius: '4px', border: `1px solid ${sc.color}` }}>
+                        <span style={{
+                          fontSize: '0.66rem',
+                          fontWeight: '800',
+                          color: sc.color,
+                          backgroundColor: '#ffffff',
+                          padding: '2px 7px',
+                          borderRadius: '5px',
+                          border: `1px solid ${sc.color}`,
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          lineHeight: 1.2,
+                          letterSpacing: '0.2px',
+                        }}>
                           {sc.level}
                         </span>
                       </div>
@@ -970,7 +998,7 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
             }}
           >
             <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', alignSelf: 'center' }}>
-              Gợi ý trả lời:
+              {selectedScenario.id === 'free_talk' ? 'Gợi ý câu hỏi / chủ đề:' : 'Gợi ý trả lời:'}
             </span>
             {selectedScenario.suggestions.map((sug, sIdx) => (
               <button
@@ -1015,7 +1043,11 @@ export default function AICommunicationView({ user, isLoggedIn, onOpenAuthModal 
           >
             <input
               type="text"
-              placeholder="Nhập câu trả lời bằng tiếng Anh (hoặc hỏi nghĩa câu bằng tiếng Việt)..."
+              placeholder={
+                selectedScenario.id === 'free_talk'
+                  ? 'Nhập bất kỳ câu hỏi hoặc chủ đề nào bạn muốn thảo luận (tiếng Anh hoặc tiếng Việt)...'
+                  : 'Nhập câu trả lời bằng tiếng Anh (hoặc hỏi nghĩa câu bằng tiếng Việt)...'
+              }
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               disabled={isLoading}
