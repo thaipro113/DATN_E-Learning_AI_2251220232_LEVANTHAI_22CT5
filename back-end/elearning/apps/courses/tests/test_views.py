@@ -148,6 +148,35 @@ class CoursesAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['data']['title'], 'English Grammar 101 - Updated')
 
+    def test_admin_approve_and_reject_course(self):
+        """Admin có quyền phê duyệt và từ chối khóa học."""
+        pending_course = CourseService.create_course(self.teacher_a, {
+            'title': 'Course Pending Review',
+            'description': 'Description',
+            'category': self.category,
+            'level': EnglishLevel.A2,
+            'status': CourseStatus.PENDING
+        })
+        approve_url = reverse('courses:course_approve', kwargs={'identifier': str(pending_course.id)})
+        reject_url = reverse('courses:course_reject', kwargs={'identifier': str(pending_course.id)})
+
+        # Giáo viên không có quyền duyệt -> 403 Forbidden
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.teacher_a_tokens['access']}")
+        res = self.client.post(approve_url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Admin duyệt khóa học -> 200 OK, status = PUBLISHED
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.admin_tokens['access']}")
+        res = self.client.post(approve_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['data']['status'], CourseStatus.PUBLISHED)
+
+        # Admin từ chối khóa học kèm lý do -> 200 OK, status = REJECTED
+        res = self.client.post(reject_url, {'reason': 'Cần bổ sung thêm video bài giảng.'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['data']['status'], CourseStatus.REJECTED)
+        self.assertEqual(res.data['data']['rejection_reason'], 'Cần bổ sung thêm video bài giảng.')
+
     # ==================== 3. TEST CURRICULUM APIS ====================
     def test_create_chapter_and_lesson(self):
         """Giáo viên tạo chương học và bài học mới."""

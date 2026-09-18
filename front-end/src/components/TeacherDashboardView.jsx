@@ -29,7 +29,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [newDescription, setNewDescription] = useState('');
   const [newCategoryId, setNewCategoryId] = useState('');
   const [newLevel, setNewLevel] = useState('B1');
-  const [newStatus, setNewStatus] = useState('PUBLISHED');
+  const [newStatus, setNewStatus] = useState('PENDING');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80');
   const [newPrice, setNewPrice] = useState(0);
   const [isFree, setIsFree] = useState(true);
@@ -134,7 +135,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       setNewTitle('');
       setNewSlug('');
       setNewDescription('');
-      setNewStatus('PUBLISHED');
+      setNewStatus('PENDING');
       setShowCreateModal(false);
       fetchTeacherCourses();
     } catch (err) {
@@ -373,6 +374,42 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       {/* Tab 1: Quản lý khóa học */}
       {activeTab === 'courses' && (
         <div>
+          {/* Filter by Status Pills */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {[
+              { key: 'ALL', label: `Tất cả (${courses.length})` },
+              { key: 'PUBLISHED', label: `✓ Đã duyệt (${courses.filter((c) => c.status === 'PUBLISHED').length})`, color: '#059669' },
+              { key: 'PENDING', label: `⏳ Chờ duyệt (${courses.filter((c) => c.status === 'PENDING').length})`, color: '#d97706' },
+              { key: 'REJECTED', label: `✗ Bị từ chối (${courses.filter((c) => c.status === 'REJECTED').length})`, color: '#dc2626' },
+              { key: 'DRAFT', label: `Bản nháp (${courses.filter((c) => c.status === 'DRAFT').length})`, color: '#64748b' },
+            ].map((pill) => {
+              const isSelected = statusFilter === pill.key;
+              return (
+                <button
+                  key={pill.key}
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(pill.key);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    border: isSelected ? `1.5px solid ${pill.color || '#0284c7'}` : '1px solid var(--border-color)',
+                    backgroundColor: isSelected ? (pill.color ? `${pill.color}15` : '#0284c715') : 'var(--bg-surface)',
+                    color: isSelected ? (pill.color || '#0284c7') : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+
           {isLoading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
               <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '1.5rem', color: '#0284c7' }}></i>
@@ -392,148 +429,243 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                {courses
-                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                  .map((course) => (
-                    <div
-                      key={course.id}
-                      style={{
-                        backgroundColor: 'var(--bg-surface)',
-                        borderRadius: 'var(--radius-lg)',
-                        border: '1px solid var(--border-card)',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        boxShadow: 'var(--shadow-sm)',
-                      }}
-                    >
-                      {/* Course Thumbnail Image */}
+              {courses.filter((c) => statusFilter === 'ALL' || c.status === statusFilter).length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)' }}>
+                  <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
+                    Không có khóa học nào thuộc trạng thái này.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                  {courses
+                    .filter((c) => statusFilter === 'ALL' || c.status === statusFilter)
+                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                    .map((course) => (
                       <div
-                        style={{ height: '150px', position: 'relative', overflow: 'hidden', backgroundColor: '#0284c7', cursor: 'pointer' }}
-                        onClick={() => {
-                          setSelectedCourseForCurriculum(course);
-                          setShowCurriculumModal(true);
+                        key={course.id}
+                        style={{
+                          backgroundColor: 'var(--bg-surface)',
+                          borderRadius: 'var(--radius-lg)',
+                          border: course.status === 'REJECTED' ? '1px solid #fca5a5' : course.status === 'PENDING' ? '1px solid #fde68a' : '1px solid var(--border-card)',
+                          overflow: 'hidden',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          boxShadow: 'var(--shadow-sm)',
                         }}
                       >
-                        {course.thumbnail_url ? (
-                          <img
-                            src={course.thumbnail_url}
-                            alt={course.title}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2.5rem' }}>
-                            <i className="fa-solid fa-graduation-cap"></i>
-                          </div>
-                        )}
-
-                        <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '5px' }}>
-                          <span
-                            style={{
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                              color: 'white',
-                              fontSize: '0.72rem',
-                              fontWeight: '800',
-                            }}
-                          >
-                            CEFR {course.level || 'B1'}
-                          </span>
-                          {course.status === 'DRAFT' && (
-                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f59e0b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
-                              Bản nháp
-                            </span>
-                          )}
-                          {course.status === 'ARCHIVED' && (
-                            <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#64748b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
-                              Lưu trữ
-                            </span>
-                          )}
-                        </div>
-
-                        <span
-                          style={{
-                            position: 'absolute',
-                            top: '10px',
-                            right: '10px',
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            backgroundColor: course.is_free ? '#10b981' : '#0284c7',
-                            color: 'white',
-                            fontSize: '0.72rem',
-                            fontWeight: '800',
-                          }}
-                        >
-                          {course.is_free ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-                        </span>
-                      </div>
-
-                      {/* Course Card Body */}
-                      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', textTransform: 'uppercase' }}>
-                            {course.category?.name || 'Ngữ pháp Tiếng Anh'}
-                          </span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            GV: {course.teacher?.full_name || teacherDisplayName}
-                          </span>
-                        </div>
-
-                        <h3
-                          style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.3', cursor: 'pointer' }}
+                        {/* Course Thumbnail Image */}
+                        <div
+                          style={{ height: '150px', position: 'relative', overflow: 'hidden', backgroundColor: '#0284c7', cursor: 'pointer' }}
                           onClick={() => {
                             setSelectedCourseForCurriculum(course);
                             setShowCurriculumModal(true);
                           }}
                         >
-                          {cleanCourseTitle(course.title)}
-                        </h3>
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {course.description}
-                        </p>
+                          {course.thumbnail_url ? (
+                            <img
+                              src={course.thumbnail_url}
+                              alt={course.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2.5rem' }}>
+                              <i className="fa-solid fa-graduation-cap"></i>
+                            </div>
+                          )}
 
-                        <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginBottom: '12px' }}>
-                          <span><i className="fa-solid fa-layer-group"></i> {course.total_chapters != null ? course.total_chapters : (course.chapters?.length || 0)} chương</span>
-                          <span><i className="fa-solid fa-circle-play"></i> {course.total_lessons != null ? course.total_lessons : (course.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 0)} bài giảng</span>
+                          <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                            <span
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                                color: 'white',
+                                fontSize: '0.72rem',
+                                fontWeight: '800',
+                              }}
+                            >
+                              CEFR {course.level || 'B1'}
+                            </span>
+                            {course.status === 'PENDING' && (
+                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f59e0b', color: 'white', fontSize: '0.72rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <i className="fa-solid fa-clock"></i> Chờ duyệt
+                              </span>
+                            )}
+                            {course.status === 'PUBLISHED' && (
+                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#10b981', color: 'white', fontSize: '0.72rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <i className="fa-solid fa-check"></i> Đã duyệt
+                              </span>
+                            )}
+                            {course.status === 'REJECTED' && (
+                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#ef4444', color: 'white', fontSize: '0.72rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <i className="fa-solid fa-triangle-exclamation"></i> Bị từ chối
+                              </span>
+                            )}
+                            {course.status === 'DRAFT' && (
+                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#64748b', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
+                                Bản nháp
+                              </span>
+                            )}
+                            {course.status === 'ARCHIVED' && (
+                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#334155', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
+                                Lưu trữ
+                              </span>
+                            )}
+                          </div>
+
+                          <span
+                            style={{
+                              position: 'absolute',
+                              top: '10px',
+                              right: '10px',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: course.is_free ? '#10b981' : '#0284c7',
+                              color: 'white',
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                            }}
+                          >
+                            {course.is_free ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                          </span>
                         </div>
 
-                        {/* Action Buttons */}
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            className="btn-outline"
+                        {/* Course Card Body */}
+                        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', textTransform: 'uppercase' }}>
+                              {course.category?.name || 'Ngữ pháp Tiếng Anh'}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                              GV: {course.teacher?.full_name || teacherDisplayName}
+                            </span>
+                          </div>
+
+                          <h3
+                            style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.3', cursor: 'pointer' }}
                             onClick={() => {
                               setSelectedCourseForCurriculum(course);
                               setShowCurriculumModal(true);
                             }}
-                            style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
                           >
-                            <i className="fa-solid fa-pen-ruler"></i>
-                            <span>Quản lý giáo trình (Chi tiết)</span>
-                          </button>
+                            {cleanCourseTitle(course.title)}
+                          </h3>
+                          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {course.description}
+                          </p>
 
-                          {/* Tạm thời ẩn nút tạo đề thi AI cho từng khóa
-                          <button
-                            className="btn-primary"
-                            onClick={() => {
-                              setSelectedCourseForAIQuiz(course);
-                              setShowAIQuizModal(true);
-                            }}
-                            style={{ padding: '6px 12px', fontSize: '0.78rem', backgroundColor: '#7c3aed' }}
-                            title={`AI Tạo đề thi trắc nghiệm trực tiếp cho khóa "${course.title}"`}
-                          >
-                            <i className="fa-solid fa-wand-magic-sparkles"></i>
-                          </button>
-                          */}
+                          {/* Rejection Alert Banner */}
+                          {course.status === 'REJECTED' && (
+                            <div
+                              style={{
+                                backgroundColor: '#fef2f2',
+                                border: '1px solid #fecaca',
+                                borderRadius: '6px',
+                                padding: '10px 12px',
+                                marginBottom: '12px',
+                                fontSize: '0.78rem',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#991b1b', marginBottom: '4px' }}>
+                                <i className="fa-solid fa-circle-xmark" style={{ color: '#ef4444' }}></i>
+                                <span>Phản hồi từ Admin:</span>
+                              </div>
+                              <div style={{ color: '#b91c1c', fontStyle: 'italic', marginBottom: '8px', lineHeight: 1.4 }}>
+                                "{course.rejection_reason || 'Nội dung chưa đạt chuẩn. Vui lòng cập nhật giáo trình và gửi duyệt lại.'}"
+                              </div>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await courseAPI.updateCourse(course.id, { status: 'PENDING' });
+                                    setToastMsg(`✓ Đã gửi yêu cầu xét duyệt lại cho khóa "${course.title}"!`);
+                                    fetchTeacherCourses();
+                                  } catch (err) {
+                                    setToastMsg('Lỗi khi gửi yêu cầu duyệt lại.');
+                                  }
+                                }}
+                                style={{
+                                  padding: '5px 10px',
+                                  backgroundColor: '#dc2626',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                }}
+                              >
+                                <i className="fa-solid fa-rotate-right"></i>
+                                <span>Gửi duyệt lại cho Admin</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Pending Notice Banner */}
+                          {course.status === 'PENDING' && (
+                            <div
+                              style={{
+                                backgroundColor: '#fffbeb',
+                                border: '1px solid #fde68a',
+                                borderRadius: '6px',
+                                padding: '8px 10px',
+                                marginBottom: '12px',
+                                fontSize: '0.76rem',
+                                color: '#92400e',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <i className="fa-solid fa-hourglass-half" style={{ color: '#d97706' }}></i>
+                              <span>Khóa học đang chờ Admin xét duyệt trước khi công khai cho học viên.</span>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginBottom: '12px' }}>
+                            <span><i className="fa-solid fa-layer-group"></i> {course.total_chapters != null ? course.total_chapters : (course.chapters?.length || 0)} chương</span>
+                            <span><i className="fa-solid fa-circle-play"></i> {course.total_lessons != null ? course.total_lessons : (course.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 0)} bài giảng</span>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              className="btn-outline"
+                              onClick={() => {
+                                setSelectedCourseForCurriculum(course);
+                                setShowCurriculumModal(true);
+                              }}
+                              style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+                            >
+                              <i className="fa-solid fa-pen-ruler"></i>
+                              <span>Quản lý giáo trình (Chi tiết)</span>
+                            </button>
+
+                            {/* Tạm thời ẩn nút tạo đề thi AI cho từng khóa
+                            <button
+                              className="btn-primary"
+                              onClick={() => {
+                                setSelectedCourseForAIQuiz(course);
+                                setShowAIQuizModal(true);
+                              }}
+                              style={{ padding: '6px 12px', fontSize: '0.78rem', backgroundColor: '#7c3aed' }}
+                              title={`AI Tạo đề thi trắc nghiệm trực tiếp cho khóa "${course.title}"`}
+                            >
+                              <i className="fa-solid fa-wand-magic-sparkles"></i>
+                            </button>
+                            */}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-              </div>
+                    ))}
+                </div>
+              )}
 
               {/* Phân trang Khóa học */}
               <Pagination
@@ -849,9 +981,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                       fontWeight: '600',
                     }}
                   >
-                    <option value="PUBLISHED">✓ Đã xuất bản</option>
-                    <option value="DRAFT">Bản nháp</option>
-                    <option value="ARCHIVED">Lưu trữ</option>
+                    <option value="PENDING">⏳ Gửi phê duyệt (Chờ Admin duyệt)</option>
+                    <option value="DRAFT">📝 Lưu bản nháp (Chưa gửi)</option>
                   </select>
                 </div>
               </div>

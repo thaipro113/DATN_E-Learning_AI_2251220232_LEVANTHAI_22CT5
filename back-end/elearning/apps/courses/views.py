@@ -4,7 +4,7 @@ from rest_framework import status
 
 from common.responses import success_response, error_response
 from common.permissions import IsAdminUserRole, IsTeacherUserRole, IsOwnerOrReadOnly
-from .models import Course, Chapter, Lesson, Material
+from .models import Course, Chapter, Lesson, Material, CourseStatus
 from .serializers import (
     CategorySerializer,
     CategoryCreateUpdateSerializer,
@@ -214,14 +214,20 @@ class CourseListCreateAPIView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
+        validated_data = serializer.validated_data
+        if request.user.role == 'TEACHER':
+            if validated_data.get('status') != CourseStatus.DRAFT:
+                validated_data['status'] = CourseStatus.PENDING
+
         course = CourseService.create_course(
             teacher=request.user,
-            validated_data=serializer.validated_data
+            validated_data=validated_data
         )
 
+        success_msg = "Tạo khóa học thành công! Khóa học đang ở trạng thái chờ Quản trị viên duyệt." if course.status == CourseStatus.PENDING else "Tạo khóa học thành công!"
         return success_response(
             data=CourseDetailSerializer(course).data,
-            message="Tạo khóa học thành công!",
+            message=success_msg,
             status_code=status.HTTP_201_CREATED
         )
 
@@ -647,5 +653,50 @@ class MaterialDetailAPIView(APIView):
 
         return success_response(
             message="Xóa tài liệu đính kèm thành công!",
+            status_code=status.HTTP_200_OK
+        )
+
+
+class CourseApproveAPIView(APIView):
+    """
+    API Endpoint dành cho Quản trị viên (Admin) phê duyệt và xuất bản khóa học.
+    """
+    permission_classes = [IsAdminUserRole]
+
+    def post(self, request, identifier):
+        course = CourseService.get_course_detail(identifier=identifier, user=request.user)
+        if not course:
+            return error_response(
+                message="Không tìm thấy khóa học yêu cầu phê duyệt.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        _, msg, approved_course = CourseService.approve_course(course)
+        return success_response(
+            data=CourseDetailSerializer(approved_course).data,
+            message=msg,
+            status_code=status.HTTP_200_OK
+        )
+
+
+class CourseRejectAPIView(APIView):
+    """
+    API Endpoint dành cho Quản trị viên (Admin) từ chối phê duyệt khóa học kèm lý do phản hồi.
+    """
+    permission_classes = [IsAdminUserRole]
+
+    def post(self, request, identifier):
+        course = CourseService.get_course_detail(identifier=identifier, user=request.user)
+        if not course:
+            return error_response(
+                message="Không tìm thấy khóa học yêu cầu.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        reason = request.data.get('reason', '')
+        _, msg, rejected_course = CourseService.reject_course(course, reason=reason)
+        return success_response(
+            data=CourseDetailSerializer(rejected_course).data,
+            message=msg,
             status_code=status.HTTP_200_OK
         )

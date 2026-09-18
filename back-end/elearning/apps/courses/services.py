@@ -154,7 +154,12 @@ class CourseService:
         return Course.objects.create(teacher=teacher, **validated_data)
 
     @staticmethod
-    def update_course(course: Course, validated_data: dict) -> Course:
+    def update_course(course: Course, validated_data: dict, user: CustomUser = None) -> Course:
+        if user and user.role == 'TEACHER':
+            # Nếu giảng viên gửi duyệt lại khóa học bị từ chối hoặc cập nhật
+            if validated_data.get('status') == CourseStatus.PENDING or course.status == CourseStatus.REJECTED:
+                validated_data['status'] = CourseStatus.PENDING
+                validated_data['rejection_reason'] = None
         for attr, value in validated_data.items():
             setattr(course, attr, value)
         course.save()
@@ -166,6 +171,20 @@ class CourseService:
         return True, "Khóa học và toàn bộ giáo trình bên trong đã được xóa khỏi hệ thống thành công."
 
     @staticmethod
+    def approve_course(course: Course) -> tuple[bool, str, Course]:
+        course.status = CourseStatus.PUBLISHED
+        course.rejection_reason = None
+        course.save()
+        return True, f"Khóa học '{course.title}' đã được phê duyệt và xuất bản thành công!", course
+
+    @staticmethod
+    def reject_course(course: Course, reason: str = "") -> tuple[bool, str, Course]:
+        course.status = CourseStatus.REJECTED
+        course.rejection_reason = reason.strip() or "Khóa học chưa đáp ứng tiêu chuẩn nội dung hoặc chất lượng sư phạm."
+        course.save()
+        return True, f"Khóa học '{course.title}' đã bị từ chối phê duyệt.", course
+
+    @staticmethod
     def publish_course(course: Course) -> tuple[bool, str, Course]:
         chapters_count = course.chapters.count()
         lessons_count = Lesson.objects.filter(chapter__course=course).count()
@@ -174,6 +193,7 @@ class CourseService:
             return False, "Khóa học phải có ít nhất 1 chương học và 1 bài học mới có thể xuất bản.", course
 
         course.status = CourseStatus.PUBLISHED
+        course.rejection_reason = None
         course.save()
         return True, "Khóa học đã được xuất bản công khai thành công!", course
 

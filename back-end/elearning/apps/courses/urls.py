@@ -6,6 +6,8 @@ from .views import (
     TeacherCoursesAPIView,
     CourseDetailAPIView,
     CoursePublishAPIView,
+    CourseApproveAPIView,
+    CourseRejectAPIView,
     ChapterListCreateAPIView,
     ChapterDetailAPIView,
     LessonCreateAPIView,
@@ -26,6 +28,8 @@ urlpatterns = [
     path('teaching/', TeacherCoursesAPIView.as_view(), name='my_teaching_courses'),
     path('<str:identifier>/', CourseDetailAPIView.as_view(), name='course_detail'),
     path('<str:identifier>/publish/', CoursePublishAPIView.as_view(), name='course_publish'),
+    path('<str:identifier>/approve/', CourseApproveAPIView.as_view(), name='course_approve'),
+    path('<str:identifier>/reject/', CourseRejectAPIView.as_view(), name='course_reject'),
 
     # 3. Chương học (Chapters)
     path('<uuid:course_id>/chapters/', ChapterListCreateAPIView.as_view(), name='chapter_create'),

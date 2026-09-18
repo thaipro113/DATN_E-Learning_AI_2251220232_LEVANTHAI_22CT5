@@ -52,6 +52,15 @@ export default function AdminDashboardView() {
   const [catDescription, setCatDescription] = useState('');
   const [catIsActive, setCatIsActive] = useState(true);
 
+  // Course Approval & Rejection State
+  const [courseStatusFilter, setCourseStatusFilter] = useState('ALL');
+  const [rejectModal, setRejectModal] = useState({
+    isOpen: false,
+    course: null,
+    reason: '',
+    isLoading: false,
+  });
+
   // Confirm Modal state for Admin operations
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -262,6 +271,65 @@ export default function AdminDashboardView() {
     });
   };
 
+  // 3.1 Admin phê duyệt khóa học (status -> PUBLISHED)
+  const handleApproveCourse = async (courseItem) => {
+    try {
+      await courseAPI.approveCourse(courseItem.id);
+      setCourses((prev) =>
+        prev.map((c) =>
+          c.id === courseItem.id
+            ? { ...c, status: 'PUBLISHED', rejection_reason: null }
+            : c
+        )
+      );
+      setToastMsg({
+        type: 'success',
+        text: `✓ Đã phê duyệt và xuất bản khóa học "${courseItem.title}" công khai!`,
+      });
+    } catch (err) {
+      const errMsg = err.response?.data?.message || 'Không thể phê duyệt khóa học.';
+      setToastMsg({ type: 'error', text: errMsg });
+    }
+  };
+
+  // 3.2 Mở modal từ chối khóa học kèm lý do
+  const handleOpenRejectModal = (courseItem) => {
+    setRejectModal({
+      isOpen: true,
+      course: courseItem,
+      reason: courseItem.rejection_reason || '',
+      isLoading: false,
+    });
+  };
+
+  // 3.3 Xác nhận từ chối khóa học
+  const handleConfirmRejectCourse = async () => {
+    if (!rejectModal.course || !rejectModal.reason.trim()) {
+      setToastMsg({ type: 'error', text: 'Vui lòng nhập lý do từ chối khóa học!' });
+      return;
+    }
+    setRejectModal((prev) => ({ ...prev, isLoading: true }));
+    try {
+      await courseAPI.rejectCourse(rejectModal.course.id, rejectModal.reason.trim());
+      setCourses((prev) =>
+        prev.map((c) =>
+          c.id === rejectModal.course.id
+            ? { ...c, status: 'REJECTED', rejection_reason: rejectModal.reason.trim() }
+            : c
+        )
+      );
+      setToastMsg({
+        type: 'success',
+        text: `✓ Đã từ chối khóa học "${rejectModal.course.title}" và lưu lý do phản hồi cho Giảng viên.`,
+      });
+      setRejectModal({ isOpen: false, course: null, reason: '', isLoading: false });
+    } catch (err) {
+      const errMsg = err.response?.data?.message || 'Không thể từ chối khóa học.';
+      setToastMsg({ type: 'error', text: errMsg });
+      setRejectModal((prev) => ({ ...prev, isLoading: false }));
+    }
+  };
+
   // 4. Admin xóa Đề thi
   const handleDeleteQuiz = (quizItem) => {
     setConfirmModal({
@@ -449,6 +517,8 @@ export default function AdminDashboardView() {
   const totalQuizzesCount = quizzes.length || 0;
   const totalQuestionsCount = quizzes.reduce((acc, q) => acc + (q.questions_count || (q.questions ? q.questions.length : 0) || (q.total_questions || 10)), 0);
 
+  const pendingCoursesCount = courses.filter((c) => c.status === 'PENDING').length;
+
   // Grouped Navigation Sidebar Categories matching the reference design
   const navSections = [
     {
@@ -460,7 +530,13 @@ export default function AdminDashboardView() {
     {
       groupTitle: 'DANH MỤC & ĐÀO TẠO',
       items: [
-        { id: 'courses', label: 'Khóa Học', badge: courses.length, icon: 'fa-book-open', color: '#059669' },
+        {
+          id: 'courses',
+          label: 'Khóa Học',
+          badge: pendingCoursesCount > 0 ? `${courses.length} (${pendingCoursesCount} chờ duyệt)` : courses.length,
+          icon: 'fa-book-open',
+          color: '#059669',
+        },
         { id: 'categories', label: 'Danh Mục', badge: categories.length, icon: 'fa-tags', color: '#0ea5e9' },
         { id: 'quizzes', label: 'Ngân Hàng Đề Thi', badge: quizzes.length, icon: 'fa-file-signature', color: '#d97706' },
       ],
@@ -1439,14 +1515,82 @@ export default function AdminDashboardView() {
                 <div>
                   <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>
                     <i className="fa-solid fa-book-open" style={{ color: '#059669', marginRight: '8px' }}></i>
-                    Quản Trị Toàn Bộ Khóa Học & Giáo Trình
+                    Quản Trị & Xét Duyệt Khóa Học
                   </h3>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                    Danh sách các khóa học video kèm bài giảng và bài tập trắc nghiệm
+                    Phê duyệt khóa học mới do Giảng viên tạo hoặc từ chối kèm lý do phản hồi
                   </p>
+                </div>
+
+                {/* Tìm kiếm khóa học */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '260px' }}>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.8rem' }}></i>
+                    <input
+                      type="text"
+                      placeholder="Tìm theo tên khóa, giảng viên..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 32px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.84rem',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
+              {/* Status Filter Buttons */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {[
+                  { key: 'ALL', label: `Tất cả (${courses.length})` },
+                  {
+                    key: 'PENDING',
+                    label: `⏳ Chờ duyệt (${courses.filter((c) => c.status === 'PENDING').length})`,
+                    color: '#d97706',
+                    highlight: courses.filter((c) => c.status === 'PENDING').length > 0,
+                  },
+                  { key: 'PUBLISHED', label: `✓ Đã xuất bản (${courses.filter((c) => c.status === 'PUBLISHED').length})`, color: '#059669' },
+                  { key: 'REJECTED', label: `✗ Bị từ chối (${courses.filter((c) => c.status === 'REJECTED').length})`, color: '#dc2626' },
+                  { key: 'DRAFT', label: `Bản nháp (${courses.filter((c) => c.status === 'DRAFT').length})`, color: '#64748b' },
+                ].map((pill) => {
+                  const isSelected = courseStatusFilter === pill.key;
+                  return (
+                    <button
+                      key={pill.key}
+                      type="button"
+                      onClick={() => {
+                        setCourseStatusFilter(pill.key);
+                        setCurrentPage(1);
+                      }}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: '700',
+                        border: isSelected ? `1.5px solid ${pill.color || '#0284c7'}` : '1px solid var(--border-color)',
+                        backgroundColor: isSelected
+                          ? pill.color ? `${pill.color}18` : '#0284c718'
+                          : pill.highlight ? '#fffbeb' : 'var(--bg-surface)',
+                        color: isSelected ? (pill.color || '#0284c7') : (pill.highlight ? '#d97706' : 'var(--text-muted)'),
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {pill.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Courses Table */}
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                   <thead>
@@ -1454,41 +1598,227 @@ export default function AdminDashboardView() {
                       <th style={{ padding: '10px' }}>Tên khóa học</th>
                       <th style={{ padding: '10px' }}>Giảng viên</th>
                       <th style={{ padding: '10px' }}>Trình độ</th>
+                      <th style={{ padding: '10px' }}>Trạng thái</th>
                       <th style={{ padding: '10px' }}>Học phí</th>
                       <th style={{ padding: '10px' }}>Số bài giảng</th>
                       <th style={{ padding: '10px', textAlign: 'right' }}>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {courses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((c) => (
-                      <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '12px 10px', fontWeight: '700' }}>{c.title}</td>
-                        <td style={{ padding: '12px 10px', color: 'var(--text-secondary)' }}>{c.teacher_name || 'Thầy Nguyễn Văn An'}</td>
-                        <td style={{ padding: '12px 10px' }}>
-                          <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '800', fontSize: '0.78rem' }}>
-                            {c.level}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 10px', fontWeight: '700', color: parseFloat(c.price) > 0 ? '#b91c1c' : '#15803d' }}>
-                          {parseFloat(c.price) > 0 ? `${parseFloat(c.price).toLocaleString('vi-VN')} đ` : 'Miễn phí'}
-                        </td>
-                        <td style={{ padding: '12px 10px', color: 'var(--text-muted)' }}>{c.total_lessons || 4} bài</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>
-                          <button
-                            className="btn-outline"
-                            style={{ padding: '4px 8px', fontSize: '0.78rem', color: '#b91c1c', borderColor: '#fca5a5' }}
-                            onClick={() => handleDeleteCourse(c)}
+                    {courses
+                      .filter((c) => {
+                        const matchStatus = courseStatusFilter === 'ALL' || c.status === courseStatusFilter;
+                        const matchSearch =
+                          !searchTerm ||
+                          (c.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (c.teacher_name || c.teacher?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (c.level || '').toLowerCase().includes(searchTerm.toLowerCase());
+                        return matchStatus && matchSearch;
+                      })
+                      .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                      .map((c) => {
+                        const isPending = c.status === 'PENDING';
+                        const isPublished = c.status === 'PUBLISHED';
+                        const isRejected = c.status === 'REJECTED';
+                        const isDraft = c.status === 'DRAFT';
+
+                        return (
+                          <tr
+                            key={c.id}
+                            style={{
+                              borderBottom: '1px solid var(--border-color)',
+                              backgroundColor: isPending ? '#fffbeb40' : 'transparent',
+                            }}
                           >
-                            Xóa
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                            <td style={{ padding: '12px 10px' }}>
+                              <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{c.title}</div>
+                              {c.category?.name && (
+                                <span style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: '600' }}>
+                                  {c.category.name}
+                                </span>
+                              )}
+                              {isRejected && c.rejection_reason && (
+                                <div style={{ fontSize: '0.74rem', color: '#dc2626', marginTop: '3px', fontStyle: 'italic' }}>
+                                  Lý do: {c.rejection_reason}
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 10px', color: 'var(--text-secondary)' }}>
+                              <div style={{ fontWeight: '600' }}>{c.teacher_name || c.teacher?.full_name || 'Thầy Nguyễn Văn An'}</div>
+                              {c.teacher?.email && (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{c.teacher.email}</div>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 10px' }}>
+                              <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '800', fontSize: '0.78rem' }}>
+                                {c.level}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 10px' }}>
+                              {isPending && (
+                                <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#b45309', fontWeight: '800', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <i className="fa-solid fa-clock"></i> Chờ duyệt
+                                </span>
+                              )}
+                              {isPublished && (
+                                <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: '800', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <i className="fa-solid fa-check"></i> Đã xuất bản
+                                </span>
+                              )}
+                              {isRejected && (
+                                <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#fee2e2', color: '#b91c1c', fontWeight: '800', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <i className="fa-solid fa-ban"></i> Bị từ chối
+                                </span>
+                              )}
+                              {isDraft && (
+                                <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: '800', fontSize: '0.75rem' }}>
+                                  Bản nháp
+                                </span>
+                              )}
+                              {c.status === 'ARCHIVED' && (
+                                <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e2e8f0', color: '#334155', fontWeight: '800', fontSize: '0.75rem' }}>
+                                  Lưu trữ
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 10px', fontWeight: '700', color: parseFloat(c.price) > 0 ? '#b91c1c' : '#15803d' }}>
+                              {parseFloat(c.price) > 0 ? `${parseFloat(c.price).toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+                            </td>
+                            <td style={{ padding: '12px 10px', color: 'var(--text-muted)' }}>{c.total_lessons || 4} bài</td>
+                            <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                {isPending && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveCourse(c)}
+                                      style={{
+                                        padding: '4px 10px',
+                                        fontSize: '0.78rem',
+                                        fontWeight: '700',
+                                        backgroundColor: '#16a34a',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                      }}
+                                    >
+                                      <i className="fa-solid fa-check"></i> Duyệt
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenRejectModal(c)}
+                                      style={{
+                                        padding: '4px 10px',
+                                        fontSize: '0.78rem',
+                                        fontWeight: '700',
+                                        backgroundColor: '#fff',
+                                        color: '#dc2626',
+                                        border: '1px solid #fca5a5',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                      }}
+                                    >
+                                      <i className="fa-solid fa-ban"></i> Từ chối
+                                    </button>
+                                  </>
+                                )}
+
+                                {isPublished && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenRejectModal(c)}
+                                    style={{
+                                      padding: '4px 8px',
+                                      fontSize: '0.76rem',
+                                      fontWeight: '600',
+                                      backgroundColor: '#fff',
+                                      color: '#d97706',
+                                      border: '1px solid #fde68a',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                    }}
+                                    title="Gỡ xuất bản và từ chối khóa học"
+                                  >
+                                    Gỡ duyệt
+                                  </button>
+                                )}
+
+                                {isRejected && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveCourse(c)}
+                                      style={{
+                                        padding: '4px 8px',
+                                        fontSize: '0.76rem',
+                                        fontWeight: '700',
+                                        backgroundColor: '#16a34a',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Duyệt lại
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenRejectModal(c)}
+                                      style={{
+                                        padding: '4px 8px',
+                                        fontSize: '0.76rem',
+                                        fontWeight: '600',
+                                        backgroundColor: '#fff',
+                                        color: '#0284c7',
+                                        border: '1px solid #bae6fd',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Lý do
+                                    </button>
+                                  </>
+                                )}
+
+                                <button
+                                  className="btn-outline"
+                                  style={{ padding: '4px 8px', fontSize: '0.78rem', color: '#b91c1c', borderColor: '#fca5a5' }}
+                                  onClick={() => handleDeleteCourse(c)}
+                                >
+                                  Xóa
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
 
-              <Pagination currentPage={currentPage} totalItems={courses.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
+              <Pagination
+                currentPage={currentPage}
+                totalItems={
+                  courses.filter((c) => {
+                    const matchStatus = courseStatusFilter === 'ALL' || c.status === courseStatusFilter;
+                    const matchSearch =
+                      !searchTerm ||
+                      (c.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (c.teacher_name || c.teacher?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (c.level || '').toLowerCase().includes(searchTerm.toLowerCase());
+                    return matchStatus && matchSearch;
+                  }).length
+                }
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
 
@@ -2465,6 +2795,105 @@ export default function AdminDashboardView() {
                 style={{ padding: '8px 20px' }}
               >
                 Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Admin từ chối phê duyệt khóa học kèm lý do phản hồi */}
+      {rejectModal.isOpen && rejectModal.course && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 150,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: 'var(--shadow-xl)',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#b91c1c', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                  Từ Chối Phê Duyệt Khóa Học
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                  Khóa học: <strong>{rejectModal.course.title}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectModal({ isOpen: false, course: null, reason: '', isLoading: false })}
+                style={{ background: 'none', border: 'none', fontSize: '1.1rem', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
+                Lý do từ chối (bắt buộc - sẽ phản hồi trực tiếp tới Giảng viên):
+              </label>
+              <textarea
+                rows={4}
+                value={rejectModal.reason}
+                onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
+                placeholder="Ví dụ: Nội dung bài giảng chưa hoàn chỉnh, thiếu bài tập trắc nghiệm củng cố hoặc tiêu đề chưa phù hợp chuẩn quy định..."
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '0.85rem',
+                  lineHeight: 1.5,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setRejectModal({ isOpen: false, course: null, reason: '', isLoading: false })}
+                disabled={rejectModal.isLoading}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleConfirmRejectCourse}
+                disabled={rejectModal.isLoading || !rejectModal.reason.trim()}
+                style={{ backgroundColor: '#dc2626', borderColor: '#dc2626' }}
+              >
+                {rejectModal.isLoading ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }}></i>
+                    Đang lưu...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-ban" style={{ marginRight: '6px' }}></i>
+                    Xác nhận từ chối
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -7,7 +7,9 @@ from apps.accounts.models import EnglishLevel
 
 class CourseStatus(models.TextChoices):
     DRAFT = 'DRAFT', _('Bản nháp')
+    PENDING = 'PENDING', _('Chờ duyệt')
     PUBLISHED = 'PUBLISHED', _('Đã xuất bản')
+    REJECTED = 'REJECTED', _('Bị từ chối')
     ARCHIVED = 'ARCHIVED', _('Đã lưu trữ')
 
 
@@ -86,6 +88,12 @@ class Course(BaseModel):
         max_length=20,
         choices=CourseStatus.choices,
         default=CourseStatus.DRAFT
+    )
+    rejection_reason = models.TextField(
+        _('Lý do từ chối phê duyệt'),
+        blank=True,
+        null=True,
+        help_text=_('Phản hồi từ Quản trị viên khi từ chối khóa học')
     )
 
     class Meta:
