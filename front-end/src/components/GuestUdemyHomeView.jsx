@@ -159,157 +159,7 @@ export default function GuestUdemyHomeView({
       {/* ==================== 1.5. LEARNING ROADMAP TIMELINE (LỘ TRÌNH PHÁT TRIỂN NĂNG LỰC) ==================== */}
       <LearningRoadmapTimeline onExploreClick={onExploreClick} />
 
-      {/* ==================== 2. COURSE SECTION (REDESIGNED TÔNG XANH / TRẮNG) ==================== */}
-      <section className="landing-courses-section" id="courses-section">
-        <div className="landing-section-header">
-          <div>
-            <span className="landing-section-pill">KHO HỌC LIỆU CHẤT LƯỢNG CAO</span>
-            <h2 className="landing-section-title">Khám Phá Các Khóa Học Tiếng Anh</h2>
-            <p className="landing-section-desc">Học theo chuẩn khung tham chiếu Châu Âu (CEFR) kết hợp trợ lý AI thông minh</p>
-          </div>
-          <button className="btn-view-all-courses" onClick={onExploreClick}>
-            <span>Xem tất cả ({courses.length})</span>
-            <i className="fa-solid fa-arrow-right"></i>
-          </button>
-        </div>
 
-        {/* Category dạng Pill Button */}
-        <div className="landing-category-pills">
-          <button
-            className={`landing-pill ${selectedCat === 'ALL' ? 'active' : ''}`}
-            onClick={() => setSelectedCat('ALL')}
-          >
-            <i className="fa-solid fa-grid-2"></i>
-            <span>Tất cả khóa học</span>
-          </button>
-          <button
-            className={`landing-pill ${selectedCat === 'ngu-phap' ? 'active' : ''}`}
-            onClick={() => setSelectedCat('ngu-phap')}
-          >
-            <i className="fa-solid fa-spell-check"></i>
-            <span>Ngữ pháp chuẩn CEFR</span>
-          </button>
-          <button
-            className={`landing-pill ${selectedCat === 'tu-vung-doc-hieu' ? 'active' : ''}`}
-            onClick={() => setSelectedCat('tu-vung-doc-hieu')}
-          >
-            <i className="fa-solid fa-book-bookmark"></i>
-            <span>Từ vựng & Đọc hiểu</span>
-          </button>
-          <button
-            className={`landing-pill ${selectedCat === 'giao-tiep-phat-am' ? 'active' : ''}`}
-            onClick={() => setSelectedCat('giao-tiep-phat-am')}
-          >
-            <i className="fa-solid fa-comments"></i>
-            <span>Giao tiếp & Phản xạ AI</span>
-          </button>
-          <button
-            className={`landing-pill ${selectedCat === 'luyen-thi-tong-hop' ? 'active' : ''}`}
-            onClick={() => setSelectedCat('luyen-thi-tong-hop')}
-          >
-            <i className="fa-solid fa-award"></i>
-            <span>Luyện thi TOEIC / IELTS</span>
-          </button>
-        </div>
-
-        {/* Course Cards Grid */}
-        <div className="landing-courses-grid">
-          {filteredCourses
-            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-            .map((course) => (
-              <div
-                key={course.id}
-                className="landing-course-card"
-                onClick={() => onSelectCourse(course)}
-              >
-                {/* Thumbnail */}
-                <div className="course-card-thumb">
-                  {course.thumbnail_url ? (
-                    <img
-                      src={course.thumbnail_url}
-                      alt={course.title}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="course-thumb-empty">
-                      <i className="fa-solid fa-graduation-cap"></i>
-                    </div>
-                  )}
-                  <span className={`course-level-pill level-${course.level?.toLowerCase() || 'b1'}`}>
-                    CEFR {course.level || 'B1'}
-                  </span>
-                  {course.is_free && (
-                    <span className="course-free-pill">Miễn phí 100%</span>
-                  )}
-                </div>
-
-                {/* Body */}
-                <div className="course-card-content">
-                  <div className="course-card-tag">
-                    {course.category?.name || 'Ngữ pháp Tiếng Anh'}
-                  </div>
-                  <h3 className="course-card-heading" title={course.title}>
-                    {cleanCourseTitle(course.title)}
-                  </h3>
-                  <div className="course-card-author">
-                    <i className="fa-solid fa-chalkboard-user"></i>
-                    <span>{course.teacher?.full_name || 'Thầy Nguyễn Văn An'}</span>
-                  </div>
-
-                  {/* Rating & Lessons */}
-                  <div className="course-card-meta">
-                    <div className="course-stars">
-                      <i className="fa-solid fa-star"></i>
-                      <i className="fa-solid fa-star"></i>
-                      <i className="fa-solid fa-star"></i>
-                      <i className="fa-solid fa-star"></i>
-                      <i className="fa-solid fa-star-half-stroke"></i>
-                      <span className="rating-text">4.9</span>
-                    </div>
-                    <span className="course-lessons-count">
-                      <i className="fa-solid fa-video"></i>
-                      {course.total_lessons != null ? course.total_lessons : (course.lessons_count || 3)} bài học
-                    </span>
-                  </div>
-
-                  {/* Footer & CTA */}
-                  <div className="course-card-footer">
-                    <div className="course-price-area">
-                      {course.is_free ? (
-                        <span className="price-tag-free">Miễn phí</span>
-                      ) : (
-                        <span className="price-tag-amount">
-                          {Number(course.price || 299000).toLocaleString('vi-VN')} đ
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      className="btn-course-enroll"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectCourse(course);
-                      }}
-                    >
-                      <span>Xem khóa học</span>
-                      <i className="fa-solid fa-arrow-right"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-        </div>
-
-        {/* Phân trang */}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={Math.ceil(filteredCourses.length / itemsPerPage)}
-          totalItems={filteredCourses.length}
-          itemsPerPage={itemsPerPage}
-          onPageChange={setCurrentPage}
-        />
-      </section>
 
       {/* ==================== 3. FEATURES HIGHLIGHT (E-LEARNING + AI) ==================== */}
       <section className="landing-features-section">
@@ -636,7 +486,159 @@ export default function GuestUdemyHomeView({
         </div>
       </section>
 
-      {/* ==================== 5. COMPARISON TABLE SECTION ==================== */}
+      {/* ==================== 5. COURSE SECTION (KHO HỌC LIỆU BÁM SÁT AI) ==================== */}
+      <section className="landing-courses-section" id="courses-section">
+        <div className="landing-section-header">
+          <div>
+            <span className="landing-section-pill">KHO HỌC LIỆU CHẤT LƯỢNG CAO</span>
+            <h2 className="landing-section-title">Khám Phá Các Khóa Học Tiếng Anh</h2>
+            <p className="landing-section-desc">Học theo chuẩn khung tham chiếu Châu Âu (CEFR) kết hợp trợ lý AI thông minh</p>
+          </div>
+          <button className="btn-view-all-courses" onClick={onExploreClick}>
+            <span>Xem tất cả ({courses.length})</span>
+            <i className="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+
+        {/* Category dạng Pill Button */}
+        <div className="landing-category-pills">
+          <button
+            className={`landing-pill ${selectedCat === 'ALL' ? 'active' : ''}`}
+            onClick={() => setSelectedCat('ALL')}
+          >
+            <i className="fa-solid fa-grid-2"></i>
+            <span>Tất cả khóa học</span>
+          </button>
+          <button
+            className={`landing-pill ${selectedCat === 'ngu-phap' ? 'active' : ''}`}
+            onClick={() => setSelectedCat('ngu-phap')}
+          >
+            <i className="fa-solid fa-spell-check"></i>
+            <span>Ngữ pháp chuẩn CEFR</span>
+          </button>
+          <button
+            className={`landing-pill ${selectedCat === 'tu-vung-doc-hieu' ? 'active' : ''}`}
+            onClick={() => setSelectedCat('tu-vung-doc-hieu')}
+          >
+            <i className="fa-solid fa-book-bookmark"></i>
+            <span>Từ vựng & Đọc hiểu</span>
+          </button>
+          <button
+            className={`landing-pill ${selectedCat === 'giao-tiep-phat-am' ? 'active' : ''}`}
+            onClick={() => setSelectedCat('giao-tiep-phat-am')}
+          >
+            <i className="fa-solid fa-comments"></i>
+            <span>Giao tiếp & Phản xạ AI</span>
+          </button>
+          <button
+            className={`landing-pill ${selectedCat === 'luyen-thi-tong-hop' ? 'active' : ''}`}
+            onClick={() => setSelectedCat('luyen-thi-tong-hop')}
+          >
+            <i className="fa-solid fa-award"></i>
+            <span>Luyện thi TOEIC / IELTS</span>
+          </button>
+        </div>
+
+        {/* Course Cards Grid */}
+        <div className="landing-courses-grid">
+          {filteredCourses
+            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+            .map((course) => (
+              <div
+                key={course.id}
+                className="landing-course-card"
+                onClick={() => onSelectCourse(course)}
+              >
+                {/* Thumbnail */}
+                <div className="course-card-thumb">
+                  {course.thumbnail_url ? (
+                    <img
+                      src={course.thumbnail_url}
+                      alt={course.title}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="course-thumb-empty">
+                      <i className="fa-solid fa-graduation-cap"></i>
+                    </div>
+                  )}
+                  <span className={`course-level-pill level-${course.level?.toLowerCase() || 'b1'}`}>
+                    CEFR {course.level || 'B1'}
+                  </span>
+                  {course.is_free && (
+                    <span className="course-free-pill">Miễn phí 100%</span>
+                  )}
+                </div>
+
+                {/* Body */}
+                <div className="course-card-content">
+                  <div className="course-card-tag">
+                    {course.category?.name || 'Ngữ pháp Tiếng Anh'}
+                  </div>
+                  <h3 className="course-card-heading" title={course.title}>
+                    {cleanCourseTitle(course.title)}
+                  </h3>
+                  <div className="course-card-author">
+                    <i className="fa-solid fa-chalkboard-user"></i>
+                    <span>{course.teacher?.full_name || 'Thầy Nguyễn Văn An'}</span>
+                  </div>
+
+                  {/* Rating & Lessons */}
+                  <div className="course-card-meta">
+                    <div className="course-stars">
+                      <i className="fa-solid fa-star"></i>
+                      <i className="fa-solid fa-star"></i>
+                      <i className="fa-solid fa-star"></i>
+                      <i className="fa-solid fa-star"></i>
+                      <i className="fa-solid fa-star-half-stroke"></i>
+                      <span className="rating-text">4.9</span>
+                    </div>
+                    <span className="course-lessons-count">
+                      <i className="fa-solid fa-video"></i>
+                      {course.total_lessons != null ? course.total_lessons : (course.lessons_count || 3)} bài học
+                    </span>
+                  </div>
+
+                  {/* Footer & CTA */}
+                  <div className="course-card-footer">
+                    <div className="course-price-area">
+                      {course.is_free ? (
+                        <span className="price-tag-free">Miễn phí</span>
+                      ) : (
+                        <span className="price-tag-amount">
+                          {Number(course.price || 299000).toLocaleString('vi-VN')} đ
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      className="btn-course-enroll"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectCourse(course);
+                      }}
+                    >
+                      <span>Xem khóa học</span>
+                      <i className="fa-solid fa-arrow-right"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {/* Phân trang */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredCourses.length / itemsPerPage)}
+          totalItems={filteredCourses.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
+      </section>
+
+      {/* ==================== 6. COMPARISON TABLE SECTION ==================== */}
       <section className="landing-comparison-section">
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <span className="landing-section-pill">SO SÁNH ĐỘT PHÁ</span>
