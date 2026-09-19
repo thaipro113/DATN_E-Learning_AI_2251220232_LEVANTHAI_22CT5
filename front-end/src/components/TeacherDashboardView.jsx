@@ -981,8 +981,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                       fontWeight: '600',
                     }}
                   >
-                    <option value="PENDING">⏳ Gửi phê duyệt (Chờ Admin duyệt)</option>
-                    <option value="DRAFT">📝 Lưu bản nháp (Chưa gửi)</option>
+                    <option value="PENDING">Gửi phê duyệt</option>
+                    <option value="DRAFT">Lưu bản nháp</option>
                   </select>
                 </div>
               </div>

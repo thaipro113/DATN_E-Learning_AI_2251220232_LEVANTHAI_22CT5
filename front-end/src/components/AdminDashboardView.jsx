@@ -166,13 +166,13 @@ export default function AdminDashboardView() {
           prev.map((a) =>
             a.question_id === item.question_id
               ? {
-                  ...a,
-                  topic: updated.topic || a.topic,
-                  sub_topic: updated.sub_topic || a.sub_topic,
-                  difficulty: updated.difficulty || a.difficulty,
-                  reason: updated.reason || a.reason,
-                  confidence: updated.confidence ?? a.confidence,
-                }
+                ...a,
+                topic: updated.topic || a.topic,
+                sub_topic: updated.sub_topic || a.sub_topic,
+                difficulty: updated.difficulty || a.difficulty,
+                reason: updated.reason || a.reason,
+                confidence: updated.confidence ?? a.confidence,
+              }
               : a
           )
         );
@@ -476,14 +476,14 @@ export default function AdminDashboardView() {
         prev.map((u) =>
           u.id === editingUserModal.user.id
             ? {
-                ...u,
-                full_name: editingUserModal.fullName,
-                phone_number: editingUserModal.phoneNumber,
-                level: editingUserModal.level,
-                role: editingUserModal.role,
-                bio: editingUserModal.bio,
-                is_active: editingUserModal.isActive,
-              }
+              ...u,
+              full_name: editingUserModal.fullName,
+              phone_number: editingUserModal.phoneNumber,
+              level: editingUserModal.level,
+              role: editingUserModal.role,
+              bio: editingUserModal.bio,
+              is_active: editingUserModal.isActive,
+            }
             : u
         )
       );
@@ -494,14 +494,14 @@ export default function AdminDashboardView() {
         prev.map((u) =>
           u.id === editingUserModal.user.id
             ? {
-                ...u,
-                full_name: editingUserModal.fullName,
-                phone_number: editingUserModal.phoneNumber,
-                level: editingUserModal.level,
-                role: editingUserModal.role,
-                bio: editingUserModal.bio,
-                is_active: editingUserModal.isActive,
-              }
+              ...u,
+              full_name: editingUserModal.fullName,
+              phone_number: editingUserModal.phoneNumber,
+              level: editingUserModal.level,
+              role: editingUserModal.role,
+              bio: editingUserModal.bio,
+              is_active: editingUserModal.isActive,
+            }
             : u
         )
       );
@@ -1553,7 +1553,7 @@ export default function AdminDashboardView() {
                   { key: 'ALL', label: `Tất cả (${courses.length})` },
                   {
                     key: 'PENDING',
-                    label: `⏳ Chờ duyệt (${courses.filter((c) => c.status === 'PENDING').length})`,
+                    label: `Chờ duyệt (${courses.filter((c) => c.status === 'PENDING').length})`,
                     color: '#d97706',
                     highlight: courses.filter((c) => c.status === 'PENDING').length > 0,
                   },
@@ -2310,10 +2310,10 @@ export default function AdminDashboardView() {
                                   fontSize: '0.78rem',
                                   backgroundColor:
                                     item.difficulty === 'A1' || item.difficulty === 'A2' ? '#dcfce7' :
-                                    item.difficulty === 'B1' || item.difficulty === 'B2' ? '#e0f2fe' : '#fef3c7',
+                                      item.difficulty === 'B1' || item.difficulty === 'B2' ? '#e0f2fe' : '#fef3c7',
                                   color:
                                     item.difficulty === 'A1' || item.difficulty === 'A2' ? '#15803d' :
-                                    item.difficulty === 'B1' || item.difficulty === 'B2' ? '#0369a1' : '#b45309',
+                                      item.difficulty === 'B1' || item.difficulty === 'B2' ? '#0369a1' : '#b45309',
                                 }}
                               >
                                 {item.difficulty || 'B1'}

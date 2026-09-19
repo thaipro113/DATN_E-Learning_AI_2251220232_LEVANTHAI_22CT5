@@ -4,6 +4,7 @@ import HeroBanner from './components/HeroBanner';
 import MetricCardsGrid from './components/MetricCardsGrid';
 import StatCounters from './components/StatCounters';
 import RecommendedCoursesSection from './components/RecommendedCoursesSection';
+import ContinueLearningSection from './components/ContinueLearningSection';
 import CourseCatalogView from './components/CourseCatalogView';
 import MyLearningView from './components/MyLearningView';
 import QuizExamView from './components/QuizExamView';
@@ -28,7 +29,7 @@ import AICommunicationView from './components/AICommunicationView';
 import Footer from './components/Footer';
 import FloatingContactWidget from './components/FloatingContactWidget';
 import { cleanCourseTitle } from './utils/media';
-import { authAPI, recommendationAPI, courseAPI, learningAPI, assessmentAPI } from './services/api';
+import { authAPI, recommendationAPI, courseAPI, learningAPI, assessmentAPI, aiAPI } from './services/api';
 
 export default function App() {
   // Phân tích URL hash (hỗ trợ cả các tab chính và đường dẫn trực tiếp #/courses/:slug)
@@ -138,6 +139,8 @@ export default function App() {
   const [courses, setCourses] = useState([]);
   const [myCourses, setMyCourses] = useState([]);
   const [myAttempts, setMyAttempts] = useState([]);
+  const [studentMistakes, setStudentMistakes] = useState({ total_mistakes: 0, weak_topics: [], mistakes: [] });
+  const [aiSessions, setAiSessions] = useState([]);
 
   // Đồng bộ Hash URL và ngắt phát âm Speech Synthesis khi tab thay đổi
   useEffect(() => {
@@ -167,13 +170,15 @@ export default function App() {
   // Fetch toàn bộ dữ liệu thật từ Backend API
   const fetchAllLiveData = async () => {
     try {
-      const [pathRes, gapsRes, recsRes, coursesRes, myCoursesRes, attemptsRes] = await Promise.allSettled([
+      const [pathRes, gapsRes, recsRes, coursesRes, myCoursesRes, attemptsRes, mistakesRes, aiRes] = await Promise.allSettled([
         recommendationAPI.getMyLearningPath(),
         recommendationAPI.getSkillGaps(),
         recommendationAPI.getRecommendedCourses(),
         courseAPI.getCourses(),
         learningAPI.getMyCourses(),
         assessmentAPI.getMyAttempts(),
+        recommendationAPI.getStudentMistakes(),
+        aiAPI.getSessions(),
       ]);
 
       if (pathRes.status === 'fulfilled' && pathRes.value.data?.data) {
@@ -203,6 +208,16 @@ export default function App() {
       }
       if (attemptsRes.status === 'fulfilled' && attemptsRes.value.data?.data) {
         setMyAttempts(attemptsRes.value.data.data);
+      }
+      if (mistakesRes.status === 'fulfilled' && mistakesRes.value.data) {
+        const mData = mistakesRes.value.data.data || mistakesRes.value.data;
+        setStudentMistakes(mData);
+      }
+      if (aiRes.status === 'fulfilled' && aiRes.value.data) {
+        const aList = aiRes.value.data.results || aiRes.value.data.data?.results || aiRes.value.data.data || aiRes.value.data;
+        if (Array.isArray(aList)) {
+          setAiSessions(aList);
+        }
       }
     } catch (e) {
       console.log('API loaded with fallback state.');
@@ -678,6 +693,8 @@ export default function App() {
                     <MetricCardsGrid
                       learningPath={learningPath}
                       skillGaps={skillGaps}
+                      studentMistakes={studentMistakes}
+                      aiSessions={aiSessions}
                       myCourses={myCourses}
                       myAttempts={myAttempts}
                       user={user}
@@ -687,8 +704,17 @@ export default function App() {
                       myCourses={myCourses}
                       myAttempts={myAttempts}
                       skillGaps={skillGaps}
+                      studentMistakes={studentMistakes}
+                      aiSessions={aiSessions}
                       onSelectTab={handleSelectTab}
                     />
+                    {myCourses.length > 0 && (
+                      <ContinueLearningSection
+                        myCourses={myCourses}
+                        onNavigateToLearning={handleNavigateToLearning}
+                        onViewAll={() => setCurrentTab('learning')}
+                      />
+                    )}
                     <RecommendedCoursesSection
                       courses={courses}
                       recommendations={recommendations}
