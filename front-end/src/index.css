@@ -751,6 +751,12 @@ textarea {
   color: #7c3aed;
 }
 
+.stat-counter-icon.amber,
+.stat-counter-icon.orange {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
 .stat-counter-content {
   display: flex;
   flex-direction: column;
