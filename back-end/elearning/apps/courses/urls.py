@@ -13,12 +13,16 @@ from .views import (
     LessonCreateAPIView,
     LessonDetailAPIView,
     MaterialCreateAPIView,
-    MaterialDetailAPIView
+    MaterialDetailAPIView,
+    AdminActivityStatsAPIView
 )
 
 app_name = 'courses'
 
 urlpatterns = [
+    # 0. Thống kê quản trị (Admin Analytics)
+    path('admin-activity-stats/', AdminActivityStatsAPIView.as_view(), name='admin_activity_stats'),
+
     # 1. Danh mục khóa học (Categories)
     path('categories/', CategoryListCreateAPIView.as_view(), name='category_list_create'),
     path('categories/<str:identifier>/', CategoryDetailAPIView.as_view(), name='category_detail'),

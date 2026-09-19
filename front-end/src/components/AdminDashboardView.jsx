@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import logoImg from '../assets/Logo_TL_English.png';
 import { authAPI, courseAPI, assessmentAPI, aiAPI, learningAPI, quizImportAPI, recommendationAPI } from '../services/api';
 import ConfirmModal from './ConfirmModal';
@@ -7,6 +7,9 @@ import Pagination from './Pagination';
 export default function AdminDashboardView() {
   const [activeAdminNav, setActiveAdminNav] = useState('overview');
   const [timeRange, setTimeRange] = useState('7'); // '7' | '30' days
+  const [activityStats, setActivityStats] = useState(null);
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -152,6 +155,91 @@ export default function AdminDashboardView() {
       setIsLoading(false);
     }
   };
+
+  const fetchActivityStats = async (days) => {
+    setIsLoadingStats(true);
+    try {
+      const res = await courseAPI.getAdminActivityStats(days);
+      if (res.data?.data) {
+        setActivityStats(res.data.data);
+      }
+    } catch (err) {
+      console.warn('Could not fetch admin activity stats:', err);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchActivityStats(timeRange);
+  }, [timeRange]);
+
+  // Chuẩn bị dữ liệu vẽ biểu đồ từ Backend thực tế
+  const chartData = useMemo(() => {
+    const list = activityStats?.daily_stats || [];
+    if (list.length === 0) return null;
+
+    const maxVal = Math.max(5, ...list.map((d) => d.total));
+    const maxScale = Math.ceil(maxVal / 5) * 5;
+
+    const left = 50;
+    const right = 585;
+    const top = 25;
+    const bottom = 175;
+    const plotWidth = right - left;
+    const plotHeight = bottom - top;
+
+    const points = list.map((item, idx) => {
+      const x = left + (idx / Math.max(1, list.length - 1)) * plotWidth;
+      const y = bottom - (item.total / maxScale) * plotHeight;
+      return {
+        ...item,
+        x: Math.round(x * 10) / 10,
+        y: Math.round(y * 10) / 10,
+      };
+    });
+
+    let linePath = '';
+    let areaPath = '';
+
+    if (points.length > 0) {
+      linePath = `M ${points[0].x} ${points[0].y}`;
+      areaPath = `M ${points[0].x} ${bottom} L ${points[0].x} ${points[0].y}`;
+
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i];
+        const p1 = points[i + 1];
+        const cp1x = p0.x + (p1.x - p0.x) / 2;
+        const cp1y = p0.y;
+        const cp2x = p0.x + (p1.x - p0.x) / 2;
+        const cp2y = p1.y;
+        linePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
+        areaPath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
+      }
+
+      areaPath += ` L ${points[points.length - 1].x} ${bottom} Z`;
+    }
+
+    const yMarks = [
+      { y: top, val: maxScale },
+      { y: top + plotHeight * 0.25, val: Math.round(maxScale * 0.75) },
+      { y: top + plotHeight * 0.5, val: Math.round(maxScale * 0.5) },
+      { y: top + plotHeight * 0.75, val: Math.round(maxScale * 0.25) },
+      { y: bottom, val: 0 },
+    ];
+
+    return {
+      points,
+      linePath,
+      areaPath,
+      maxScale,
+      left,
+      right,
+      top,
+      bottom,
+      yMarks,
+    };
+  }, [activityStats]);
 
   const handleReanalyzeQuestion = async (item) => {
     setIsReanalyzing(true);
@@ -1114,7 +1202,16 @@ export default function AdminDashboardView() {
                   </div>
 
                   {/* SVG Wave Chart Area */}
-                  <div style={{ width: '100%', height: '240px', position: 'relative' }}>
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '240px',
+                      position: 'relative',
+                      opacity: isLoadingStats ? 0.6 : 1,
+                      transition: 'opacity 0.2s ease',
+                    }}
+                    onMouseLeave={() => setHoveredPoint(null)}
+                  >
                     <svg viewBox="0 0 600 220" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
                       <defs>
                         <linearGradient id="learningGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1123,40 +1220,197 @@ export default function AdminDashboardView() {
                         </linearGradient>
                       </defs>
 
-                      {/* Grid Lines */}
-                      <line x1="50" y1="30" x2="590" y2="30" stroke="var(--border-color)" strokeDasharray="4 4" strokeWidth="1" />
-                      <line x1="50" y1="75" x2="590" y2="75" stroke="var(--border-color)" strokeDasharray="4 4" strokeWidth="1" />
-                      <line x1="50" y1="120" x2="590" y2="120" stroke="var(--border-color)" strokeDasharray="4 4" strokeWidth="1" />
-                      <line x1="50" y1="165" x2="590" y2="165" stroke="var(--border-color)" strokeDasharray="4 4" strokeWidth="1" />
-                      <line x1="50" y1="205" x2="590" y2="205" stroke="var(--border-color)" strokeWidth="1" />
-
-                      {/* Y-Axis Labels */}
-                      <text x="5" y="34" fill="var(--text-muted)" fontSize="10" fontWeight="600">120 lượt</text>
-                      <text x="5" y="79" fill="var(--text-muted)" fontSize="10" fontWeight="600">90 lượt</text>
-                      <text x="5" y="124" fill="var(--text-muted)" fontSize="10" fontWeight="600">60 lượt</text>
-                      <text x="5" y="169" fill="var(--text-muted)" fontSize="10" fontWeight="600">30 lượt</text>
-                      <text x="5" y="209" fill="var(--text-muted)" fontSize="10" fontWeight="600">0 lượt</text>
+                      {/* Grid Lines & Y-Axis Labels */}
+                      {chartData ? (
+                        chartData.yMarks.map((m, idx) => (
+                          <g key={idx}>
+                            <line
+                              x1="45"
+                              y1={m.y}
+                              x2="590"
+                              y2={m.y}
+                              stroke="var(--border-color)"
+                              strokeDasharray={m.val === 0 ? 'none' : '4 4'}
+                              strokeWidth={m.val === 0 ? '1.5' : '1'}
+                            />
+                            <text
+                              x="5"
+                              y={m.y + 4}
+                              fill="var(--text-muted)"
+                              fontSize="10"
+                              fontWeight="600"
+                            >
+                              {m.val} lượt
+                            </text>
+                          </g>
+                        ))
+                      ) : (
+                        [30, 75, 120, 165, 205].map((y, idx) => (
+                          <line
+                            key={idx}
+                            x1="45"
+                            y1={y}
+                            x2="590"
+                            y2={y}
+                            stroke="var(--border-color)"
+                            strokeDasharray="4 4"
+                            strokeWidth="1"
+                          />
+                        ))
+                      )}
 
                       {/* Area Fill */}
-                      <path
-                        d="M 60 205 C 130 200, 180 40, 240 45 C 300 50, 310 205, 360 205 C 410 205, 430 48, 490 48 C 530 48, 560 52, 585 55 L 585 205 L 60 205 Z"
-                        fill="url(#learningGradient)"
-                      />
+                      {chartData?.areaPath && (
+                        <path d={chartData.areaPath} fill="url(#learningGradient)" />
+                      )}
 
                       {/* Smooth Bézier Curve Line */}
-                      <path
-                        d="M 60 205 C 130 200, 180 40, 240 45 C 300 50, 310 205, 360 205 C 410 205, 430 48, 490 48 C 530 48, 560 52, 585 55"
-                        fill="none"
-                        stroke="#0284c7"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
+                      {chartData?.linePath && (
+                        <path
+                          d={chartData.linePath}
+                          fill="none"
+                          stroke="#0284c7"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                        />
+                      )}
+
+                      {/* Hover Guideline */}
+                      {hoveredPoint && (
+                        <line
+                          x1={hoveredPoint.x}
+                          y1={chartData?.top || 25}
+                          x2={hoveredPoint.x}
+                          y2={chartData?.bottom || 175}
+                          stroke="#0284c7"
+                          strokeDasharray="3 3"
+                          strokeWidth="1.5"
+                          opacity="0.6"
+                        />
+                      )}
 
                       {/* Data Point Dots */}
-                      <circle cx="240" cy="45" r="5" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
-                      <circle cx="490" cy="48" r="5" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
-                      <circle cx="585" cy="55" r="5" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
+                      {chartData?.points.map((p, idx) => {
+                        const isHovered = hoveredPoint?.date === p.date;
+                        return (
+                          <g key={idx}>
+                            {/* Hover halo ring */}
+                            {isHovered && (
+                              <circle
+                                cx={p.x}
+                                cy={p.y}
+                                r="12"
+                                fill="rgba(2, 132, 199, 0.15)"
+                                stroke="#0284c7"
+                                strokeWidth="1.5"
+                              />
+                            )}
+                            {/* Visual circle dot */}
+                            <circle
+                              cx={p.x}
+                              cy={p.y}
+                              r={isHovered ? 6 : p.total > 0 ? 4.5 : 3.5}
+                              fill={p.total > 0 ? '#0284c7' : '#94a3b8'}
+                              stroke="#ffffff"
+                              strokeWidth={isHovered ? 2.5 : 1.5}
+                              style={{ transition: 'all 0.15s ease', cursor: 'pointer' }}
+                            />
+                            {/* Invisible wider hit zone for effortless hover */}
+                            <circle
+                              cx={p.x}
+                              cy={p.y}
+                              r="15"
+                              fill="transparent"
+                              style={{ cursor: 'pointer' }}
+                              onMouseEnter={() => setHoveredPoint(p)}
+                            />
+                          </g>
+                        );
+                      })}
+
+                      {/* X-Axis Date Labels */}
+                      {chartData?.points.map((p, idx) => {
+                        // In 30-day mode, only show every 5th label + the last one to prevent overlap
+                        const shouldShowLabel =
+                          timeRange === '7' || idx % 5 === 0 || idx === chartData.points.length - 1;
+                        if (!shouldShowLabel) return null;
+
+                        const isHovered = hoveredPoint?.date === p.date;
+                        return (
+                          <text
+                            key={idx}
+                            x={p.x}
+                            y="200"
+                            textAnchor="middle"
+                            fill={isHovered ? '#0284c7' : 'var(--text-muted)'}
+                            fontSize={isHovered ? '10.5' : '9.5'}
+                            fontWeight={isHovered ? '800' : '600'}
+                            style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                            onMouseEnter={() => setHoveredPoint(p)}
+                          >
+                            {p.label}
+                          </text>
+                        );
+                      })}
                     </svg>
+
+                    {/* Rich Interactive Floating Tooltip */}
+                    {hoveredPoint && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${Math.max(10, Math.min(90, (hoveredPoint.x / 600) * 100))}%`,
+                          top: `${Math.max(15, (hoveredPoint.y / 220) * 100)}%`,
+                          transform: hoveredPoint.x > 450
+                            ? 'translate(-102%, -50%)'
+                            : hoveredPoint.x < 150
+                            ? 'translate(10%, -50%)'
+                            : 'translate(-50%, -125%)',
+                          backgroundColor: '#0f172a',
+                          color: '#ffffff',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.4)',
+                          pointerEvents: 'none',
+                          zIndex: 50,
+                          whiteSpace: 'nowrap',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          backdropFilter: 'blur(8px)',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
+                          <span style={{ fontWeight: '800', color: '#38bdf8' }}>
+                            {hoveredPoint.day_name} ({hoveredPoint.label})
+                          </span>
+                          {hoveredPoint.is_today && (
+                            <span style={{ fontSize: '0.66rem', backgroundColor: '#0284c7', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                              Hôm nay
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', color: '#cbd5e1' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#38bdf8', display: 'inline-block' }}></span>
+                              <span>Học bài giảng:</span>
+                            </span>
+                            <strong style={{ color: '#ffffff' }}>{hoveredPoint.lessons} lượt</strong>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', color: '#cbd5e1' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#34d399', display: 'inline-block' }}></span>
+                              <span>Làm bài kiểm tra:</span>
+                            </span>
+                            <strong style={{ color: '#ffffff' }}>{hoveredPoint.quizzes} lượt</strong>
+                          </div>
+                          <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.15)', marginTop: '4px', paddingTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
+                            <span style={{ fontWeight: '700', color: '#94a3b8' }}>Tổng hoạt động:</span>
+                            <strong style={{ color: '#38bdf8', fontSize: '0.88rem' }}>{hoveredPoint.total} lượt</strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

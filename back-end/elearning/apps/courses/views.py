@@ -700,3 +700,84 @@ class CourseRejectAPIView(APIView):
             message=msg,
             status_code=status.HTTP_200_OK
         )
+
+
+class AdminActivityStatsAPIView(APIView):
+    """
+    API Thống kê lượt học bài giảng và làm bài kiểm tra thực tế theo thời gian (7 ngày hoặc 30 ngày)
+    dành cho Quản trị viên (Admin Dashboard).
+    """
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
+
+    def get(self, request):
+        from datetime import timedelta
+        from django.utils import timezone
+        from apps.assessments.models import QuizAttempt
+        from apps.learning.models import LessonProgress
+
+        try:
+            days = int(request.query_params.get('days', 7))
+        except (ValueError, TypeError):
+            days = 7
+        if days not in (7, 14, 30):
+            days = 7
+
+        now = timezone.now()
+        start_date = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        attempts_qs = QuizAttempt.objects.filter(started_at__gte=start_date)
+        progress_qs = LessonProgress.objects.filter(updated_at__gte=start_date)
+
+        weekday_names = {
+            0: 'Thứ Hai',
+            1: 'Thứ Ba',
+            2: 'Thứ Tư',
+            3: 'Thứ Năm',
+            4: 'Thứ Sáu',
+            5: 'Thứ Bảy',
+            6: 'Chủ Nhật'
+        }
+
+        daily_stats = []
+        total_lessons_count = 0
+        total_quizzes_count = 0
+
+        for i in range(days):
+            current_day = start_date + timedelta(days=i)
+            next_day = current_day + timedelta(days=1)
+
+            quiz_count = attempts_qs.filter(
+                started_at__gte=current_day,
+                started_at__lt=next_day
+            ).count()
+
+            lesson_count = progress_qs.filter(
+                updated_at__gte=current_day,
+                updated_at__lt=next_day
+            ).count()
+
+            day_total = quiz_count + lesson_count
+            total_quizzes_count += quiz_count
+            total_lessons_count += lesson_count
+
+            daily_stats.append({
+                'date': current_day.strftime('%Y-%m-%d'),
+                'label': current_day.strftime('%d/%m'),
+                'day_name': weekday_names[current_day.weekday()],
+                'is_today': current_day.date() == now.date(),
+                'lessons': lesson_count,
+                'quizzes': quiz_count,
+                'total': day_total
+            })
+
+        return success_response(
+            message='Lấy dữ liệu thống kê hoạt động thành công',
+            data={
+                'days': days,
+                'total_lessons': total_lessons_count,
+                'total_quizzes': total_quizzes_count,
+                'total_activity': total_lessons_count + total_quizzes_count,
+                'daily_stats': daily_stats
+            }
+        )
+

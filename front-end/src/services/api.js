@@ -54,6 +54,7 @@ export const courseAPI = {
   deleteLesson: (lessonId) => apiClient.delete(`courses/lessons/${lessonId}/`),
   uploadMaterial: (lessonId, data) => apiClient.post(`courses/lessons/${lessonId}/materials/`, data),
   deleteMaterial: (materialId) => apiClient.delete(`courses/materials/${materialId}/`),
+  getAdminActivityStats: (days = 7) => apiClient.get('courses/admin-activity-stats/', { params: { days } }),
 };
 
 export const learningAPI = {
