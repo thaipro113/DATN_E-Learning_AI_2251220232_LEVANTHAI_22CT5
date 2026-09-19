@@ -1553,12 +1553,12 @@ export default function AdminDashboardView() {
                   { key: 'ALL', label: `Tất cả (${courses.length})` },
                   {
                     key: 'PENDING',
-                    label: `⏳ Chờ duyệt (${courses.filter((c) => c.status === 'PENDING').length})`,
+                    label: `Chờ duyệt (${courses.filter((c) => c.status === 'PENDING').length})`,
                     color: '#d97706',
                     highlight: courses.filter((c) => c.status === 'PENDING').length > 0,
                   },
-                  { key: 'PUBLISHED', label: `✓ Đã xuất bản (${courses.filter((c) => c.status === 'PUBLISHED').length})`, color: '#059669' },
-                  { key: 'REJECTED', label: `✗ Bị từ chối (${courses.filter((c) => c.status === 'REJECTED').length})`, color: '#dc2626' },
+                  { key: 'PUBLISHED', label: `Đã xuất bản (${courses.filter((c) => c.status === 'PUBLISHED').length})`, color: '#059669' },
+                  { key: 'REJECTED', label: `Bị từ chối (${courses.filter((c) => c.status === 'REJECTED').length})`, color: '#dc2626' },
                   { key: 'DRAFT', label: `Bản nháp (${courses.filter((c) => c.status === 'DRAFT').length})`, color: '#64748b' },
                 ].map((pill) => {
                   const isSelected = courseStatusFilter === pill.key;
