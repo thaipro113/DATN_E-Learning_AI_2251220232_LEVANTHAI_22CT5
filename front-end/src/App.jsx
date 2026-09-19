@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import HeroBanner from './components/HeroBanner';
-import MetricCardsGrid from './components/MetricCardsGrid';
-import StatCounters from './components/StatCounters';
+import StudentBentoDashboard from './components/StudentBentoDashboard';
 import RecommendedCoursesSection from './components/RecommendedCoursesSection';
 import ContinueLearningSection from './components/ContinueLearningSection';
 import CourseCatalogView from './components/CourseCatalogView';
@@ -690,23 +689,16 @@ export default function App() {
                   /* 2. GIAO DIỆN ĐÃ ĐĂNG NHẬP: PERSONALIZED STUDENT DASHBOARD */
                   <>
                     <HeroBanner user={user} onExploreClick={() => setCurrentTab('courses')} />
-                    <MetricCardsGrid
+                    <StudentBentoDashboard
+                      user={user}
                       learningPath={learningPath}
                       skillGaps={skillGaps}
-                      studentMistakes={studentMistakes}
-                      aiSessions={aiSessions}
                       myCourses={myCourses}
                       myAttempts={myAttempts}
-                      user={user}
-                      onSelectTab={handleSelectTab}
-                    />
-                    <StatCounters
-                      myCourses={myCourses}
-                      myAttempts={myAttempts}
-                      skillGaps={skillGaps}
                       studentMistakes={studentMistakes}
                       aiSessions={aiSessions}
                       onSelectTab={handleSelectTab}
+                      onNavigateToLearning={handleNavigateToLearning}
                     />
                     {myCourses.length > 0 && (
                       <ContinueLearningSection
