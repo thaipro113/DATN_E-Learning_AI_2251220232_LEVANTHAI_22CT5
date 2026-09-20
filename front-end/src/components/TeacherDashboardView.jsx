@@ -246,7 +246,15 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Tạm thời ẩn nút AI Sinh đề để tập trung tính năng Import Đề thi
+          <button
+            className="btn-primary"
+            onClick={() => setShowCreateModal(true)}
+            style={{ backgroundColor: '#0284c7' }}
+          >
+            <i className="fa-solid fa-plus"></i>
+            <span>Tạo khóa học mới</span>
+          </button>
+
           <button
             className="btn-primary"
             onClick={() => {
@@ -256,17 +264,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             style={{ backgroundColor: '#7c3aed' }}
           >
             <i className="fa-solid fa-wand-magic-sparkles"></i>
-            <span>AI Sinh Đề Thi (UC_T4)</span>
-          </button>
-          */}
-
-          <button
-            className="btn-primary"
-            onClick={() => setShowCreateModal(true)}
-            style={{ backgroundColor: '#0284c7' }}
-          >
-            <i className="fa-solid fa-plus"></i>
-            <span>Tạo khóa học mới</span>
+            <span>Tạo đề thi mới</span>
           </button>
 
           <button
@@ -647,19 +645,18 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                               <span>Quản lý giáo trình (Chi tiết)</span>
                             </button>
 
-                            {/* Tạm thời ẩn nút tạo đề thi AI cho từng khóa
                             <button
+                              type="button"
                               className="btn-primary"
                               onClick={() => {
                                 setSelectedCourseForAIQuiz(course);
                                 setShowAIQuizModal(true);
                               }}
                               style={{ padding: '6px 12px', fontSize: '0.78rem', backgroundColor: '#7c3aed' }}
-                              title={`AI Tạo đề thi trắc nghiệm trực tiếp cho khóa "${course.title}"`}
+                              title={`Tạo đề thi trắc nghiệm trực tiếp cho khóa "${course.title}"`}
                             >
                               <i className="fa-solid fa-wand-magic-sparkles"></i>
                             </button>
-                            */}
                           </div>
                         </div>
                       </div>
@@ -1072,6 +1069,24 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal Tạo đề thi cho Giảng viên (AI Sinh Đề & Lưu CSDL) */}
+      {showAIQuizModal && (
+        <TeacherAIQuizModal
+          isOpen={showAIQuizModal}
+          onClose={() => {
+            setShowAIQuizModal(false);
+            setSelectedCourseForAIQuiz(null);
+          }}
+          onSaveSuccess={() => {
+            setShowAIQuizModal(false);
+            setSelectedCourseForAIQuiz(null);
+            setToastMsg('Đã tạo và lưu đề thi thành công vào CSDL!');
+          }}
+          courses={courses}
+          initialCourse={selectedCourseForAIQuiz}
+        />
       )}
 
       {/* Toast thông báo ở góc dưới */}

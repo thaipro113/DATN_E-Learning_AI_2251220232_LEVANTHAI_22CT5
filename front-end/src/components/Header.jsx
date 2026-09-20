@@ -158,15 +158,6 @@ export default function Header({
                     <span>Quản lý Đề thi</span>
                   </button>
                 </li>
-                <li>
-                  <button
-                    className="nav-link"
-                    onClick={onOpenQuizImport}
-                    style={{ backgroundColor: '#fff1f2', color: '#e11d48' }}
-                  >
-                    <span>Import Đề thi</span>
-                  </button>
-                </li>
               </>
             )}
 

@@ -468,9 +468,6 @@ export default function App() {
                 <button className={`nav-link ${currentTab === 'teacher_quizzes' || currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('teacher_quizzes')}>
                   <span>Quản lý Đề thi</span>
                 </button>
-                <button className="nav-link" onClick={() => { setIsQuizImportOpen(true); setIsMobileDrawerOpen(false); }}>
-                  <span>Import Đề thi</span>
-                </button>
               </>
             )}
           </div>
