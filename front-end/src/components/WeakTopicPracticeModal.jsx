@@ -8,6 +8,7 @@ export default function WeakTopicPracticeModal({
   subTopic = '',
   topics = [],
   level = 'B1',
+  quantity = 5,
   onComplete,
 }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +28,7 @@ export default function WeakTopicPracticeModal({
       setErrorMsg('');
       setScore(0);
     }
-  }, [isOpen, topic, subTopic, level, JSON.stringify(topics)]);
+  }, [isOpen, topic, subTopic, level, quantity, JSON.stringify(topics)]);
 
   const loadQuiz = async () => {
     setIsLoading(true);
@@ -42,7 +43,7 @@ export default function WeakTopicPracticeModal({
         sub_topic: subTopic,
         topics: topics || [],
         level: level || 'B1',
-        quantity: 5,
+        quantity: quantity || 5,
       });
       const data = res.data?.data || res.data;
       if (data && Array.isArray(data.questions) && data.questions.length > 0) {
@@ -148,7 +149,7 @@ export default function WeakTopicPracticeModal({
                   textTransform: 'uppercase',
                 }}
               >
-                Luyện tập điểm yếu cùng AI
+                Luyện tập điểm yếu cùng AI ({quizData?.questions?.length || quantity || 5} câu)
               </span>
               <span
                 style={{
@@ -189,10 +190,10 @@ export default function WeakTopicPracticeModal({
           {isLoading && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted, #64748b)' }}>
               <div style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '8px' }}>
-                AI đang phân tích điểm yếu và tạo đề thi mới toanh...
+                AI đang phân tích lỗi sai và sinh {quantity || 5} câu hỏi bù đắp kiến thức...
               </div>
               <p style={{ fontSize: '0.85rem', margin: 0 }}>
-                Các câu hỏi được sinh ngẫu nhiên bằng mô hình ngôn ngữ lớn (LLM) bám sát chủ đề {topic}.
+                Các câu hỏi được sinh bằng mô hình ngôn ngữ lớn (LLM) bám sát các dạng câu bạn hay làm sai.
               </p>
             </div>
           )}

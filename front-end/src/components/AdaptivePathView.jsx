@@ -31,6 +31,7 @@ export default function AdaptivePathView({
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [customQuantity, setCustomQuantity] = useState(5);
   const [practicedTopics, setPracticedTopics] = useState(new Set());
   const [practiceModal, setPracticeModal] = useState({
     isOpen: false,
@@ -38,6 +39,7 @@ export default function AdaptivePathView({
     subTopic: '',
     topics: [],
     level: 'B1',
+    quantity: 5,
     practicingMistakeId: null,
   });
 
@@ -541,6 +543,7 @@ export default function AdaptivePathView({
       subTopic: '',
       topics: topicsArr,
       level: selectedList[0]?.difficulty || 'B1',
+      quantity: customQuantity,
       practicingMistakeId: null,
     });
   };
@@ -554,6 +557,7 @@ export default function AdaptivePathView({
       subTopic: '',
       topics: topicsArr,
       level: mistakeData.weak_topics[0]?.difficulty || 'B1',
+      quantity: customQuantity,
       practicingMistakeId: null,
     });
   };
@@ -825,7 +829,48 @@ export default function AdaptivePathView({
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Bộ chọn số lượng câu hỏi AI sinh */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: 'var(--bg-subtle)',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-full)',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.04)',
+                }}
+              >
+                <i className="fa-solid fa-sliders" style={{ color: '#6366f1', fontSize: '0.85rem' }}></i>
+                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                  Số câu AI sinh:
+                </span>
+                <select
+                  value={customQuantity}
+                  onChange={(e) => setCustomQuantity(Number(e.target.value))}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                  title="Chọn số lượng câu hỏi AI sẽ sinh ra cho bài luyện tập"
+                >
+                  <option value={3}>3 câu (Luyện nhanh)</option>
+                  <option value={5}>5 câu (Chuẩn)</option>
+                  <option value={10}>10 câu (Toàn diện)</option>
+                  <option value={15}>15 câu (Chuyên sâu)</option>
+                  <option value={20}>20 câu (Tối đa)</option>
+                </select>
+              </div>
+
               <button
                 type="button"
                 onClick={handlePracticeSelected}
@@ -870,7 +915,7 @@ export default function AdaptivePathView({
                 }}
               >
                 <i className="fa-solid fa-bolt"></i>
-                <span>Luyện Toàn Bộ Lỗi Sai</span>
+                <span>Luyện Toàn Bộ Lỗi Sai ({customQuantity} Câu)</span>
               </button>
             </div>
           </div>
@@ -1431,6 +1476,7 @@ export default function AdaptivePathView({
         subTopic={practiceModal.subTopic}
         topics={practiceModal.topics}
         level={practiceModal.level || 'B1'}
+        quantity={practiceModal.quantity || customQuantity || 5}
         onComplete={handlePracticeComplete}
       />
     </div>
