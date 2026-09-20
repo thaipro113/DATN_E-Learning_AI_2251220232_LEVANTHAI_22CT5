@@ -5,6 +5,7 @@ import Pagination from './Pagination';
 import {
   formatTopicBilingual,
   getVietnameseTopicName,
+  getCanonicalTopic,
   translateGrammarDescription,
   normalizeSearchText,
 } from '../utils/grammarTranslations';
@@ -30,6 +31,7 @@ export default function AdaptivePathView({
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [practicedTopics, setPracticedTopics] = useState(new Set());
   const [practiceModal, setPracticeModal] = useState({
     isOpen: false,
     topic: '',
@@ -56,6 +58,7 @@ export default function AdaptivePathView({
       const groupedByQuestion = {};
       rawMistakes.forEach((m) => {
         const key = m.question_id || m.question_content?.trim() || m.id;
+        const cTopic = m.canonical_topic || getCanonicalTopic(m.topic);
         if (!groupedByQuestion[key]) {
           groupedByQuestion[key] = {
             ...m,
@@ -67,6 +70,8 @@ export default function AdaptivePathView({
             student_selected: m.student_selected || m.student_choice || '',
             correct_answer: m.correct_answer || m.correct_choice || '',
             attempt_date: m.attempt_date || m.attempted_at || '',
+            topic: m.topic,
+            canonical_topic: cTopic,
           };
         } else {
           const cur = groupedByQuestion[key];
@@ -86,10 +91,57 @@ export default function AdaptivePathView({
       const normalizedMistakes = Object.values(groupedByQuestion);
 
       const rawTopics = data.weak_topics_summary || data.weak_topics || [];
-      const normalizedTopics = rawTopics.map((t) => ({
-        ...t,
-        sub_topic: Array.isArray(t.sub_topics) ? t.sub_topics.join(', ') : (t.sub_topic || ''),
-      }));
+
+      // Gom nhóm các chủ đề có cùng dạng vào 1 chủ đề chuẩn (Canonical Topic)
+      const consolidatedTopicsMap = {};
+      rawTopics.forEach((t) => {
+        const cTopic = t.canonical_topic || getCanonicalTopic(t.topic);
+        if (!consolidatedTopicsMap[cTopic]) {
+          consolidatedTopicsMap[cTopic] = {
+            ...t,
+            topic: cTopic,
+            canonical_topic: cTopic,
+            count: 0,
+            sub_topics: new Set(),
+            raw_topics: new Set(),
+            all_mistake_ids: [],
+            sample_reason: t.sample_reason || '',
+            difficulty: t.difficulty || 'B1',
+          };
+        }
+        const entry = consolidatedTopicsMap[cTopic];
+        entry.count += (t.count || 0);
+        entry.raw_topics.add(t.topic);
+        if (t.raw_topics && Array.isArray(t.raw_topics)) {
+          t.raw_topics.forEach((rt) => entry.raw_topics.add(rt));
+        }
+        if (Array.isArray(t.all_mistake_ids)) {
+          entry.all_mistake_ids.push(...t.all_mistake_ids);
+        }
+        if (t.sub_topics) {
+          if (Array.isArray(t.sub_topics)) {
+            t.sub_topics.forEach((st) => entry.sub_topics.add(st));
+          } else if (typeof t.sub_topics === 'string') {
+            t.sub_topics.split(',').forEach((st) => entry.sub_topics.add(st.trim()));
+          }
+        }
+        if (t.sub_topic) {
+          t.sub_topic.split(',').forEach((st) => entry.sub_topics.add(st.trim()));
+        }
+        if (!entry.sample_reason && t.sample_reason) {
+          entry.sample_reason = t.sample_reason;
+        }
+      });
+
+      const normalizedTopics = Object.values(consolidatedTopicsMap).map((t) => {
+        const subList = Array.from(t.sub_topics).filter(Boolean);
+        return {
+          ...t,
+          sub_topics: subList,
+          sub_topic: subList.slice(0, 3).join(', '),
+          raw_topics: Array.from(t.raw_topics),
+        };
+      }).sort((a, b) => b.count - a.count);
 
       setMistakeData({
         has_enrolled_courses: data.has_enrolled_courses || (myCourses && myCourses.length > 0),
@@ -231,14 +283,19 @@ export default function AdaptivePathView({
     const queryNorm = normalizeSearchText(searchQuery);
 
     return (mistakeData.mistakes || []).filter((m) => {
-      const matchTopic = filterTopic === 'ALL' || m.topic === filterTopic;
+      const mCanonical = m.canonical_topic || getCanonicalTopic(m.topic);
+      const matchTopic =
+        filterTopic === 'ALL' ||
+        filterTopic === mCanonical ||
+        filterTopic === m.topic;
       if (!matchTopic) return false;
 
       if (!queryNorm) return true;
 
       const contentNorm = normalizeSearchText(m.question_content || m.question_text);
       const topicNorm = normalizeSearchText(m.topic);
-      const topicViNorm = normalizeSearchText(getVietnameseTopicName(m.topic));
+      const canonicalNorm = normalizeSearchText(mCanonical);
+      const topicViNorm = normalizeSearchText(getVietnameseTopicName(mCanonical || m.topic));
       const subTopicNorm = normalizeSearchText(translateGrammarDescription(m.sub_topic));
       const reasonNorm = normalizeSearchText(translateGrammarDescription(m.reason || m.explanation));
       const quizNorm = normalizeSearchText(m.quiz_title);
@@ -246,6 +303,7 @@ export default function AdaptivePathView({
       return (
         contentNorm.includes(queryNorm) ||
         topicNorm.includes(queryNorm) ||
+        canonicalNorm.includes(queryNorm) ||
         topicViNorm.includes(queryNorm) ||
         subTopicNorm.includes(queryNorm) ||
         reasonNorm.includes(queryNorm) ||
@@ -285,14 +343,118 @@ export default function AdaptivePathView({
 
   // Luyện tập 1 chủ đề cụ thể
   const handlePracticeSingleTopic = (topicObj) => {
+    const canonical = topicObj.canonical_topic || getCanonicalTopic(topicObj.topic);
+    const topicsArr = topicObj.raw_topics && topicObj.raw_topics.length > 0
+      ? topicObj.raw_topics
+      : [topicObj.topic];
+
     setPracticeModal({
       isOpen: true,
-      topic: topicObj.topic,
+      topic: canonical,
       subTopic: topicObj.sub_topic || '',
-      topics: [topicObj.topic],
+      topics: topicsArr,
       level: topicObj.difficulty || 'B1',
       practicingMistakeId: null,
     });
+  };
+
+  // Xem các câu làm sai của riêng chủ đề này (Lọc & cuộn xuống danh sách chi tiết)
+  const handleViewTopicMistakes = (topicObj) => {
+    const canonical = topicObj.canonical_topic || getCanonicalTopic(topicObj.topic);
+    setFilterTopic(canonical);
+    setSearchQuery('');
+    setCurrentPage(1);
+
+    const elem = document.getElementById('mistakes-list-section');
+    if (elem) {
+      elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Ghi nhận chủ đề học viên vừa nộp bài luyện tập xong
+  const handlePracticeComplete = (result) => {
+    const topic = result?.topic || practiceModal.topic;
+    if (topic) {
+      const canonical = getCanonicalTopic(topic);
+      setPracticedTopics((prev) => {
+        const next = new Set(prev);
+        next.add(canonical);
+        next.add(topic);
+        return next;
+      });
+    }
+  };
+
+  // Đánh dấu đã luyện tập xong chủ đề (Xác nhận & xóa các câu làm sai của chủ đề này)
+  const handleMarkTopicAsFinished = async (topicObj) => {
+    const canonical = topicObj.canonical_topic || getCanonicalTopic(topicObj.topic);
+    const topicMistakes = (mistakeData.mistakes || []).filter(
+      (m) => (m.canonical_topic || getCanonicalTopic(m.topic)) === canonical || m.topic === canonical
+    );
+
+    const allIds = [];
+    topicMistakes.forEach((m) => {
+      if (Array.isArray(m.all_ids) && m.all_ids.length > 0) {
+        allIds.push(...m.all_ids);
+      } else {
+        allIds.push(m.id || m.mistake_id);
+      }
+    });
+    const uniqueIds = Array.from(new Set(allIds.filter(Boolean)));
+
+    if (uniqueIds.length === 0) {
+      alert(`Chủ đề "${formatTopicBilingual(canonical)}" không còn câu hỏi sai nào trong danh sách.`);
+      return;
+    }
+
+    const confirmMsg = `Bạn đã hoàn thành ôn luyện chủ đề "${formatTopicBilingual(canonical)}"?\n\nHệ thống sẽ đánh dấu đã nắm vững và xóa ${topicMistakes.length} câu làm sai của chủ đề này khỏi danh sách.`;
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    setIsResolving(true);
+    try {
+      await recommendationAPI.resolveBatchMistakes(uniqueIds);
+
+      setMistakeData((prev) => {
+        const remainingMistakes = (prev.mistakes || []).filter(
+          (m) => (m.canonical_topic || getCanonicalTopic(m.topic)) !== canonical && m.topic !== canonical
+        );
+        const remainingTopics = (prev.weak_topics || []).filter(
+          (t) => (t.canonical_topic || getCanonicalTopic(t.topic)) !== canonical && t.topic !== canonical
+        );
+
+        return {
+          ...prev,
+          total_mistakes: remainingMistakes.length,
+          mistakes: remainingMistakes,
+          weak_topics: remainingTopics,
+        };
+      });
+
+      setSelectedMistakeIds((prev) => {
+        const next = new Set(prev);
+        uniqueIds.forEach((id) => next.delete(id));
+        return next;
+      });
+
+      if (filterTopic === canonical) {
+        setFilterTopic('ALL');
+      }
+
+      setPracticedTopics((prev) => {
+        const next = new Set(prev);
+        next.add(canonical);
+        return next;
+      });
+
+      alert(`Tuyệt vời! Đã hoàn thành luyện tập chủ đề "${formatTopicBilingual(canonical)}".`);
+    } catch (err) {
+      console.warn('Lỗi khi đánh dấu hoàn thành chủ đề:', err);
+      alert('Không thể cập nhật trạng thái chủ đề. Vui lòng thử lại!');
+    } finally {
+      setIsResolving(false);
+    }
   };
 
   // Luyện tập 1 câu hỏi cụ thể (Sẽ tự động xóa khỏi danh sách khi luyện xong và đóng modal)
@@ -330,9 +492,11 @@ export default function AdaptivePathView({
         // Tái lập danh sách weak_topics dựa trên các câu còn lại
         const topicsMap = {};
         remainingMistakes.forEach((item) => {
-          if (!topicsMap[item.topic]) {
-            topicsMap[item.topic] = {
-              topic: item.topic,
+          const cTopic = item.canonical_topic || getCanonicalTopic(item.topic);
+          if (!topicsMap[cTopic]) {
+            topicsMap[cTopic] = {
+              topic: cTopic,
+              canonical_topic: cTopic,
               sub_topic: item.sub_topic,
               count: 0,
               difficulty: item.difficulty,
@@ -341,7 +505,7 @@ export default function AdaptivePathView({
               latest_mistake_at: item.attempt_date,
             };
           }
-          topicsMap[item.topic].count += 1;
+          topicsMap[cTopic].count += 1;
         });
         const updatedTopics = Object.values(topicsMap).sort((a, b) => b.count - a.count);
 
@@ -369,7 +533,7 @@ export default function AdaptivePathView({
       alert('Vui lòng chọn ít nhất một lỗi sai để luyện tập cùng AI.');
       return;
     }
-    const topicSet = new Set(selectedList.map((m) => m.topic).filter(Boolean));
+    const topicSet = new Set(selectedList.map((m) => m.canonical_topic || m.topic).filter(Boolean));
     const topicsArr = Array.from(topicSet);
     setPracticeModal({
       isOpen: true,
@@ -383,7 +547,7 @@ export default function AdaptivePathView({
 
   // Luyện tập toàn bộ lỗi sai
   const handlePracticeAll = () => {
-    const topicsArr = (mistakeData.weak_topics || []).map((t) => t.topic).filter(Boolean);
+    const topicsArr = (mistakeData.weak_topics || []).map((t) => t.canonical_topic || t.topic).filter(Boolean);
     setPracticeModal({
       isOpen: true,
       topic: topicsArr.length > 0 ? topicsArr.join(', ') : 'Ôn tập ngữ pháp tổng hợp',
@@ -812,29 +976,93 @@ export default function AdaptivePathView({
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handlePracticeSingleTopic(t)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 14px',
-                        borderRadius: '6px',
-                        backgroundColor: '#fff7ed',
-                        color: '#ea580c',
-                        border: '1px solid #fdba74',
-                        fontWeight: '800',
-                        fontSize: '0.82rem',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <i className="fa-solid fa-play"></i>
-                      <span>Luyện Chủ Đề Này (AI Sinh 5 Câu)</span>
-                    </button>
+                    {/* Khu vực 3 nút hành động theo yêu cầu người dùng */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        {/* Nút 1: Luyện chủ đề */}
+                        <button
+                          type="button"
+                          onClick={() => handlePracticeSingleTopic(t)}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: '#fff7ed',
+                            color: '#ea580c',
+                            border: '1px solid #fdba74',
+                            fontWeight: '800',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s ease',
+                          }}
+                          title="Luyện tập 5 câu hỏi trắc nghiệm do AI sinh ra cho chủ đề này"
+                        >
+                          <i className="fa-solid fa-play"></i>
+                          <span>Luyện Chủ Đề</span>
+                        </button>
+
+                        {/* Nút 2: Xem các câu làm sai kế bên nút luyện chủ đề */}
+                        <button
+                          type="button"
+                          onClick={() => handleViewTopicMistakes(t)}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: '#f0f9ff',
+                            color: '#0284c7',
+                            border: '1px solid #bae6fd',
+                            fontWeight: '800',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s ease',
+                          }}
+                          title="Xem danh sách chi tiết các câu làm sai thuộc chủ đề này"
+                        >
+                          <i className="fa-solid fa-eye"></i>
+                          <span>Xem Câu Sai ({t.count})</span>
+                        </button>
+                      </div>
+
+                      {/* Nút 3: Đã luyện tập xong (kế bên 2 nút trên) */}
+                      {(() => {
+                        const isTopicPracticed = practicedTopics.has(t.canonical_topic || t.topic);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkTopicAsFinished(t)}
+                            disabled={isResolving}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              backgroundColor: isTopicPracticed ? '#ecfdf5' : '#f8fafc',
+                              color: isTopicPracticed ? '#059669' : '#475569',
+                              border: `1px solid ${isTopicPracticed ? '#6ee7b7' : 'var(--border-color)'}`,
+                              fontWeight: '800',
+                              fontSize: '0.8rem',
+                              cursor: isResolving ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s ease',
+                              boxShadow: isTopicPracticed ? '0 2px 6px rgba(16, 185, 129, 0.2)' : 'none',
+                            }}
+                            title="Xác nhận đã hiểu rõ và xóa các câu hỏi sai của chủ đề này"
+                          >
+                            <i className={`fa-solid ${isTopicPracticed ? 'fa-circle-check' : 'fa-check'}`}></i>
+                            <span>{isTopicPracticed ? '✓ Đã Luyện Tập Xong (Hoàn Thành)' : 'Đã Luyện Tập Xong'}</span>
+                          </button>
+                        );
+                      })()}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -842,7 +1070,7 @@ export default function AdaptivePathView({
           )}
 
           {/* C. Bộ lọc và danh sách chi tiết các câu hỏi làm sai */}
-          <div>
+          <div id="mistakes-list-section">
             <div
               style={{
                 display: 'flex',
@@ -884,11 +1112,14 @@ export default function AdaptivePathView({
                   }}
                 >
                   <option value="ALL">Tất cả chủ đề ({totalMistakes})</option>
-                  {mistakeData.weak_topics.map((t, i) => (
-                    <option key={i} value={t.topic}>
-                      {formatTopicBilingual(t.topic)} ({t.count})
-                    </option>
-                  ))}
+                  {mistakeData.weak_topics.map((t, i) => {
+                    const cTopic = t.canonical_topic || t.topic;
+                    return (
+                      <option key={i} value={cTopic}>
+                        {formatTopicBilingual(cTopic)} ({t.count})
+                      </option>
+                    );
+                  })}
                 </select>
 
                 {/* Ô tìm kiếm câu hỏi */}
@@ -1200,6 +1431,7 @@ export default function AdaptivePathView({
         subTopic={practiceModal.subTopic}
         topics={practiceModal.topics}
         level={practiceModal.level || 'B1'}
+        onComplete={handlePracticeComplete}
       />
     </div>
   );

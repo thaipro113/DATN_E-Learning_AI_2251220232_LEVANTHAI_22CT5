@@ -110,7 +110,62 @@ class StudentMistakeAnalysisAPIView(APIView):
             'Prepositions': 'Giới từ',
             'Articles': 'Mạo từ',
             'Gerunds and Infinitives': 'Danh động từ & Động từ nguyên mẫu',
+            'Subject-Verb Agreement': 'Sự hòa hợp Chủ ngữ & Động từ',
+            'Comparatives and Superlatives': 'So sánh hơn & So sánh nhất',
         }
+
+        def get_canonical_topic(raw_topic: str) -> str:
+            if not raw_topic:
+                return 'Ngữ pháp chung'
+            t = str(raw_topic).strip()
+            tl = t.lower()
+            if 'vs' in tl or 'versus' in tl:
+                if 'present simple' in tl and ('continuous' in tl or 'progressive' in tl):
+                    return 'Present Simple vs. Present Continuous'
+                return t
+            if 'passive' in tl:
+                return 'Passive Voice'
+            if 'continuous' in tl or 'progressive' in tl:
+                if 'past' in tl:
+                    return 'Past Continuous'
+                if 'present perfect' in tl:
+                    return 'Present Perfect Continuous'
+                if 'future perfect' in tl:
+                    return 'Future Perfect Continuous'
+                if 'future' in tl:
+                    return 'Future Continuous'
+                return 'Present Continuous'
+            if 'present perfect' in tl:
+                return 'Present Perfect'
+            if 'past perfect' in tl:
+                return 'Past Perfect'
+            if 'future perfect' in tl:
+                return 'Future Perfect'
+            if 'present simple' in tl or 'simple present' in tl or tl == 'present tense':
+                return 'Present Simple'
+            if 'past simple' in tl or 'simple past' in tl or tl == 'past tense':
+                return 'Past Simple'
+            if 'future' in tl and ('simple' in tl or 'will' in tl or 'going to' in tl):
+                return 'Future Simple'
+            if 'subject' in tl and 'verb' in tl:
+                return 'Subject-Verb Agreement'
+            if 'condition' in tl:
+                return 'Conditionals'
+            if 'relative' in tl:
+                return 'Relative Clauses'
+            if 'reported speech' in tl or 'indirect speech' in tl:
+                return 'Reported Speech'
+            if 'modal' in tl:
+                return 'Modal Verbs'
+            if 'gerund' in tl or 'infinitive' in tl:
+                return 'Gerunds and Infinitives'
+            if 'preposition' in tl:
+                return 'Prepositions'
+            if 'article' in tl:
+                return 'Articles'
+            if 'comparative' in tl or 'superlative' in tl:
+                return 'Comparatives and Superlatives'
+            return t
 
         # Gom nhóm câu hỏi trùng lặp: Nếu học viên làm sai nhiều lần cùng 1 câu hỏi,
         # chỉ lấy 1 bản ghi với mốc thời gian mới nhất và đếm số lần làm sai
@@ -139,7 +194,8 @@ class StudentMistakeAnalysisAPIView(APIView):
                     ai = None
 
             topic = ai.topic if ai else (q.skill or 'Ngữ pháp chung')
-            topic_vi = TOPIC_VI_MAP.get(topic, TOPIC_VI_MAP.get(topic.split('(')[0].strip(), ''))
+            canonical_topic = get_canonical_topic(topic)
+            topic_vi = TOPIC_VI_MAP.get(canonical_topic, TOPIC_VI_MAP.get(topic, ''))
             sub_topic = ai.sub_topic if ai else ''
             difficulty = ai.difficulty if ai else q.level
             reason = ai.reason if ai else (q.explanation or '')
@@ -156,19 +212,27 @@ class StudentMistakeAnalysisAPIView(APIView):
             correct_opt = next((opt['content'] for opt in options_data if opt['is_correct']), '')
             student_opt = latest_ans.selected_option.content if latest_ans.selected_option else latest_ans.text_answer
 
-            # Gom nhóm theo chủ đề
-            topic_key = topic
+            # Gom nhóm các chủ đề có cùng dạng vào 1 chủ đề chuẩn (Canonical Topic)
+            topic_key = canonical_topic
             if topic_key not in topics_counter:
                 topics_counter[topic_key] = {
                     'topic': topic_key,
+                    'canonical_topic': topic_key,
                     'topic_vi': topic_vi,
                     'sub_topics': set(),
+                    'raw_topics': set(),
+                    'mistake_ids': [],
                     'count': 0,
-                    'sample_reason': reason
+                    'sample_reason': reason,
+                    'difficulty': difficulty or 'B1',
                 }
             topics_counter[topic_key]['count'] += 1
+            topics_counter[topic_key]['raw_topics'].add(topic)
+            topics_counter[topic_key]['mistake_ids'].extend(all_mistake_ids)
             if sub_topic:
                 topics_counter[topic_key]['sub_topics'].add(sub_topic)
+            if not topics_counter[topic_key]['sample_reason'] and reason:
+                topics_counter[topic_key]['sample_reason'] = reason
 
             mistakes_list.append({
                 'id': str(latest_ans.id),
@@ -185,6 +249,7 @@ class StudentMistakeAnalysisAPIView(APIView):
                 'correct_answer': correct_opt,
                 'options': options_data,
                 'topic': topic,
+                'canonical_topic': canonical_topic,
                 'topic_vi': topic_vi,
                 'sub_topic': sub_topic,
                 'difficulty': difficulty,
@@ -193,16 +258,20 @@ class StudentMistakeAnalysisAPIView(APIView):
                 'attempt_date': latest_ans.created_at.strftime('%d/%m/%Y %H:%M')
             })
 
-        # Danh sách chủ đề tổng hợp
+        # Danh sách chủ đề tổng hợp (đã gộp các chủ đề cùng dạng)
         weak_topics_summary = []
         for t_info in topics_counter.values():
             weak_topics_summary.append({
                 'topic': t_info['topic'],
+                'canonical_topic': t_info['canonical_topic'],
                 'topic_vi': t_info['topic_vi'],
                 'count': t_info['count'],
                 'sub_topics': list(t_info['sub_topics']),
                 'sub_topic': ", ".join(list(t_info['sub_topics'])[:3]),
-                'sample_reason': t_info['sample_reason']
+                'raw_topics': list(t_info['raw_topics']),
+                'all_mistake_ids': t_info['mistake_ids'],
+                'sample_reason': t_info['sample_reason'],
+                'difficulty': t_info['difficulty'],
             })
 
         weak_topics_summary.sort(key=lambda x: x['count'], reverse=True)

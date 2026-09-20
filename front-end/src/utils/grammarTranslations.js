@@ -157,10 +157,123 @@ const DESCRIPTIONS_PHRASES = [
   { en: /for example/gi, vi: 'ví dụ' },
   { en: /Present Simple tense/gi, vi: 'thì Hiện tại đơn' },
   { en: /Present Continuous tense/gi, vi: 'thì Hiện tại tiếp diễn' },
-  { en: /Past Simple tense/gi, vi: 'thì Quá khứ đơn' },
-  { en: /Past Continuous tense/gi, vi: 'thì Quá khứ tiếp diễn' },
-  { en: /Present Perfect tense/gi, vi: 'thì Hiện tại hoàn thành' },
+  { en: /Routine actions or chân lý \/ sự thật hiển nhiên in passive voice/gi, vi: 'Hành động thường nhật hoặc chân lý / sự thật hiển nhiên ở thể bị động' },
+  { en: /Routine actions/gi, vi: 'Hành động thường nhật' },
+  { en: /rules, regulations, and/gi, vi: 'quy tắc, quy định và' },
+  { en: /with the verb 'to be' for describing current facts or permanent characteristics/gi, vi: "với động từ 'to be' để mô tả sự thật hiện tại hoặc đặc tính lâu dài" },
+  { en: /for habitual\/regular scheduled actions \(third-person singular agreement\)/gi, vi: 'cho hành động thói quen / lịch trình cố định (hòa hợp ngôi thứ 3 số ít)' },
+  { en: /Singular nouns ending in -s \(collective\/uncountable\) and simple present tense for location/gi, vi: 'Danh từ số ít kết thúc bằng -s (tập hợp/không đếm được) và thì hiện tại đơn cho vị trí' },
+  { en: /third-person singular agreement/gi, vi: 'hòa hợp ngôi thứ 3 số ít' },
+  { en: /third-person singular/gi, vi: 'ngôi thứ 3 số ít' },
+  { en: /in passive voice/gi, vi: 'ở thể bị động' },
 ];
+
+/**
+ * Chuẩn hóa các biến thể của chủ đề về một tên chủ đề gốc (Canonical Topic)
+ * Giúp gộp các chủ đề tương tự (ví dụ: Simple Present, Present Simple Tense -> Present Simple)
+ */
+export function getCanonicalTopic(rawTopic) {
+  if (!rawTopic) return 'Ngữ pháp chung';
+  const clean = String(rawTopic).trim();
+  const lower = clean.toLowerCase();
+
+  // 1. Phân biệt / So sánh 2 thì (Present Simple vs. Present Continuous)
+  if (lower.includes('vs') || lower.includes('versus')) {
+    if (lower.includes('present simple') && (lower.includes('continuous') || lower.includes('progressive'))) {
+      return 'Present Simple vs. Present Continuous';
+    }
+    return clean;
+  }
+
+  // 2. Thể bị động (Passive Voice)
+  if (lower.includes('passive')) {
+    return 'Passive Voice';
+  }
+
+  // 3. Các thì tiếp diễn (Continuous / Progressive)
+  if (lower.includes('continuous') || lower.includes('progressive')) {
+    if (lower.includes('past')) return 'Past Continuous';
+    if (lower.includes('present perfect')) return 'Present Perfect Continuous';
+    if (lower.includes('future perfect')) return 'Future Perfect Continuous';
+    if (lower.includes('future')) return 'Future Continuous';
+    return 'Present Continuous';
+  }
+
+  // 4. Các thì hoàn thành (Perfect)
+  if (lower.includes('present perfect')) return 'Present Perfect';
+  if (lower.includes('past perfect')) return 'Past Perfect';
+  if (lower.includes('future perfect')) return 'Future Perfect';
+
+  // 5. Thì hiện tại đơn (Present Simple)
+  if (
+    lower.includes('present simple') ||
+    lower.includes('simple present') ||
+    lower === 'present tense'
+  ) {
+    return 'Present Simple';
+  }
+
+  // 6. Thì quá khứ đơn (Past Simple)
+  if (
+    lower.includes('past simple') ||
+    lower.includes('simple past') ||
+    lower === 'past tense'
+  ) {
+    return 'Past Simple';
+  }
+
+  // 7. Thì tương lai đơn (Future Simple)
+  if (lower.includes('future') && (lower.includes('simple') || lower.includes('will') || lower.includes('going to'))) {
+    return 'Future Simple';
+  }
+
+  // 8. Sự hòa hợp Chủ ngữ & Động từ (Subject-Verb Agreement)
+  if (lower.includes('subject') && lower.includes('verb')) {
+    return 'Subject-Verb Agreement';
+  }
+
+  // 9. Câu điều kiện (Conditionals)
+  if (lower.includes('condition')) {
+    return 'Conditionals';
+  }
+
+  // 10. Mệnh đề quan hệ (Relative Clauses)
+  if (lower.includes('relative clause')) {
+    return 'Relative Clauses';
+  }
+
+  // 11. Câu gián tiếp / tường thuật (Reported Speech)
+  if (lower.includes('reported speech') || lower.includes('indirect speech')) {
+    return 'Reported Speech';
+  }
+
+  // 12. Động từ khuyết thiếu (Modal Verbs)
+  if (lower.includes('modal')) {
+    return 'Modal Verbs';
+  }
+
+  // 13. Danh động từ & Động từ nguyên mẫu (Gerunds and Infinitives)
+  if (lower.includes('gerund') || lower.includes('infinitive')) {
+    return 'Gerunds and Infinitives';
+  }
+
+  // 14. Giới từ (Prepositions)
+  if (lower.includes('preposition')) {
+    return 'Prepositions';
+  }
+
+  // 15. Mạo từ (Articles)
+  if (lower.includes('article')) {
+    return 'Articles';
+  }
+
+  // 16. So sánh hơn & So sánh nhất (Comparatives and Superlatives)
+  if (lower.includes('comparative') || lower.includes('superlative')) {
+    return 'Comparatives and Superlatives';
+  }
+
+  return clean;
+}
 
 /**
  * Dịch mô tả quy tắc / giải thích ngữ pháp sang tiếng Việt tự nhiên,
@@ -189,3 +302,4 @@ export function normalizeSearchText(str) {
     .toLowerCase()
     .trim();
 }
+

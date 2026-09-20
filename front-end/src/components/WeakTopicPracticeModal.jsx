@@ -8,6 +8,7 @@ export default function WeakTopicPracticeModal({
   subTopic = '',
   topics = [],
   level = 'B1',
+  onComplete,
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -80,6 +81,14 @@ export default function WeakTopicPracticeModal({
     });
     setScore(correctCount);
     setIsSubmitted(true);
+    if (onComplete) {
+      onComplete({
+        topic,
+        topics,
+        score: correctCount,
+        total: questions.length,
+      });
+    }
   };
 
   const questions = quizData?.questions || [];
