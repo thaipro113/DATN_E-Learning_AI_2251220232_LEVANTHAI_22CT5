@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { recommendationAPI } from '../services/api';
 import WeakTopicPracticeModal from './WeakTopicPracticeModal';
+import Pagination from './Pagination';
+import {
+  formatTopicBilingual,
+  getVietnameseTopicName,
+  translateGrammarDescription,
+  normalizeSearchText,
+} from '../utils/grammarTranslations';
 
 export default function AdaptivePathView({
   myCourses = [],
@@ -21,6 +28,8 @@ export default function AdaptivePathView({
   const [selectedMistakeIds, setSelectedMistakeIds] = useState(new Set());
   const [filterTopic, setFilterTopic] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const [practiceModal, setPracticeModal] = useState({
     isOpen: false,
     topic: '',
@@ -32,21 +41,50 @@ export default function AdaptivePathView({
 
   const [isResolving, setIsResolving] = useState(false);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterTopic, searchQuery]);
+
   const fetchMistakes = async () => {
     setIsLoading(true);
     try {
       const res = await recommendationAPI.getStudentMistakes();
       const data = res.data?.data || res.data || {};
       const rawMistakes = data.mistakes || [];
-      const normalizedMistakes = rawMistakes.map((m) => ({
-        ...m,
-        id: m.id || m.mistake_id,
-        mistake_id: m.id || m.mistake_id,
-        question_content: m.question_content || m.question_text || '',
-        student_selected: m.student_selected || m.student_choice || '',
-        correct_answer: m.correct_answer || m.correct_choice || '',
-        attempt_date: m.attempt_date || m.attempted_at || '',
-      }));
+
+      // Gom nhóm các câu hỏi trùng lặp (nếu học viên làm sai câu này nhiều lần qua các bài thi)
+      const groupedByQuestion = {};
+      rawMistakes.forEach((m) => {
+        const key = m.question_id || m.question_content?.trim() || m.id;
+        if (!groupedByQuestion[key]) {
+          groupedByQuestion[key] = {
+            ...m,
+            id: m.id || m.mistake_id,
+            mistake_id: m.id || m.mistake_id,
+            all_ids: m.all_ids || [m.id || m.mistake_id],
+            repeat_count: m.repeat_count || 1,
+            question_content: m.question_content || m.question_text || '',
+            student_selected: m.student_selected || m.student_choice || '',
+            correct_answer: m.correct_answer || m.correct_choice || '',
+            attempt_date: m.attempt_date || m.attempted_at || '',
+          };
+        } else {
+          const cur = groupedByQuestion[key];
+          const mId = m.id || m.mistake_id;
+          if (mId && !cur.all_ids.includes(mId)) {
+            cur.all_ids.push(mId);
+          }
+          cur.repeat_count += (m.repeat_count || 1);
+          // Ưu tiên mốc thời gian làm bài mới nhất
+          if (m.attempt_date && (!cur.attempt_date || m.attempt_date > cur.attempt_date)) {
+            cur.attempt_date = m.attempt_date;
+            cur.quiz_title = m.quiz_title || cur.quiz_title;
+            cur.student_selected = m.student_selected || m.student_choice || cur.student_selected;
+          }
+        }
+      });
+      const normalizedMistakes = Object.values(groupedByQuestion);
+
       const rawTopics = data.weak_topics_summary || data.weak_topics || [];
       const normalizedTopics = rawTopics.map((t) => ({
         ...t,
@@ -56,7 +94,7 @@ export default function AdaptivePathView({
       setMistakeData({
         has_enrolled_courses: data.has_enrolled_courses || (myCourses && myCourses.length > 0),
         has_quiz_attempts: data.has_quiz_attempts || (myAttempts && myAttempts.length > 0),
-        total_mistakes: data.total_mistakes || normalizedMistakes.length,
+        total_mistakes: normalizedMistakes.length,
         weak_topics: normalizedTopics,
         mistakes: normalizedMistakes,
       });
@@ -74,15 +112,21 @@ export default function AdaptivePathView({
   }, []);
 
   // Đánh dấu đã hoàn thành / xóa 1 câu hỏi sai đơn lẻ
-  const handleResolveSingleMistake = async (mistakeId) => {
+  const handleResolveSingleMistake = async (mistake) => {
+    const mistakeId = typeof mistake === 'object' ? mistake.id : mistake;
+    const allIds = (typeof mistake === 'object' && Array.isArray(mistake.all_ids)) ? mistake.all_ids : [mistakeId];
     if (!mistakeId || isResolving) return;
     setIsResolving(true);
     try {
-      await recommendationAPI.resolveMistake(mistakeId);
+      if (allIds.length > 1) {
+        await recommendationAPI.resolveBatchMistakes(allIds);
+      } else {
+        await recommendationAPI.resolveMistake(mistakeId);
+      }
 
       setMistakeData((prev) => {
         const remainingMistakes = (prev.mistakes || []).filter(
-          (item) => item.id !== mistakeId && item.mistake_id !== mistakeId
+          (item) => item.id !== mistakeId && item.mistake_id !== mistakeId && !allIds.includes(item.id)
         );
         const topicsMap = {};
         remainingMistakes.forEach((item) => {
@@ -111,6 +155,7 @@ export default function AdaptivePathView({
       setSelectedMistakeIds((prev) => {
         const next = new Set(prev);
         next.delete(mistakeId);
+        allIds.forEach((id) => next.delete(id));
         return next;
       });
     } catch (err) {
@@ -124,17 +169,29 @@ export default function AdaptivePathView({
   // Đánh dấu đã hoàn thành nhiều câu hỏi sai đã chọn
   const handleResolveSelectedMistakes = async () => {
     if (selectedMistakeIds.size === 0 || isResolving) return;
-    const idsToResolve = Array.from(selectedMistakeIds);
-    if (!window.confirm(`Bạn có chắc muốn đánh dấu đã hoàn thành và xóa ${idsToResolve.length} câu hỏi sai đã chọn?`)) {
+    const targetMistakes = (mistakeData.mistakes || []).filter(
+      (m) => selectedMistakeIds.has(m.id) || selectedMistakeIds.has(m.mistake_id)
+    );
+    const allTargetIds = [];
+    targetMistakes.forEach((m) => {
+      if (Array.isArray(m.all_ids) && m.all_ids.length > 0) {
+        allTargetIds.push(...m.all_ids);
+      } else {
+        allTargetIds.push(m.id || m.mistake_id);
+      }
+    });
+    const uniqueIds = Array.from(new Set(allTargetIds));
+
+    if (!window.confirm(`Bạn có chắc muốn đánh dấu đã hoàn thành và xóa ${targetMistakes.length} câu hỏi sai đã chọn?`)) {
       return;
     }
     setIsResolving(true);
     try {
-      await recommendationAPI.resolveBatchMistakes(idsToResolve);
+      await recommendationAPI.resolveBatchMistakes(uniqueIds);
 
       setMistakeData((prev) => {
         const remainingMistakes = (prev.mistakes || []).filter(
-          (item) => !selectedMistakeIds.has(item.id) && !selectedMistakeIds.has(item.mistake_id)
+          (item) => !selectedMistakeIds.has(item.id) && !selectedMistakeIds.has(item.mistake_id) && !uniqueIds.includes(item.id)
         );
         const topicsMap = {};
         remainingMistakes.forEach((item) => {
@@ -169,18 +226,40 @@ export default function AdaptivePathView({
     }
   };
 
-  // Lọc danh sách câu hỏi làm sai theo chủ đề và từ khóa tìm kiếm
+  // Lọc danh sách câu hỏi làm sai theo chủ đề và từ khóa tìm kiếm (hỗ trợ cả tiếng Việt & tiếng Anh)
   const filteredMistakes = useMemo(() => {
+    const queryNorm = normalizeSearchText(searchQuery);
+
     return (mistakeData.mistakes || []).filter((m) => {
       const matchTopic = filterTopic === 'ALL' || m.topic === filterTopic;
-      const matchSearch =
-        !searchQuery ||
-        m.question_content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.topic?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.reason?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchTopic && matchSearch;
+      if (!matchTopic) return false;
+
+      if (!queryNorm) return true;
+
+      const contentNorm = normalizeSearchText(m.question_content || m.question_text);
+      const topicNorm = normalizeSearchText(m.topic);
+      const topicViNorm = normalizeSearchText(getVietnameseTopicName(m.topic));
+      const subTopicNorm = normalizeSearchText(translateGrammarDescription(m.sub_topic));
+      const reasonNorm = normalizeSearchText(translateGrammarDescription(m.reason || m.explanation));
+      const quizNorm = normalizeSearchText(m.quiz_title);
+
+      return (
+        contentNorm.includes(queryNorm) ||
+        topicNorm.includes(queryNorm) ||
+        topicViNorm.includes(queryNorm) ||
+        subTopicNorm.includes(queryNorm) ||
+        reasonNorm.includes(queryNorm) ||
+        quizNorm.includes(queryNorm)
+      );
     });
   }, [mistakeData.mistakes, filterTopic, searchQuery]);
+
+  // Phân trang danh sách câu hỏi làm sai (5 câu / trang)
+  const totalPages = Math.ceil(filteredMistakes.length / itemsPerPage) || 1;
+  const paginatedMistakes = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredMistakes.slice(start, start + itemsPerPage);
+  }, [filteredMistakes, currentPage, itemsPerPage]);
 
   // Chọn / bỏ chọn 1 câu hỏi
   const handleToggleSelectMistake = (id) => {
@@ -703,12 +782,12 @@ export default function AdaptivePathView({
                       </div>
 
                       <h4 style={{ margin: '0 0 6px', fontSize: '0.98rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                        {t.topic}
+                        {formatTopicBilingual(t.topic)}
                       </h4>
 
                       {t.sub_topic && (
                         <p style={{ margin: '0 0 8px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                          {t.sub_topic}
+                          {translateGrammarDescription(t.sub_topic)}
                         </p>
                       )}
 
@@ -725,7 +804,10 @@ export default function AdaptivePathView({
                           }}
                         >
                           <i className="fa-solid fa-quote-left" style={{ marginRight: '6px', color: '#94a3b8' }}></i>
-                          {t.sample_reason.length > 120 ? t.sample_reason.substring(0, 120) + '...' : t.sample_reason}
+                          {(() => {
+                            const translated = translateGrammarDescription(t.sample_reason);
+                            return translated.length > 140 ? translated.substring(0, 140) + '...' : translated;
+                          })()}
                         </p>
                       )}
                     </div>
@@ -804,7 +886,7 @@ export default function AdaptivePathView({
                   <option value="ALL">Tất cả chủ đề ({totalMistakes})</option>
                   {mistakeData.weak_topics.map((t, i) => (
                     <option key={i} value={t.topic}>
-                      {t.topic} ({t.count})
+                      {formatTopicBilingual(t.topic)} ({t.count})
                     </option>
                   ))}
                 </select>
@@ -812,7 +894,7 @@ export default function AdaptivePathView({
                 {/* Ô tìm kiếm câu hỏi */}
                 <input
                   type="text"
-                  placeholder="Tìm nội dung câu hỏi..."
+                  placeholder="Tìm câu hỏi, chủ đề (VD: thì hiện tại tiếp diễn)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -822,7 +904,7 @@ export default function AdaptivePathView({
                     backgroundColor: 'var(--bg-surface)',
                     color: 'var(--text-main)',
                     fontSize: '0.82rem',
-                    width: '200px',
+                    width: '280px',
                   }}
                 />
 
@@ -876,8 +958,9 @@ export default function AdaptivePathView({
 
             {/* Danh sách từng câu hỏi */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {filteredMistakes.map((m, idx) => {
+              {paginatedMistakes.map((m, idx) => {
                 const isSelected = selectedMistakeIds.has(m.id);
+                const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
                 return (
                   <div
                     key={m.id || idx}
@@ -902,7 +985,7 @@ export default function AdaptivePathView({
                         flexWrap: 'wrap',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -915,10 +998,24 @@ export default function AdaptivePathView({
                           }}
                         />
                         <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#0284c7' }}>
-                          Câu {idx + 1}
+                          Câu {globalIdx}
                         </span>
+                        {m.repeat_count > 1 && (
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: '#fee2e2',
+                              color: '#dc2626',
+                              fontSize: '0.75rem',
+                              fontWeight: '800',
+                            }}
+                          >
+                            Đã làm sai {m.repeat_count} lần
+                          </span>
+                        )}
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          • {m.quiz_title} {m.attempt_date ? `(${m.attempt_date})` : ''}
+                          • {m.quiz_title} {m.attempt_date ? `(Lần gần nhất: ${m.attempt_date})` : ''}
                         </span>
                       </div>
 
@@ -933,7 +1030,7 @@ export default function AdaptivePathView({
                             fontWeight: '800',
                           }}
                         >
-                          {m.topic}
+                          {formatTopicBilingual(m.topic)}
                         </span>
                         <span
                           style={{
@@ -1025,7 +1122,7 @@ export default function AdaptivePathView({
                           <i className="fa-solid fa-lightbulb" style={{ marginRight: '6px' }}></i>
                           Giải thích chuyên sâu từ AI:
                         </strong>
-                        {m.reason || m.explanation}
+                        {translateGrammarDescription(m.reason || m.explanation)}
                       </div>
                     )}
 
@@ -1033,7 +1130,7 @@ export default function AdaptivePathView({
                     <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <button
                         type="button"
-                        onClick={() => handleResolveSingleMistake(m.id || m.mistake_id)}
+                        onClick={() => handleResolveSingleMistake(m)}
                         disabled={isResolving}
                         style={{
                           padding: '7px 14px',
@@ -1082,6 +1179,15 @@ export default function AdaptivePathView({
                 );
               })}
             </div>
+
+            {/* Phân trang danh sách câu hỏi làm sai */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredMistakes.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
           </div>
         </div>
       )}
