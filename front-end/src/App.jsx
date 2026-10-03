@@ -121,6 +121,9 @@ export default function App() {
             if (liveUser.role === 'ADMIN' && (window.location.hash === '#/dashboard' || window.location.hash === '#dashboard' || !window.location.hash)) {
               setCurrentTab('admin_dashboard');
             }
+            if (liveUser.role === 'REVIEWER' && (window.location.hash === '#/dashboard' || window.location.hash === '#dashboard' || !window.location.hash)) {
+              setCurrentTab('reviewer_dashboard');
+            }
           }
         } catch (err) {
           if (err.response?.status === 401) {
@@ -301,6 +304,8 @@ export default function App() {
         setCurrentTab('admin_dashboard');
       } else if (loggedInUser.role === 'TEACHER') {
         setCurrentTab('teacher_dashboard');
+      } else if (loggedInUser.role === 'REVIEWER') {
+        setCurrentTab('reviewer_dashboard');
       } else {
         setCurrentTab('dashboard');
       }
@@ -543,9 +548,9 @@ export default function App() {
       </div>
 
       {/* 2. Main Content Area */}
-      <main className={`main-content ${currentTab === 'admin_dashboard' || currentTab === 'reviewer_dashboard' || (user?.role === 'ADMIN' && currentTab === 'dashboard') || (user?.role === 'REVIEWER' && currentTab === 'dashboard') ? 'full-width-admin' : ''}`}>
+      <main className={`main-content ${currentTab === 'admin_dashboard' || currentTab === 'reviewer_dashboard' || (user?.role === 'ADMIN' && currentTab === 'dashboard') || (user?.role === 'REVIEWER' && (currentTab === 'dashboard' || currentTab === 'flashcards' || currentTab === 'reviewer_dashboard')) ? 'full-width-admin' : ''}`}>
         {/* Breadcrumb Bar with Back Button when in Subviews */}
-        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'reviewer_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && !(user?.role === 'ADMIN' && currentTab === 'dashboard') && !(user?.role === 'REVIEWER' && currentTab === 'dashboard') && (
+        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'reviewer_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && !(user?.role === 'ADMIN' && currentTab === 'dashboard') && !(user?.role === 'REVIEWER' && (currentTab === 'dashboard' || currentTab === 'flashcards' || currentTab === 'reviewer_dashboard')) && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
             {/* Nút Quay lại thông minh theo ngữ cảnh */}
             {currentTab === 'learning' ? (
@@ -895,13 +900,15 @@ export default function App() {
               <CourseReviewerDashboardView
                 user={user}
                 onBackToDashboard={() => handleSelectTab('reviewer_dashboard')}
+                initialTab="courses"
               />
             )}
 
             {currentTab === 'flashcards' && (
-              <FlashcardStudyView
+              <CourseReviewerDashboardView
                 user={user}
-                onRecordStudySession={handleRecordStudySession}
+                onBackToDashboard={() => handleSelectTab('reviewer_dashboard')}
+                initialTab="flashcards"
               />
             )}
           </>

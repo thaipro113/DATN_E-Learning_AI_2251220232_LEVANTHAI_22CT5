@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { courseAPI } from '../services/api';
+import {
+  getAllDecksWithWords,
+  updateDeckStatus,
+  speakWord,
+} from '../utils/flashcardStorage';
 
-export default function CourseReviewerDashboardView({ user, onBackToDashboard }) {
+export default function CourseReviewerDashboardView({ user, onBackToDashboard, initialTab = 'courses' }) {
+  // Tab điều hướng thẩm định: 'courses' (Khóa học) hoặc 'flashcards' (Bộ thẻ từ vựng)
+  const [activeReviewTab, setActiveReviewTab] = useState(initialTab || 'courses');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveReviewTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -9,7 +23,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
   const [levelFilter, setLevelFilter] = useState('ALL');
   const [toastMsg, setToastMsg] = useState(null);
 
-  // Modal xem chi tiết giáo trình để thẩm định
+  // Modal xem chi tiết giáo trình khóa học để thẩm định
   const [previewModal, setPreviewModal] = useState({
     isOpen: false,
     course: null,
@@ -17,7 +31,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
     loadingDetails: false,
   });
 
-  // Modal phản biện / yêu cầu chỉnh sửa
+  // Modal phản biện / yêu cầu chỉnh sửa khóa học
   const [reviewModal, setReviewModal] = useState({
     isOpen: false,
     course: null,
@@ -31,14 +45,47 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
     isSubmitting: false,
   });
 
-  // 1. Tải danh sách toàn bộ khóa học để thẩm định
+  // States quản lý Thẩm định Flashcards
+  const [flashcardDecks, setFlashcardDecks] = useState(() => getAllDecksWithWords());
+  const [flashcardSearch, setFlashcardSearch] = useState('');
+  const [flashcardStatusFilter, setFlashcardStatusFilter] = useState('ALL');
+  const [playingWord, setPlayingWord] = useState(null);
+
+  // Modal xem trước và soát lỗi từ vựng của đề tài flashcard
+  const [previewDeckModal, setPreviewDeckModal] = useState({
+    isOpen: false,
+    deck: null,
+  });
+
+  // Modal phản biện đề tài flashcard
+  const [reviewDeckModal, setReviewDeckModal] = useState({
+    isOpen: false,
+    deck: null,
+    criteria: {
+      ipa: false,
+      grammar: false,
+      meaning: false,
+      example: false,
+    },
+    notes: '',
+    isSubmitting: false,
+  });
+
+  const reloadFlashcards = () => {
+    setFlashcardDecks(getAllDecksWithWords());
+  };
+
+  // 1. Tải danh sách toàn bộ khóa học để thẩm định (Sửa lỗi parse pagination API Django)
   const fetchAllCourses = async () => {
     setLoading(true);
     try {
       // Backend cho phép REVIEWER xem mọi trạng thái khóa học
       const res = await courseAPI.getCourses();
-      const courseList = res.data?.data || res.data || [];
-      setCourses(Array.isArray(courseList) ? courseList : []);
+      const rawData =
+        res.data?.data?.results ||
+        res.data?.results ||
+        (Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []));
+      setCourses(Array.isArray(rawData) ? rawData : []);
     } catch (err) {
       setToastMsg({ type: 'error', text: 'Không thể tải danh sách khóa học cần thẩm định.' });
     } finally {
@@ -48,6 +95,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
 
   useEffect(() => {
     fetchAllCourses();
+    reloadFlashcards();
   }, []);
 
   // 2. Thao tác Phê duyệt & Xuất bản khóa học
@@ -178,7 +226,110 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
     }
   };
 
-  // Lọc dữ liệu hiển thị
+  // 6. Thao tác Phê duyệt & Xuất bản đề tài Flashcard
+  const handleApproveFlashcard = (deck) => {
+    const isConfirmed = window.confirm(
+      `Xác nhận phê duyệt đề tài "${deck.title}" đạt chuẩn từ vựng & sư phạm và xuất bản công khai lên web cho học viên?`
+    );
+    if (!isConfirmed) return;
+
+    updateDeckStatus(deck.id, 'PUBLISHED', null, user?.full_name || 'Hội đồng Thẩm định');
+    reloadFlashcards();
+
+    if (previewDeckModal.isOpen && previewDeckModal.deck?.id === deck.id) {
+      setPreviewDeckModal((prev) => ({
+        ...prev,
+        deck: { ...prev.deck, status: 'PUBLISHED', rejectionReason: null },
+      }));
+    }
+
+    setToastMsg({
+      type: 'success',
+      text: `✓ Đề tài từ vựng "${deck.title}" đã được thẩm định đạt chuẩn và xuất bản lên web!`,
+    });
+  };
+
+  // 7. Mở Modal phản biện đề tài Flashcard
+  const handleOpenReviewDeckModal = (deck) => {
+    setReviewDeckModal({
+      isOpen: true,
+      deck,
+      criteria: { ipa: false, grammar: false, meaning: false, example: false },
+      notes: deck.rejectionReason || '',
+      isSubmitting: false,
+    });
+  };
+
+  // 8. Xác nhận gửi phản biện đề tài Flashcard
+  const handleConfirmReviewDeck = () => {
+    if (!reviewDeckModal.notes.trim()) {
+      alert('Vui lòng nhập chi tiết nhận xét phản biện để giảng viên biết nội dung cần chỉnh sửa!');
+      return;
+    }
+
+    setReviewDeckModal((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      const selectedCriteria = [];
+      if (reviewDeckModal.criteria.ipa) selectedCriteria.push('Phát âm IPA / Chính tả');
+      if (reviewDeckModal.criteria.grammar) selectedCriteria.push('Ngữ pháp câu ví dụ');
+      if (reviewDeckModal.criteria.meaning) selectedCriteria.push('Nghĩa tiếng Việt chưa chuẩn');
+      if (reviewDeckModal.criteria.example) selectedCriteria.push('Định nghĩa chưa khớp trình độ CEFR');
+
+      const criteriaPrefix = selectedCriteria.length > 0
+        ? `[Hạng mục cần khắc phục: ${selectedCriteria.join(', ')}]\n`
+        : '';
+      const fullFeedback = `${criteriaPrefix}${reviewDeckModal.notes.trim()}`;
+
+      updateDeckStatus(reviewDeckModal.deck.id, 'REJECTED', fullFeedback, user?.full_name || 'Hội đồng Thẩm định');
+      reloadFlashcards();
+
+      if (previewDeckModal.isOpen && previewDeckModal.deck?.id === reviewDeckModal.deck.id) {
+        setPreviewDeckModal((prev) => ({
+          ...prev,
+          deck: { ...prev.deck, status: 'REJECTED', rejectionReason: fullFeedback },
+        }));
+      }
+
+      setReviewDeckModal({ isOpen: false, deck: null, criteria: {}, notes: '', isSubmitting: false });
+      setToastMsg({
+        type: 'info',
+        text: `✓ Đã gửi bản phản biện cho đề tài "${reviewDeckModal.deck?.title}". Giảng viên sẽ nhận được thông báo để chỉnh sửa.`,
+      });
+    } catch (err) {
+      setToastMsg({ type: 'error', text: 'Có lỗi xảy ra khi gửi phản biện đề tài.' });
+      setReviewDeckModal((prev) => ({ ...prev, isSubmitting: false }));
+    }
+  };
+
+  // 9. Thu hồi xuất bản đề tài Flashcard
+  const handleRevokeFlashcard = (deck) => {
+    const isConfirmed = window.confirm(
+      `Xác nhận thu hồi đề tài "${deck.title}" khỏi web để chuyển về trạng thái Chờ thẩm định?`
+    );
+    if (!isConfirmed) return;
+
+    updateDeckStatus(deck.id, 'PENDING', null, user?.full_name || 'Hội đồng Thẩm định');
+    reloadFlashcards();
+    if (previewDeckModal.isOpen && previewDeckModal.deck?.id === deck.id) {
+      setPreviewDeckModal((prev) => ({
+        ...prev,
+        deck: { ...prev.deck, status: 'PENDING' },
+      }));
+    }
+    setToastMsg({
+      type: 'info',
+      text: `✓ Đã thu hồi đề tài "${deck.title}" về trạng thái Chờ thẩm định.`,
+    });
+  };
+
+  // 10. Phát âm thử từ vựng khi soát lỗi
+  const handlePlayWordAudio = (word) => {
+    setPlayingWord(word);
+    speakWord(word, 1.0);
+    setTimeout(() => setPlayingWord(null), 1500);
+  };
+
+  // Lọc dữ liệu Khóa học hiển thị
   const filteredCourses = courses.filter((c) => {
     const matchesSearch =
       !searchQuery.trim() ||
@@ -198,10 +349,34 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
     return matchesSearch && matchesStatus && matchesLevel;
   });
 
-  // Đếm thống kê
+  // Đếm thống kê Khóa học
   const countPending = courses.filter((c) => c.status === 'PENDING').length;
   const countPublished = courses.filter((c) => c.status === 'PUBLISHED').length;
   const countRejected = courses.filter((c) => c.status === 'REJECTED').length;
+
+  // Lọc dữ liệu Đề tài Flashcard hiển thị
+  const filteredDecks = flashcardDecks.filter((d) => {
+    const matchesSearch =
+      !flashcardSearch.trim() ||
+      d.title?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
+      d.author?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
+      d.description?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
+      d.level?.toLowerCase().includes(flashcardSearch.toLowerCase());
+
+    const matchesStatus =
+      flashcardStatusFilter === 'ALL' ||
+      (flashcardStatusFilter === 'PENDING' && d.status === 'PENDING') ||
+      (flashcardStatusFilter === 'PUBLISHED' && d.status === 'PUBLISHED') ||
+      (flashcardStatusFilter === 'REJECTED' && d.status === 'REJECTED');
+
+    return matchesSearch && matchesStatus;
+  });
+
+  // Đếm thống kê Flashcards
+  const countPendingDecks = flashcardDecks.filter((d) => d.status === 'PENDING').length;
+  const countPublishedDecks = flashcardDecks.filter((d) => d.status === 'PUBLISHED').length;
+  const countRejectedDecks = flashcardDecks.filter((d) => d.status === 'REJECTED').length;
+  const countTotalWords = flashcardDecks.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
 
   return (
     <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '24px 16px', color: '#1e293b' }}>
@@ -237,15 +412,78 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
         </div>
       )}
 
-      {/* Header Banner */}
+      {/* 1. Sub Navigation Chuyên Môn Của Phản Biện Viên */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => setActiveReviewTab('courses')}
+          style={{
+            padding: '11px 22px',
+            borderRadius: '12px',
+            border: activeReviewTab === 'courses' ? '2px solid #312e81' : '1px solid #cbd5e1',
+            backgroundColor: activeReviewTab === 'courses' ? '#1e1b4b' : '#ffffff',
+            color: activeReviewTab === 'courses' ? '#ffffff' : '#334155',
+            fontWeight: '800',
+            fontSize: '0.92rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: activeReviewTab === 'courses' ? '0 4px 14px rgba(30, 27, 75, 0.25)' : '0 2px 4px rgba(0,0,0,0.03)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <i className="fa-solid fa-graduation-cap"></i>
+          <span>Thẩm Định Khóa Học & Bài Giảng</span>
+          {countPending > 0 && (
+            <span style={{ backgroundColor: '#ef4444', color: '#ffffff', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', fontWeight: '900' }}>
+              {countPending} cần duyệt
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveReviewTab('flashcards')}
+          style={{
+            padding: '11px 22px',
+            borderRadius: '12px',
+            border: activeReviewTab === 'flashcards' ? '2px solid #7c3aed' : '1px solid #cbd5e1',
+            backgroundColor: activeReviewTab === 'flashcards' ? '#7c3aed' : '#ffffff',
+            color: activeReviewTab === 'flashcards' ? '#ffffff' : '#334155',
+            fontWeight: '800',
+            fontSize: '0.92rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: activeReviewTab === 'flashcards' ? '0 4px 14px rgba(124, 58, 237, 0.25)' : '0 2px 4px rgba(0,0,0,0.03)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <i className="fa-solid fa-layer-group"></i>
+          <span>Thẩm Định Đề Tài Flashcards</span>
+          {countPendingDecks > 0 && (
+            <span style={{ backgroundColor: '#f59e0b', color: '#ffffff', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', fontWeight: '900' }}>
+              {countPendingDecks} cần duyệt
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* 2. Header Banner Động Chuẩn Thẩm Định & Kiểm Định */}
       <div
         style={{
-          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+          background: activeReviewTab === 'courses'
+            ? 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)'
+            : 'linear-gradient(135deg, #2e1065 0%, #581c87 50%, #7c3aed 100%)',
           borderRadius: '20px',
           padding: '28px 32px',
           color: '#ffffff',
           marginBottom: '28px',
-          boxShadow: '0 10px 30px -10px rgba(49, 46, 129, 0.4)',
+          boxShadow: activeReviewTab === 'courses'
+            ? '0 10px 30px -10px rgba(49, 46, 129, 0.4)'
+            : '0 10px 30px -10px rgba(124, 58, 237, 0.4)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -254,17 +492,21 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderRadius: '20px', backgroundColor: 'rgba(255, 255, 255, 0.15)', fontSize: '0.78rem', fontWeight: '700', letterSpacing: '0.5px', marginBottom: '10px' }}>
               <i className="fa-solid fa-scale-balanced" style={{ color: '#fbbf24' }}></i>
-              <span>CỔNG THẨM ĐỊNH & KIỂM ĐỊNH CHẤT LƯỢNG ĐÀO TẠO</span>
+              <span>{activeReviewTab === 'courses' ? 'CỔNG THẨM ĐỊNH & KIỂM ĐỊNH BÀI GIẢNG' : 'CỔNG THẨM ĐỊNH & KIỂM ĐỊNH TỪ VỰNG FLASHCARDS'}</span>
             </div>
             <h1 style={{ fontSize: '1.85rem', fontWeight: '900', margin: '0 0 8px 0', letterSpacing: '-0.5px' }}>
-              Không Gian Phản Biện & Phê Duyệt Bài Giảng
+              {activeReviewTab === 'courses'
+                ? 'Không Gian Phản Biện & Phê Duyệt Bài Giảng'
+                : 'Không Gian Phản Biện & Phê Duyệt Flashcards'}
             </h1>
-            <p style={{ margin: 0, fontSize: '0.95rem', color: '#c7d2fe', maxWidth: '680px', lineHeight: '1.5' }}>
-              Chào mừng <strong>{user?.full_name || 'Thẩm định viên chuyên môn'}</strong>. Bạn có quyền rà soát đề cương, kiểm định video bài giảng, ngân hàng đề thi và phản biện chất lượng sư phạm trước khi khóa học được xuất bản công khai.
+            <p style={{ margin: 0, fontSize: '0.95rem', color: '#c7d2fe', maxWidth: '720px', lineHeight: '1.5' }}>
+              {activeReviewTab === 'courses'
+                ? `Chào mừng ${user?.full_name || 'Thẩm định viên'}. Bạn có quyền rà soát đề cương, kiểm định video bài giảng, ngân hàng đề thi và phản biện chất lượng sư phạm trước khi khóa học được xuất bản công khai.`
+                : `Chào mừng ${user?.full_name || 'Thẩm định viên'}. Rà soát chuẩn hóa phát âm IPA, giải nghĩa từ vựng tiếng Việt, tính chính xác của ngữ pháp câu ví dụ và chuẩn CEFR của các đề tài do Giảng viên biên soạn trước khi duyệt lên web.`}
             </p>
           </div>
           <button
-            onClick={fetchAllCourses}
+            onClick={activeReviewTab === 'courses' ? fetchAllCourses : reloadFlashcards}
             style={{
               padding: '10px 18px',
               borderRadius: '12px',
@@ -282,12 +524,17 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
             }}
           >
             <i className="fa-solid fa-arrows-rotate"></i>
-            <span>Làm mới danh sách</span>
+            <span>{activeReviewTab === 'courses' ? 'Làm mới khóa học' : 'Làm mới đề tài'}</span>
           </button>
         </div>
       </div>
 
-      {/* 3 Thống kê trạng thái */}
+      {/* =========================================================================
+          PHÂN HỆ 1: THẨM ĐỊNH & KIỂM ĐỊNH KHÓA HỌC BÀI GIẢNG
+         ========================================================================= */}
+      {activeReviewTab === 'courses' && (
+        <>
+          {/* 3 Thống kê trạng thái Khóa Học */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div
           onClick={() => setStatusFilter('PENDING')}
@@ -627,6 +874,389 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
           })}
         </div>
       )}
+        </>
+      )}
+
+      {/* =========================================================================
+          PHÂN HỆ 2: THẨM ĐỊNH & KIỂM ĐỊNH ĐỀ TÀI FLASHCARDS
+         ========================================================================= */}
+      {activeReviewTab === 'flashcards' && (
+        <div>
+          {/* 4 Thống kê trạng thái Flashcards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+            <div
+              onClick={() => setFlashcardStatusFilter('PENDING')}
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '20px',
+                border: flashcardStatusFilter === 'PENDING' ? '2px solid #f59e0b' : '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>CHỜ THẨM ĐỊNH (CẦN DUYỆT)</span>
+                <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="fa-solid fa-clock-rotate-left"></i>
+                </span>
+              </div>
+              <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#d97706', marginTop: '8px' }}>
+                {countPendingDecks}
+              </div>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Giảng viên gửi đề tài mới</span>
+            </div>
+
+            <div
+              onClick={() => setFlashcardStatusFilter('PUBLISHED')}
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '20px',
+                border: flashcardStatusFilter === 'PUBLISHED' ? '2px solid #10b981' : '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>ĐÃ THẨM ĐỊNH & XUẤT BẢN</span>
+                <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#d1fae5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="fa-solid fa-circle-check"></i>
+                </span>
+              </div>
+              <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#059669', marginTop: '8px' }}>
+                {countPublishedDecks}
+              </div>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Đang mở công khai cho học viên</span>
+            </div>
+
+            <div
+              onClick={() => setFlashcardStatusFilter('REJECTED')}
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '20px',
+                border: flashcardStatusFilter === 'REJECTED' ? '2px solid #ef4444' : '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>ĐÃ PHẢN BIỆN (CẦN SỬA)</span>
+                <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                </span>
+              </div>
+              <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#dc2626', marginTop: '8px' }}>
+                {countRejectedDecks}
+              </div>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Yêu cầu giảng viên sửa đổi</span>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '20px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>TỔNG TỪ VỰNG HỆ THỐNG</span>
+                <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#ede9fe', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="fa-solid fa-spell-check"></i>
+                </span>
+              </div>
+              <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#7c3aed', marginTop: '8px' }}>
+                {countTotalWords}
+              </div>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Thuộc {flashcardDecks.length} đề tài</span>
+            </div>
+          </div>
+
+          {/* Bộ lọc Flashcards */}
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '14px',
+              alignItems: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+            }}
+          >
+            <div style={{ position: 'relative', flex: '1 1 300px' }}>
+              <i
+                className="fa-solid fa-magnifying-glass"
+                style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.9rem' }}
+              ></i>
+              <input
+                type="text"
+                placeholder="Tìm theo tên đề tài từ vựng, giảng viên, trình độ..."
+                value={flashcardSearch}
+                onChange={(e) => setFlashcardSearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px 10px 38px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.88rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: '700', color: '#475569' }}>Trạng thái:</label>
+              <select
+                value={flashcardStatusFilter}
+                onChange={(e) => setFlashcardStatusFilter(e.target.value)}
+                style={{
+                  padding: '9px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  color: '#334155',
+                  outline: 'none',
+                }}
+              >
+                <option value="ALL">Tất cả ({flashcardDecks.length})</option>
+                <option value="PENDING">Chờ thẩm định ({countPendingDecks})</option>
+                <option value="PUBLISHED">Đã xuất bản ({countPublishedDecks})</option>
+                <option value="REJECTED">Đã phản biện ({countRejectedDecks})</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Danh sách đề tài Flashcard */}
+          {filteredDecks.length === 0 ? (
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '48px 24px',
+                textAlign: 'center',
+                border: '1px dashed #cbd5e1',
+                color: '#64748b',
+              }}
+            >
+              <i className="fa-solid fa-folder-open" style={{ fontSize: '2.5rem', color: '#94a3b8', marginBottom: '12px' }}></i>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', margin: '0 0 6px 0', color: '#334155' }}>
+                Không tìm thấy đề tài flashcard nào phù hợp
+              </h3>
+              <p style={{ fontSize: '0.85rem', margin: 0 }}>
+                Hiện tại không có đề tài nào thuộc điều kiện tìm kiếm hoặc tất cả đã được xử lý.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {filteredDecks.map((deck) => {
+                const isPending = deck.status === 'PENDING';
+                const isPublished = deck.status === 'PUBLISHED';
+                const isRejected = deck.status === 'REJECTED';
+                const cardCount = deck.cards?.length || 0;
+
+                return (
+                  <div
+                    key={deck.id}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      borderRadius: '16px',
+                      padding: '20px 24px',
+                      border: isPending ? '1.5px solid #f59e0b' : isRejected ? '1.5px solid #fca5a5' : '1px solid #e2e8f0',
+                      boxShadow: isPending ? '0 4px 15px -3px rgba(245, 158, 11, 0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '14px',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
+                      <div style={{ flex: '1 1 360px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              backgroundColor: isPending ? '#fef3c7' : isPublished ? '#d1fae5' : '#fee2e2',
+                              color: isPending ? '#b45309' : isPublished ? '#065f46' : '#991b1b',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                            }}
+                          >
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isPending ? '#f59e0b' : isPublished ? '#10b981' : '#ef4444' }}></span>
+                            {isPending ? 'CHỜ THẨM ĐỊNH' : isPublished ? 'ĐÃ DUYỆT LÊN WEB' : 'BỊ YÊU CẦU SỬA'}
+                          </span>
+
+                          <span style={{ fontSize: '0.72rem', fontWeight: '800', backgroundColor: `${deck.color || '#0284c7'}15`, color: deck.color || '#0284c7', padding: '3px 8px', borderRadius: '6px' }}>
+                            Trình độ: {deck.level}
+                          </span>
+
+                          <span style={{ fontSize: '0.72rem', fontWeight: '700', backgroundColor: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: '6px' }}>
+                            <i className="fa-solid fa-spell-check" style={{ marginRight: '4px', color: '#7c3aed' }}></i>
+                            {cardCount} từ vựng
+                          </span>
+                        </div>
+
+                        <h3 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', fontWeight: '800', color: '#0f172a' }}>
+                          {deck.title}
+                        </h3>
+
+                        <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#64748b', lineHeight: '1.45' }}>
+                          {deck.description || 'Chủ đề từ vựng tiếng Anh chuyên đề do Giảng viên biên soạn.'}
+                        </p>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', fontSize: '0.8rem', color: '#64748b' }}>
+                          <span>
+                            <i className="fa-solid fa-chalkboard-user" style={{ marginRight: '5px', color: '#4338ca' }}></i>
+                            Người biên soạn: <strong>{deck.author || 'Giảng viên'}</strong>
+                          </span>
+                          {deck.created_at && (
+                            <span>
+                              <i className="fa-regular fa-calendar" style={{ marginRight: '5px', color: '#0284c7' }}></i>
+                              Ngày gửi: {deck.created_at}
+                            </span>
+                          )}
+                          {deck.reviewedBy && (
+                            <span style={{ color: '#059669', fontWeight: '600' }}>
+                              <i className="fa-solid fa-user-check" style={{ marginRight: '4px' }}></i>
+                              Thẩm định bởi: {deck.reviewedBy}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Chi tiết phản biện nếu có */}
+                        {deck.rejectionReason && (
+                          <div
+                            style={{
+                              marginTop: '12px',
+                              padding: '10px 14px',
+                              borderRadius: '8px',
+                              backgroundColor: '#fef2f2',
+                              border: '1px solid #fecaca',
+                              color: '#991b1b',
+                              fontSize: '0.82rem',
+                              lineHeight: '1.45',
+                            }}
+                          >
+                            <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                              <i className="fa-solid fa-comment-dots"></i>
+                              <span>Góp ý phản biện đã gửi cho giảng viên:</span>
+                            </div>
+                            <div style={{ whiteSpace: 'pre-line' }}>{deck.rejectionReason}</div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Các nút hành động thẩm định */}
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginLeft: 'auto' }}>
+                        <button
+                          onClick={() => setPreviewDeckModal({ isOpen: true, deck })}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: '10px',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            color: '#334155',
+                            fontSize: '0.82rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                          title="Xem toàn bộ danh sách từ vựng, phiên âm IPA, nghĩa và câu ví dụ"
+                        >
+                          <i className="fa-solid fa-eye"></i>
+                          <span>Soát lỗi từ vựng</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenReviewDeckModal(deck)}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: '10px',
+                            backgroundColor: '#fee2e2',
+                            border: '1px solid #fca5a5',
+                            color: '#b91c1c',
+                            fontSize: '0.82rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                          title="Gửi bản phản biện yêu cầu giảng viên chỉnh sửa"
+                        >
+                          <i className="fa-solid fa-message-exclamation"></i>
+                          <span>Phản biện & Yêu cầu sửa</span>
+                        </button>
+
+                        {!isPublished ? (
+                          <button
+                            onClick={() => handleApproveFlashcard(deck)}
+                            style={{
+                              padding: '8px 16px',
+                              borderRadius: '10px',
+                              backgroundColor: '#059669',
+                              border: 'none',
+                              color: '#ffffff',
+                              fontSize: '0.82rem',
+                              fontWeight: '800',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              boxShadow: '0 2px 4px rgba(5, 150, 105, 0.25)',
+                            }}
+                          >
+                            <i className="fa-solid fa-check"></i>
+                            <span>Duyệt & Xuất bản</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRevokeFlashcard(deck)}
+                            style={{
+                              padding: '8px 14px',
+                              borderRadius: '10px',
+                              backgroundColor: '#fff7ed',
+                              border: '1px solid #fdba74',
+                              color: '#c2410c',
+                              fontSize: '0.82rem',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                            title="Thu hồi xuất bản đề tài này về trạng thái chờ duyệt"
+                          >
+                            <i className="fa-solid fa-rotate-left"></i>
+                            <span>Thu hồi xuất bản</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* =========================================================================
           MODAL 1: XEM CHI TIẾT GIÁO ÁN ĐỂ THẨM ĐỊNH (PREVIEW CURRICULUM AUDIT)
@@ -948,6 +1578,362 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard })
                 }}
               >
                 {reviewModal.isSubmitting ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin"></i>
+                    <span>Đang gửi...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-paper-plane"></i>
+                    <span>Gửi phản biện cho Giảng viên</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 3: XEM TRƯỚC & SOÁT LỖI TỪ VỰNG FLASHCARD (PREVIEW & AUDIT DECK)
+         ========================================================================= */}
+      {previewDeckModal.isOpen && previewDeckModal.deck && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '1100px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: '800', backgroundColor: '#ede9fe', color: '#7c3aed', padding: '2px 8px', borderRadius: '6px' }}>
+                    {previewDeckModal.deck.level}
+                  </span>
+                  <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b' }}>
+                    Người tạo: {previewDeckModal.deck.author || 'Giảng viên'}
+                  </span>
+                </div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                  Thẩm Định Chi Tiết Từ Vựng: {previewDeckModal.deck.title} ({previewDeckModal.deck.cards?.length || 0} từ)
+                </h2>
+              </div>
+              <button
+                onClick={() => setPreviewDeckModal({ isOpen: false, deck: null })}
+                style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#64748b', cursor: 'pointer', padding: '4px 8px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body: Bảng danh sách từ vựng kiểm định */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+              {(!previewDeckModal.deck.cards || previewDeckModal.deck.cards.length === 0) ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  Đề tài này hiện chưa có từ vựng nào được thêm vào.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left', color: '#475569', fontWeight: '800' }}>
+                        <th style={{ padding: '10px 12px', width: '40px' }}>#</th>
+                        <th style={{ padding: '10px 12px', minWidth: '160px' }}>Từ Vựng & IPA</th>
+                        <th style={{ padding: '10px 12px', width: '100px' }}>Loại Từ</th>
+                        <th style={{ padding: '10px 12px', minWidth: '180px' }}>Nghĩa Tiếng Việt</th>
+                        <th style={{ padding: '10px 12px', minWidth: '220px' }}>Định Nghĩa Tiếng Anh</th>
+                        <th style={{ padding: '10px 12px', minWidth: '240px' }}>Câu Ví Dụ & Ngữ Cảnh</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewDeckModal.deck.cards.map((c, idx) => (
+                        <tr key={c.id || idx} style={{ borderBottom: '1px solid #f1f5f9', verticalAlign: 'top' }}>
+                          <td style={{ padding: '12px', fontWeight: '700', color: '#94a3b8' }}>
+                            #{idx + 1}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{c.word}</span>
+                              <button
+                                type="button"
+                                onClick={() => handlePlayWordAudio(c.word)}
+                                style={{
+                                  border: 'none',
+                                  background: '#e0f2fe',
+                                  color: '#0284c7',
+                                  borderRadius: '50%',
+                                  width: '24px',
+                                  height: '24px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  fontSize: '0.75rem',
+                                }}
+                                title="Nghe phát âm chuẩn"
+                              >
+                                <i className={`fa-solid ${playingWord === c.word ? 'fa-spinner fa-spin' : 'fa-volume-high'}`}></i>
+                              </button>
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#64748b', fontStyle: 'italic', marginTop: '2px' }}>
+                              {c.ipa || 'Chưa có IPA'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: '700', backgroundColor: '#f1f5f9', color: '#334155', padding: '2px 8px', borderRadius: '4px' }}>
+                              {c.type || 'Noun'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', fontWeight: '600', color: '#0f172a' }}>
+                            {c.meaning}
+                            {c.collocation && (
+                              <div style={{ fontSize: '0.74rem', color: '#0284c7', marginTop: '4px', fontWeight: '500' }}>
+                                🔗 {c.collocation}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px', color: '#475569', fontSize: '0.8rem', lineHeight: '1.4' }}>
+                            {c.english_def || '—'}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <div style={{ color: '#0f172a', fontStyle: 'italic', lineHeight: '1.4' }}>
+                              "{c.example || '—'}"
+                            </div>
+                            {c.example_vi && (
+                              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '3px' }}>
+                                ↳ {c.example_vi}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <button
+                onClick={() => setPreviewDeckModal({ isOpen: false, deck: null })}
+                style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#475569', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Đóng
+              </button>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    const d = previewDeckModal.deck;
+                    setPreviewDeckModal({ isOpen: false, deck: null });
+                    handleOpenReviewDeckModal(d);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    backgroundColor: '#fee2e2',
+                    border: '1px solid #fca5a5',
+                    color: '#b91c1c',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <i className="fa-solid fa-message-exclamation"></i>
+                  <span>Phản biện & Yêu cầu sửa</span>
+                </button>
+
+                {previewDeckModal.deck.status !== 'PUBLISHED' && (
+                  <button
+                    onClick={() => {
+                      handleApproveFlashcard(previewDeckModal.deck);
+                    }}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: '#059669',
+                      color: '#ffffff',
+                      fontSize: '0.85rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
+                    }}
+                  >
+                    <i className="fa-solid fa-check"></i>
+                    <span>Xác nhận Duyệt & Xuất bản lên Web</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 4: PHẢN BIỆN ĐỀ TÀI FLASHCARD
+         ========================================================================= */}
+      {reviewDeckModal.isOpen && reviewDeckModal.deck && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '620px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fef2f2', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  PHIẾU PHẢN BIỆN TỪ VỰNG SƯ PHẠM
+                </span>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#991b1b', margin: '2px 0 0 0' }}>
+                  Phản biện đề tài: "{reviewDeckModal.deck.title}"
+                </h3>
+              </div>
+              <button
+                onClick={() => setReviewDeckModal({ isOpen: false, deck: null, criteria: {}, notes: '', isSubmitting: false })}
+                style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#991b1b', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+                  Các tiêu chí cần Giảng viên khắc phục / chỉnh sửa:
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                  {[
+                    { id: 'ipa', label: 'Phát âm IPA / Chính tả từ vựng' },
+                    { id: 'grammar', label: 'Ngữ pháp câu ví dụ ngữ cảnh' },
+                    { id: 'meaning', label: 'Nghĩa tiếng Việt chưa chuẩn xác' },
+                    { id: 'example', label: 'Định nghĩa chưa khớp chuẩn CEFR' },
+                  ].map((item) => (
+                    <label
+                      key={item.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '0.82rem',
+                        fontWeight: '600',
+                        color: '#475569',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={reviewDeckModal.criteria[item.id] || false}
+                        onChange={(e) =>
+                          setReviewDeckModal((prev) => ({
+                            ...prev,
+                            criteria: { ...prev.criteria, [item.id]: e.target.checked },
+                          }))
+                        }
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Chi tiết ý kiến phản biện (hướng dẫn cụ thể cho giảng viên): <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <textarea
+                  rows={5}
+                  placeholder="Ví dụ: Từ số 3 phiên âm IPA bị thiếu trọng âm. Câu ví dụ của từ số 7 chưa đúng ngữ pháp thì hiện tại hoàn thành, cần sửa lại..."
+                  value={reviewDeckModal.notes}
+                  onChange={(e) => setReviewDeckModal((prev) => ({ ...prev, notes: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    lineHeight: '1.45',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => setReviewDeckModal({ isOpen: false, deck: null, criteria: {}, notes: '', isSubmitting: false })}
+                style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#475569', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
+                disabled={reviewDeckModal.isSubmitting}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleConfirmReviewDeck}
+                disabled={reviewDeckModal.isSubmitting}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: '#dc2626',
+                  color: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                {reviewDeckModal.isSubmitting ? (
                   <>
                     <i className="fa-solid fa-spinner fa-spin"></i>
                     <span>Đang gửi...</span>
