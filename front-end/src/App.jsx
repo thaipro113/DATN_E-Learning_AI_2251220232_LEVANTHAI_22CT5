@@ -26,6 +26,7 @@ import PaymentCheckoutModal from './components/PaymentCheckoutModal';
 import AdminDashboardView from './components/AdminDashboardView';
 import CourseReviewerDashboardView from './components/CourseReviewerDashboardView';
 import FlashcardStudyView from './components/FlashcardStudyView';
+import TeacherFlashcardManager from './components/TeacherFlashcardManager';
 import AICommunicationView from './components/AICommunicationView';
 import Footer from './components/Footer';
 import FloatingContactWidget from './components/FloatingContactWidget';
@@ -812,6 +813,7 @@ export default function App() {
                 user={user}
                 onOpenQuizImport={() => setIsQuizImportOpen(true)}
                 onBackToDashboard={() => handleSelectTab('teacher_dashboard')}
+                onNavigateToFlashcards={() => handleSelectTab('flashcards')}
               />
             )}
 
@@ -819,6 +821,13 @@ export default function App() {
               <TeacherQuizManagerView
                 user={user}
                 onOpenQuizImport={() => setIsQuizImportOpen(true)}
+              />
+            )}
+
+            {currentTab === 'flashcards' && (
+              <TeacherFlashcardManager
+                user={user}
+                onBackToDashboard={() => handleSelectTab('teacher_dashboard')}
               />
             )}
 
@@ -835,8 +844,11 @@ export default function App() {
         {/* ==================== C. ADMIN VIEWS ==================== */}
         {isLoggedIn && user.role === 'ADMIN' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
-            {(currentTab === 'admin_dashboard' || currentTab === 'dashboard') && (
-              <AdminDashboardView onBackToDashboard={() => handleSelectTab('admin_dashboard')} />
+            {(currentTab === 'admin_dashboard' || currentTab === 'dashboard' || currentTab === 'flashcards') && (
+              <AdminDashboardView
+                onBackToDashboard={() => handleSelectTab('admin_dashboard')}
+                initialNav={currentTab === 'flashcards' ? 'flashcards' : 'overview'}
+              />
             )}
 
             {currentTab === 'teacher_dashboard' && (
@@ -844,6 +856,7 @@ export default function App() {
                 user={user}
                 onOpenQuizImport={() => setIsQuizImportOpen(true)}
                 onBackToDashboard={() => handleSelectTab('admin_dashboard')}
+                onNavigateToFlashcards={() => handleSelectTab('flashcards')}
               />
             )}
 
@@ -882,6 +895,13 @@ export default function App() {
               <CourseReviewerDashboardView
                 user={user}
                 onBackToDashboard={() => handleSelectTab('reviewer_dashboard')}
+              />
+            )}
+
+            {currentTab === 'flashcards' && (
+              <FlashcardStudyView
+                user={user}
+                onRecordStudySession={handleRecordStudySession}
               />
             )}
           </>

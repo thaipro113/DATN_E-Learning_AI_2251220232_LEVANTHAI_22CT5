@@ -6,7 +6,7 @@ import Pagination from './Pagination';
 import { courseAPI, aiAPI } from '../services/api';
 import { cleanCourseTitle, generateSlug } from '../utils/media';
 
-export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToDashboard }) {
+export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToDashboard, onNavigateToFlashcards }) {
   const [activeTab, setActiveTab] = useState('courses');
   const [showAIQuizModal, setShowAIQuizModal] = useState(false);
   const [selectedCourseForAIQuiz, setSelectedCourseForAIQuiz] = useState(null);
@@ -265,6 +265,16 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
           >
             <i className="fa-solid fa-wand-magic-sparkles"></i>
             <span>Tạo đề thi mới</span>
+          </button>
+
+          <button
+            className="btn-primary"
+            onClick={onNavigateToFlashcards}
+            style={{ backgroundColor: '#8b5cf6', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.35)' }}
+            title="Mở Sổ tay từ vựng Flashcards & Thêm thẻ mới"
+          >
+            <i className="fa-solid fa-layer-group"></i>
+            <span>Flashcards Từ Vựng</span>
           </button>
 
           <button

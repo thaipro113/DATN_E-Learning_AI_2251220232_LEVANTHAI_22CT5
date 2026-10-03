@@ -167,34 +167,56 @@ export default function Header({
                     <span>Quản lý Đề thi</span>
                   </button>
                 </li>
+                <li>
+                  <button
+                    className={`nav-link ${currentTab === 'flashcards' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('flashcards')}
+                  >
+                    <span>Flashcards</span>
+                    <span style={{ fontSize: '0.62rem', backgroundColor: '#8b5cf6', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>TỪ VỰNG</span>
+                  </button>
+                </li>
               </>
             )}
 
-            {/* 3. TABS DÀNH CHO ADMIN (CHỈ KHI ĐANG ĐĂNG NHẬP) */}
+            {/* 3. TABS DÀNH CHO ADMIN (CHỈ KHI ĐANG ĐĂNG NHẬP - FLASHCARDS NẰM TRONG SIDEBAR ADMIN) */}
             {isLoggedIn && role === 'ADMIN' && (
-              <li>
-                <button
-                  className={`nav-link ${currentTab === 'admin_dashboard' || currentTab === 'dashboard' ? 'active' : ''}`}
-                  onClick={() => onSelectTab('admin_dashboard')}
-                >
-                  <span>Bảng Quản Trị Hệ Thống</span>
-                </button>
-              </li>
+              <>
+                <li>
+                  <button
+                    className={`nav-link ${currentTab === 'admin_dashboard' || currentTab === 'dashboard' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('admin_dashboard')}
+                  >
+                    <span>Bảng Quản Trị Hệ Thống</span>
+                  </button>
+                </li>
+              </>
             )}
 
             {/* 4. TABS DÀNH CHO THẨM ĐỊNH VIÊN / REVIEWER (CHỈ KHI ĐANG ĐĂNG NHẬP) */}
             {isLoggedIn && role === 'REVIEWER' && (
-              <li>
-                <button
-                  className={`nav-link ${currentTab === 'reviewer_dashboard' || currentTab === 'dashboard' ? 'active' : ''}`}
-                  onClick={() => onSelectTab('reviewer_dashboard')}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <i className="fa-solid fa-scale-balanced" style={{ color: '#8b5cf6' }}></i>
-                  <span>Cổng Thẩm Định Khóa Học</span>
-                  <span style={{ fontSize: '0.62rem', backgroundColor: '#8b5cf6', color: 'white', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>AUDIT</span>
-                </button>
-              </li>
+              <>
+                <li>
+                  <button
+                    className={`nav-link ${currentTab === 'reviewer_dashboard' || currentTab === 'dashboard' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('reviewer_dashboard')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <i className="fa-solid fa-scale-balanced" style={{ color: '#8b5cf6' }}></i>
+                    <span>Cổng Thẩm Định Khóa Học</span>
+                    <span style={{ fontSize: '0.62rem', backgroundColor: '#8b5cf6', color: 'white', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>AUDIT</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`nav-link ${currentTab === 'flashcards' ? 'active' : ''}`}
+                    onClick={() => onSelectTab('flashcards')}
+                  >
+                    <span>Flashcards</span>
+                    <span style={{ fontSize: '0.62rem', backgroundColor: '#8b5cf6', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>TỪ VỰNG</span>
+                  </button>
+                </li>
+              </>
             )}
           </ul>
         </nav>

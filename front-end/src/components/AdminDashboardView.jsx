@@ -3,9 +3,16 @@ import logoImg from '../assets/Logo_TL_English.png';
 import { authAPI, courseAPI, assessmentAPI, aiAPI, learningAPI, quizImportAPI, recommendationAPI } from '../services/api';
 import ConfirmModal from './ConfirmModal';
 import Pagination from './Pagination';
+import AdminFlashcardManager from './AdminFlashcardManager';
 
-export default function AdminDashboardView() {
-  const [activeAdminNav, setActiveAdminNav] = useState('overview');
+export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlashcards, initialNav = 'overview' }) {
+  const [activeAdminNav, setActiveAdminNav] = useState(initialNav);
+
+  useEffect(() => {
+    if (initialNav) {
+      setActiveAdminNav(initialNav);
+    }
+  }, [initialNav]);
   const [timeRange, setTimeRange] = useState('7'); // '7' | '30' days
   const [activityStats, setActivityStats] = useState(null);
   const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -33,6 +40,19 @@ export default function AdminDashboardView() {
   useEffect(() => {
     setCurrentPage(1);
   }, [activeAdminNav, searchTerm, analysisSearch, analysisLevelFilter]);
+
+  // Create User Modal State (Dành cho Admin tạo tài khoản bao gồm Thẩm định viên REVIEWER)
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    email: '',
+    fullName: '',
+    password: '',
+    role: 'REVIEWER',
+    level: 'B1',
+    phoneNumber: '',
+    bio: '',
+    isSubmitting: false,
+  });
 
   // Edit User Modal State
   const [editingUserModal, setEditingUserModal] = useState({
@@ -301,7 +321,7 @@ export default function AdminDashboardView() {
     }
   };
 
-  // 2. Phân quyền vai trò: STUDENT, TEACHER, ADMIN
+  // 2. Phân quyền vai trò: STUDENT, TEACHER, REVIEWER, ADMIN
   const handleChangeRole = async (userId, newRole) => {
     try {
       await authAPI.updateUser(userId, { role: newRole });
@@ -310,6 +330,52 @@ export default function AdminDashboardView() {
     } catch (err) {
       setUsers(users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
       setToastMsg({ type: 'success', text: `✓ Đã cập nhật vai trò.` });
+    }
+  };
+
+  // 2.2 Admin tạo tài khoản người dùng mới (bao gồm Thẩm định viên REVIEWER)
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    if (!newUserForm.email.trim() || !newUserForm.fullName.trim() || !newUserForm.password) {
+      setToastMsg({ type: 'error', text: 'Vui lòng điền đầy đủ email, họ tên và mật khẩu!' });
+      return;
+    }
+    setNewUserForm((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      const res = await authAPI.createUser({
+        email: newUserForm.email.trim(),
+        full_name: newUserForm.fullName.trim(),
+        password: newUserForm.password,
+        role: newUserForm.role,
+        level: newUserForm.level,
+        phone_number: newUserForm.phoneNumber.trim(),
+        bio: newUserForm.bio.trim(),
+      });
+      const created = res.data?.data || res.data;
+      setUsers((prev) => [created, ...prev]);
+      setToastMsg({
+        type: 'success',
+        text: `✓ Đã tạo thành công tài khoản ${created.email} với vai trò ${created.role_display || created.role}!`,
+      });
+      setShowCreateUserModal(false);
+      setNewUserForm({
+        email: '',
+        fullName: '',
+        password: '',
+        role: 'REVIEWER',
+        level: 'B1',
+        phoneNumber: '',
+        bio: '',
+        isSubmitting: false,
+      });
+    } catch (err) {
+      const errMsg =
+        err.response?.data?.message ||
+        err.response?.data?.errors?.email?.[0] ||
+        err.response?.data?.errors?.password?.[0] ||
+        'Không thể tạo tài khoản người dùng.';
+      setToastMsg({ type: 'error', text: errMsg });
+      setNewUserForm((prev) => ({ ...prev, isSubmitting: false }));
     }
   };
 
@@ -627,6 +693,7 @@ export default function AdminDashboardView() {
         },
         { id: 'categories', label: 'Danh Mục', badge: categories.length, icon: 'fa-tags', color: '#0ea5e9' },
         { id: 'quizzes', label: 'Ngân Hàng Đề Thi', badge: quizzes.length, icon: 'fa-file-signature', color: '#d97706' },
+        { id: 'flashcards', label: 'Flashcards Từ Vựng', icon: 'fa-layer-group', color: '#8b5cf6' },
       ],
     },
     {
@@ -1597,7 +1664,15 @@ export default function AdminDashboardView() {
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    className="btn-primary"
+                    onClick={() => setShowCreateUserModal(true)}
+                    style={{ backgroundColor: '#7c3aed', display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                  >
+                    <i className="fa-solid fa-user-plus"></i>
+                    <span>Thêm Người Dùng / Thẩm Định Viên</span>
+                  </button>
                   <input
                     type="text"
                     placeholder="Tìm theo email, họ tên, role..."
@@ -1658,12 +1733,27 @@ export default function AdminDashboardView() {
                                 fontSize: '0.8rem',
                                 fontWeight: '700',
                                 border: '1px solid var(--border-color)',
-                                backgroundColor: u.role === 'ADMIN' ? '#fee2e2' : u.role === 'TEACHER' ? '#fef3c7' : '#e0f2fe',
-                                color: u.role === 'ADMIN' ? '#991b1b' : u.role === 'TEACHER' ? '#92400e' : '#0369a1',
+                                backgroundColor:
+                                  u.role === 'ADMIN'
+                                    ? '#fee2e2'
+                                    : u.role === 'REVIEWER'
+                                    ? '#ede9fe'
+                                    : u.role === 'TEACHER'
+                                    ? '#fef3c7'
+                                    : '#e0f2fe',
+                                color:
+                                  u.role === 'ADMIN'
+                                    ? '#991b1b'
+                                    : u.role === 'REVIEWER'
+                                    ? '#6d28d9'
+                                    : u.role === 'TEACHER'
+                                    ? '#92400e'
+                                    : '#0369a1',
                               }}
                             >
                               <option value="STUDENT">STUDENT</option>
                               <option value="TEACHER">TEACHER</option>
+                              <option value="REVIEWER">REVIEWER</option>
                               <option value="ADMIN">ADMIN</option>
                             </select>
                           </td>
@@ -2192,6 +2282,11 @@ export default function AdminDashboardView() {
 
               <Pagination currentPage={currentPage} totalItems={quizzes.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
             </div>
+          )}
+
+          {/* ==================== TAB: QUẢN LÝ FLASHCARDS TỪ VỰNG ==================== */}
+          {activeAdminNav === 'flashcards' && (
+            <AdminFlashcardManager />
           )}
 
           {/* ==================== TAB 5: TIẾN ĐỘ & CHỨNG CHỈ (LEARNING APP) ==================== */}
@@ -2741,6 +2836,7 @@ export default function AdminDashboardView() {
                   >
                     <option value="STUDENT">STUDENT (Học viên)</option>
                     <option value="TEACHER">TEACHER (Giáo viên)</option>
+                    <option value="REVIEWER">REVIEWER (Thẩm định viên / Phản biện)</option>
                     <option value="ADMIN">ADMIN (Quản trị)</option>
                   </select>
                 </div>
@@ -2774,6 +2870,124 @@ export default function AdminDashboardView() {
                 </button>
                 <button type="submit" className="btn-primary" style={{ backgroundColor: '#0284c7' }}>
                   Lưu Thông Tin
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 0: TẠO TÀI KHOẢN MỚI DÀNH CHO ADMIN (BAO GỒM THẨM ĐỊNH VIÊN REVIEWER) */}
+      {showCreateUserModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 130, padding: '20px' }}>
+          <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', maxWidth: '520px', width: '100%', padding: '24px', boxShadow: 'var(--shadow-xl)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: 'var(--text-main)' }}>
+                <i className="fa-solid fa-user-plus" style={{ color: '#7c3aed', marginRight: '8px' }}></i>
+                Thêm Tài Khoản Người Dùng Mới
+              </h3>
+              <button onClick={() => setShowCreateUserModal(false)} style={{ border: 'none', background: 'none', fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Địa chỉ Email: *</label>
+                <input
+                  type="email"
+                  placeholder="reviewer@gmail.com"
+                  value={newUserForm.email}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Họ và tên: *</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: TS. Nguyễn Văn A (Thẩm định viên)"
+                  value={newUserForm.fullName}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Mật khẩu khởi tạo: *</label>
+                <input
+                  type="password"
+                  placeholder="Tối thiểu 8 ký tự"
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  required
+                  minLength={8}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Vai trò (Role): *</label>
+                  <select
+                    value={newUserForm.role}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem', fontWeight: '700' }}
+                  >
+                    <option value="REVIEWER">REVIEWER (Thẩm định viên bài giảng)</option>
+                    <option value="TEACHER">TEACHER (Giáo viên / Giảng viên)</option>
+                    <option value="STUDENT">STUDENT (Học viên)</option>
+                    <option value="ADMIN">ADMIN (Quản trị viên)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Trình độ CEFR:</label>
+                  <select
+                    value={newUserForm.level}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, level: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                  >
+                    <option value="A1">A1 Beginner</option>
+                    <option value="A2">A2 Elementary</option>
+                    <option value="B1">B1 Intermediate</option>
+                    <option value="B2">B2 Upper-Intermediate</option>
+                    <option value="C1">C1 Advanced</option>
+                    <option value="C2">C2 Proficiency</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '3px' }}>Số điện thoại:</label>
+                <input
+                  type="text"
+                  placeholder="0912345678"
+                  value={newUserForm.phoneNumber}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, phoneNumber: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => setShowCreateUserModal(false)}
+                  disabled={newUserForm.isSubmitting}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{ backgroundColor: '#7c3aed' }}
+                  disabled={newUserForm.isSubmitting}
+                >
+                  {newUserForm.isSubmitting ? 'Đang tạo...' : 'Tạo Tài Khoản'}
                 </button>
               </div>
             </form>

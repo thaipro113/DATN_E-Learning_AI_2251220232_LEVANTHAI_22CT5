@@ -530,6 +530,105 @@ const VOCABULARY_DECKS = [
 ];
 
 export default function FlashcardStudyView({ user, onRecordStudySession }) {
+  // 1. State danh sách các Chủ đề / Bộ thẻ tự tạo (Lưu vào localStorage)
+  const [customDecks, setCustomDecks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('elearning_custom_decks');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return [
+      {
+        id: 'custom_personal',
+        title: 'Sổ Tay Từ Vựng Tự Tạo',
+        level: 'Cá nhân hóa',
+        icon: 'fa-book-bookmark',
+        color: '#8b5cf6',
+        description: 'Chủ đề từ vựng linh hoạt do bạn hoặc giảng viên tự thêm để ôn tập theo nhu cầu.',
+        isCustomDeck: true,
+      },
+    ];
+  });
+
+  // Tự động đồng bộ các chủ đề tự tạo vào localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('elearning_custom_decks', JSON.stringify(customDecks));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [customDecks]);
+
+  // 2. State từ vựng tự tạo (gắn theo từng deckId, lưu vào localStorage)
+  const [customWords, setCustomWords] = useState(() => {
+    try {
+      const saved = localStorage.getItem('elearning_custom_flashcards');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    // Mặc định cung cấp 2 từ mẫu trong Sổ tay cá nhân
+    return [
+      {
+        id: 'custom_1',
+        deckId: 'custom_personal',
+        isCustom: true,
+        word: 'Serendipity',
+        ipa: '/ˌser.ənˈdɪp.ə.t̬i/',
+        type: 'Noun',
+        meaning: 'Sự tình cờ may mắn phát hiện ra những điều tốt đẹp',
+        english_def: 'The occurrence of events by chance in a happy or beneficial way.',
+        example: 'Finding this comprehensive e-learning platform was pure serendipity.',
+        example_vi: 'Tìm thấy nền tảng học trực tuyến toàn diện này đúng là một sự may mắn tình cờ.',
+        collocation: 'pure serendipity / pleasant serendipity',
+      },
+      {
+        id: 'custom_2',
+        deckId: 'custom_personal',
+        isCustom: true,
+        word: 'Perseverance',
+        ipa: '/ˌpɝː.səˈvɪr.əns/',
+        type: 'Noun',
+        meaning: 'Sự kiên trì, bền bỉ vượt khó khăn',
+        english_def: 'Persistence in doing something despite difficulty or delay in achieving success.',
+        example: 'Through dedication and perseverance, she mastered fluent English.',
+        example_vi: 'Bằng sự tận tâm và kiên trì, cô ấy đã thành thạo tiếng Anh trôi chảy.',
+        collocation: 'show perseverance / great perseverance',
+      },
+    ];
+  });
+
+  // Tự động đồng bộ từ vựng tự tạo vào LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('elearning_custom_flashcards', JSON.stringify(customWords));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [customWords]);
+
+  // 3. Tổng hợp danh sách TẤT CẢ các Chủ đề / Bộ thẻ (3 bộ chuẩn CEFR + các bộ tự tạo của Giáo viên/Admin)
+  const allDecks = [
+    // 3 bộ gốc: lấy từ mặc định cộng thêm các từ mới được thêm vào đúng bộ đó
+    ...VOCABULARY_DECKS.map((d) => ({
+      ...d,
+      cards: [
+        ...d.cards,
+        ...customWords.filter((w) => w.deckId === d.id),
+      ],
+    })),
+    // Các bộ do Giáo viên, Admin hoặc Người dùng tạo
+    ...customDecks.map((d) => ({
+      ...d,
+      cards: customWords.filter((w) => w.deckId === d.id),
+    })),
+  ];
+
   // State quản lý bộ thẻ & thẻ hiện tại
   const [selectedDeckId, setSelectedDeckId] = useState('daily_life');
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -537,6 +636,31 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
   const [speechRate, setSpeechRate] = useState(1.0); // 1.0x hoặc 0.8x
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [autoPronounce, setAutoPronounce] = useState(false);
+
+  // State Modal Tạo Chủ Đề / Bộ Thẻ Mới
+  const [isCreateDeckModalOpen, setIsCreateDeckModalOpen] = useState(false);
+  const [newDeckForm, setNewDeckForm] = useState({
+    title: '',
+    level: 'B1 - B2',
+    color: '#0284c7',
+    description: '',
+  });
+  const [createDeckError, setCreateDeckError] = useState('');
+
+  // State Modal Thêm Từ Vựng Mới
+  const [isAddWordModalOpen, setIsAddWordModalOpen] = useState(false);
+  const [newWordForm, setNewWordForm] = useState({
+    deckId: 'daily_life',
+    word: '',
+    ipa: '',
+    type: 'Noun',
+    meaning: '',
+    english_def: '',
+    example: '',
+    example_vi: '',
+    collocation: '',
+  });
+  const [addWordError, setAddWordError] = useState('');
 
   // Tiến độ ghi nhớ từ vựng (Lưu tạm vào State / LocalStorage)
   const [masteredWordIds, setMasteredWordIds] = useState(() => {
@@ -566,9 +690,9 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
   const [quizFinished, setQuizFinished] = useState(false);
 
   // Lấy bộ thẻ đang chọn
-  const currentDeck = VOCABULARY_DECKS.find((d) => d.id === selectedDeckId) || VOCABULARY_DECKS[0];
-  const cards = currentDeck.cards;
-  const currentCard = cards[currentCardIndex] || cards[0];
+  const currentDeck = allDecks.find((d) => d.id === selectedDeckId) || allDecks[0];
+  const cards = currentDeck.cards || [];
+  const currentCard = cards.length > 0 ? (cards[currentCardIndex] || cards[0]) : null;
 
   // Lưu tiến độ vào LocalStorage
   useEffect(() => {
@@ -585,12 +709,19 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
     setIsQuizMode(false);
   }, [selectedDeckId]);
 
+  // Đảm bảo currentCardIndex hợp lệ khi danh sách thẻ thay đổi (ví dụ sau khi xóa thẻ)
+  useEffect(() => {
+    if (cards.length > 0 && currentCardIndex >= cards.length) {
+      setCurrentCardIndex(Math.max(0, cards.length - 1));
+    }
+  }, [cards.length, currentCardIndex]);
+
   // Tự động phát âm khi chuyển thẻ nếu bật Auto-pronounce
   useEffect(() => {
-    if (autoPronounce && currentCard) {
+    if (autoPronounce && currentCard && currentCard.word) {
       handlePronounce(currentCard.word);
     }
-  }, [currentCardIndex, autoPronounce]);
+  }, [currentCardIndex, autoPronounce, selectedDeckId]);
 
   // Hủy âm thanh khi unmount
   useEffect(() => {
@@ -629,6 +760,7 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
 
   // 3. Đánh dấu "Đã thuộc"
   const handleMarkMastered = () => {
+    if (!currentCard) return;
     if (!masteredWordIds.includes(currentCard.id)) {
       setMasteredWordIds((prev) => [...prev, currentCard.id]);
       setReviewWordIds((prev) => prev.filter((id) => id !== currentCard.id));
@@ -644,11 +776,119 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
 
   // 4. Đánh dấu "Cần ôn lại"
   const handleMarkReview = () => {
+    if (!currentCard) return;
     if (!reviewWordIds.includes(currentCard.id)) {
       setReviewWordIds((prev) => [...prev, currentCard.id]);
       setMasteredWordIds((prev) => prev.filter((id) => id !== currentCard.id));
     }
     handleNextCard();
+  };
+
+  // 5. Thêm thẻ từ vựng mới (gắn vào đúng chủ đề được chọn)
+  const handleSaveNewWord = (e) => {
+    e.preventDefault();
+    if (!newWordForm.word.trim()) {
+      setAddWordError('Vui lòng nhập từ vựng tiếng Anh.');
+      return;
+    }
+    if (!newWordForm.meaning.trim()) {
+      setAddWordError('Vui lòng nhập nghĩa tiếng Việt.');
+      return;
+    }
+
+    const targetDeck = newWordForm.deckId || selectedDeckId || 'daily_life';
+
+    const newCard = {
+      id: `custom_${Date.now()}`,
+      deckId: targetDeck,
+      isCustom: true,
+      word: newWordForm.word.trim(),
+      ipa: newWordForm.ipa.trim() || `/${newWordForm.word.trim().toLowerCase()}/`,
+      type: newWordForm.type,
+      meaning: newWordForm.meaning.trim(),
+      english_def: newWordForm.english_def.trim() || 'Custom user vocabulary word.',
+      example: newWordForm.example.trim() || `Example with "${newWordForm.word.trim()}".`,
+      example_vi: newWordForm.example_vi.trim() || `Ví dụ với từ "${newWordForm.word.trim()}".`,
+      collocation: newWordForm.collocation.trim(),
+    };
+
+    setCustomWords((prev) => [newCard, ...prev]);
+    setIsAddWordModalOpen(false);
+    setNewWordForm({
+      deckId: targetDeck,
+      word: '',
+      ipa: '',
+      type: 'Noun',
+      meaning: '',
+      english_def: '',
+      example: '',
+      example_vi: '',
+      collocation: '',
+    });
+    setAddWordError('');
+
+    // Chuyển sang xem đúng chủ đề vừa thêm từ và đặt vào thẻ mới tạo
+    setSelectedDeckId(targetDeck);
+    setCurrentCardIndex(0);
+    setIsFlipped(false);
+  };
+
+  // 6. Xóa thẻ từ vựng tự tạo
+  const handleDeleteCustomCard = (cardId, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Bạn có chắc chắn muốn xóa thẻ từ vựng này khỏi bộ thẻ?')) {
+      return;
+    }
+    setCustomWords((prev) => prev.filter((c) => c.id !== cardId));
+    setMasteredWordIds((prev) => prev.filter((id) => id !== cardId));
+    setReviewWordIds((prev) => prev.filter((id) => id !== cardId));
+    setCurrentCardIndex(0);
+  };
+
+  // 7. Tạo chủ đề / bộ thẻ mới (Dành cho Giáo viên & Admin)
+  const handleCreateNewDeck = (e) => {
+    e.preventDefault();
+    if (!newDeckForm.title.trim()) {
+      setCreateDeckError('Vui lòng nhập tên chủ đề từ vựng.');
+      return;
+    }
+
+    const newDeck = {
+      id: `deck_${Date.now()}`,
+      title: newDeckForm.title.trim(),
+      level: newDeckForm.level || 'B1 - B2',
+      color: newDeckForm.color || '#0284c7',
+      description: newDeckForm.description.trim() || 'Chủ đề từ vựng chuyên đề do giáo viên / quản trị viên biên soạn.',
+      icon: 'fa-layer-group',
+      isCustomDeck: true,
+    };
+
+    setCustomDecks((prev) => [...prev, newDeck]);
+    setIsCreateDeckModalOpen(false);
+    setNewDeckForm({
+      title: '',
+      level: 'B1 - B2',
+      color: '#0284c7',
+      description: '',
+    });
+    setCreateDeckError('');
+
+    // Chuyển sang chủ đề vừa tạo
+    setSelectedDeckId(newDeck.id);
+    setCurrentCardIndex(0);
+  };
+
+  // 8. Xóa chủ đề tự tạo
+  const handleDeleteDeck = (deckId, deckTitle, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa chủ đề "${deckTitle}" cùng tất cả các từ vựng bên trong?`)) {
+      return;
+    }
+    setCustomDecks((prev) => prev.filter((d) => d.id !== deckId));
+    setCustomWords((prev) => prev.filter((w) => w.deckId !== deckId));
+    if (selectedDeckId === deckId) {
+      setSelectedDeckId('daily_life');
+    }
   };
 
   // Chuyển thẻ tiếp theo
@@ -733,9 +973,9 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
   // Thống kê tiến độ bộ thẻ hiện tại
   const deckCardsCount = cards.length;
   const deckMasteredCount = cards.filter((c) => masteredWordIds.includes(c.id)).length;
-  const progressPercent = Math.round((deckMasteredCount / deckCardsCount) * 100);
-  const isCurrentMastered = masteredWordIds.includes(currentCard.id);
-  const isCurrentReview = reviewWordIds.includes(currentCard.id);
+  const progressPercent = deckCardsCount > 0 ? Math.round((deckMasteredCount / deckCardsCount) * 100) : 0;
+  const isCurrentMastered = currentCard ? masteredWordIds.includes(currentCard.id) : false;
+  const isCurrentReview = currentCard ? reviewWordIds.includes(currentCard.id) : false;
 
   return (
     <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '24px 16px', color: '#1e293b' }}>
@@ -768,23 +1008,95 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Nút Tạo Chủ Đề / Bộ Thẻ Mới (Dành cho Giáo viên & Admin) */}
+          <button
+            onClick={() => {
+              setNewDeckForm({
+                title: '',
+                level: 'B1 - B2',
+                color: '#0284c7',
+                description: '',
+              });
+              setCreateDeckError('');
+              setIsCreateDeckModalOpen(true);
+            }}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '0.88rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
+              transition: 'transform 0.15s ease',
+            }}
+            title="Tạo chủ đề / bộ thẻ từ vựng mới (Giáo viên & Admin)"
+          >
+            <i className="fa-solid fa-folder-plus"></i>
+            <span>+ Tạo chủ đề mới</span>
+          </button>
+
+          {/* Nút Thêm Từ Vựng Mới (Có dropdown chọn chủ đề muốn thêm vào) */}
+          <button
+            onClick={() => {
+              setNewWordForm({
+                deckId: selectedDeckId,
+                word: '',
+                ipa: '',
+                type: 'Noun',
+                meaning: '',
+                english_def: '',
+                example: '',
+                example_vi: '',
+                collocation: '',
+              });
+              setAddWordError('');
+              setIsAddWordModalOpen(true);
+            }}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '0.88rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)',
+              transition: 'transform 0.15s ease',
+            }}
+            title="Thêm từ vựng mới vào chủ đề đã chọn"
+          >
+            <i className="fa-solid fa-plus-circle"></i>
+            <span>+ Thêm từ vựng mới</span>
+          </button>
+
           {!isQuizMode && (
             <button
               onClick={handleStartMiniQuiz}
+              disabled={cards.length === 0}
               style={{
                 padding: '10px 18px',
                 borderRadius: '12px',
-                backgroundColor: '#f59e0b',
+                backgroundColor: cards.length === 0 ? '#94a3b8' : '#f59e0b',
                 border: 'none',
                 color: '#ffffff',
                 fontSize: '0.88rem',
                 fontWeight: '800',
-                cursor: 'pointer',
+                cursor: cards.length === 0 ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
+                boxShadow: cards.length === 0 ? 'none' : '0 4px 12px rgba(245, 158, 11, 0.4)',
               }}
             >
               <i className="fa-solid fa-bolt"></i>
@@ -794,12 +1106,13 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
         </div>
       </div>
 
-      {/* Tabs chọn Chủ đề / Bộ thẻ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '22px' }}>
-        {VOCABULARY_DECKS.map((deck) => {
+      {/* Tabs chọn Chủ đề / Bộ thẻ (bao gồm các bộ CEFR & các bộ tự tạo của Giáo viên/Admin) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '22px' }}>
+        {allDecks.map((deck) => {
           const isSelected = selectedDeckId === deck.id;
-          const masteredInDeck = deck.cards.filter((c) => masteredWordIds.includes(c.id)).length;
-          const percent = Math.round((masteredInDeck / deck.cards.length) * 100);
+          const totalInDeck = deck.cards?.length || 0;
+          const masteredInDeck = (deck.cards || []).filter((c) => masteredWordIds.includes(c.id)).length;
+          const percent = totalInDeck > 0 ? Math.round((masteredInDeck / totalInDeck) * 100) : 0;
 
           return (
             <div
@@ -813,16 +1126,42 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
                 boxShadow: isSelected ? `0 4px 16px -2px ${deck.color}25` : '0 2px 4px rgba(0,0,0,0.02)',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
+                position: 'relative',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: '800', color: deck.color, backgroundColor: `${deck.color}15`, padding: '2px 8px', borderRadius: '6px' }}>
                   {deck.level}
                 </span>
-                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>
-                  {masteredInDeck}/{deck.cards.length} từ ({percent}%)
-                </span>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>
+                    {masteredInDeck}/{totalInDeck} từ ({percent}%)
+                  </span>
+
+                  {deck.isCustomDeck && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteDeck(deck.id, deck.title, e)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        cursor: 'pointer',
+                        padding: '2px 4px',
+                        fontSize: '0.8rem',
+                        transition: 'color 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+                      title="Xóa chủ đề tự tạo này"
+                    >
+                      <i className="fa-solid fa-trash-can"></i>
+                    </button>
+                  )}
+                </div>
               </div>
+
               <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: '800', color: '#0f172a' }}>
                 {deck.title}
               </h4>
@@ -842,6 +1181,75 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
           CHẾ ĐỘ 1: HỌC THẺ TƯƠNG TÁC (FLASHCARD STUDY MODE)
          ========================================================================= */}
       {!isQuizMode ? (
+        cards.length === 0 ? (
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              padding: '60px 24px',
+              textAlign: 'center',
+              border: '2px dashed #cbd5e1',
+              marginBottom: '24px',
+              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)',
+            }}
+          >
+            <div
+              style={{
+                width: '72px',
+                height: '72px',
+                borderRadius: '50%',
+                backgroundColor: '#f3e8ff',
+                color: '#8b5cf6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem',
+                margin: '0 auto 16px auto',
+              }}
+            >
+              <i className="fa-solid fa-book-bookmark"></i>
+            </div>
+            <h3 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', margin: '0 0 8px 0' }}>
+              Sổ tay từ vựng của bạn đang trống!
+            </h3>
+            <p style={{ color: '#64748b', fontSize: '0.92rem', maxWidth: '520px', margin: '0 auto 24px auto', lineHeight: '1.5' }}>
+              Học viên, Giảng viên hoặc Quản trị viên đều có thể tự tạo từ vựng vào đây để luyện phát âm chuẩn IPA và lật thẻ ghi nhớ Active Recall.
+            </p>
+            <button
+              onClick={() => {
+                setNewWordForm({
+                  word: '',
+                  ipa: '',
+                  type: 'Noun',
+                  meaning: '',
+                  english_def: '',
+                  example: '',
+                  example_vi: '',
+                  collocation: '',
+                });
+                setAddWordError('');
+                setIsAddWordModalOpen(true);
+              }}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                border: 'none',
+                color: '#ffffff',
+                fontSize: '0.92rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)',
+              }}
+            >
+              <i className="fa-solid fa-plus-circle"></i>
+              <span>+ Thêm từ vựng đầu tiên</span>
+            </button>
+          </div>
+        ) : (
         <div>
           {/* Thanh công cụ hỗ trợ phát âm & điều khiển */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
@@ -857,6 +1265,11 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
               {isCurrentReview && (
                 <span style={{ fontSize: '0.72rem', backgroundColor: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>
                   ⏳ Cần ôn lại
+                </span>
+              )}
+              {currentCard?.isCustom && (
+                <span style={{ fontSize: '0.72rem', backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>
+                  ★ Tự tạo
                 </span>
               )}
             </div>
@@ -973,12 +1386,45 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
               >
                 {/* Header mặt trước */}
                 <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: currentDeck.color, backgroundColor: `${currentDeck.color}15`, padding: '4px 12px', borderRadius: '12px' }}>
-                    [{currentCard.type}]
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                    Nhấp vào thẻ hoặc phím Cách để lật mặt sau
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '800', color: currentDeck.color, backgroundColor: `${currentDeck.color}15`, padding: '4px 12px', borderRadius: '12px' }}>
+                      [{currentCard?.type}]
+                    </span>
+                    {currentCard?.isCustom && (
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#7c3aed', backgroundColor: '#f3e8ff', padding: '3px 8px', borderRadius: '8px' }}>
+                        Từ của bạn
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {currentCard?.isCustom && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteCustomCard(currentCard.id, e)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          backgroundColor: '#fee2e2',
+                          color: '#dc2626',
+                          border: '1px solid #fca5a5',
+                          fontSize: '0.75rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                        title="Xóa từ vựng này khỏi sổ tay cá nhân"
+                      >
+                        <i className="fa-solid fa-trash-can"></i>
+                        <span>Xóa từ này</span>
+                      </button>
+                    )}
+                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                      Nhấp vào thẻ để lật mặt sau
+                    </span>
+                  </div>
                 </div>
 
                 {/* Phần thân từ vựng & âm thanh */}
@@ -1058,9 +1504,34 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
                   <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#059669', backgroundColor: '#d1fae5', padding: '4px 12px', borderRadius: '12px' }}>
                     ĐỊNH NGHĨA & NGỮ CẢNH
                   </span>
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                    Mặt sau thẻ
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {currentCard?.isCustom && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteCustomCard(currentCard.id, e)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          backgroundColor: '#fee2e2',
+                          color: '#dc2626',
+                          border: '1px solid #fca5a5',
+                          fontSize: '0.75rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                        title="Xóa từ vựng này khỏi sổ tay cá nhân"
+                      >
+                        <i className="fa-solid fa-trash-can"></i>
+                        <span>Xóa</span>
+                      </button>
+                    )}
+                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                      Mặt sau thẻ
+                    </span>
+                  </div>
                 </div>
 
                 {/* Nội dung chi tiết */}
@@ -1245,6 +1716,7 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
             </button>
           </div>
         </div>
+        )
       ) : (
         /* =========================================================================
             CHẾ ĐỘ 2: MINI-QUIZ KIỂM TRA PHẢN XẠ NHANH 5 CÂU
@@ -1423,6 +1895,622 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: THÊM THẺ TỪ VỰNG MỚI (Học viên, Giáo viên & Admin đều có thể thêm)
+         ========================================================================= */}
+      {isAddWordModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={() => setIsAddWordModalOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              maxWidth: '620px',
+              width: '100%',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '22px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                borderTopLeftRadius: '24px',
+                borderTopRightRadius: '24px',
+              }}
+            >
+              <div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '800', color: '#7c3aed', backgroundColor: '#f3e8ff', padding: '3px 10px', borderRadius: '12px', marginBottom: '6px' }}>
+                  <i className="fa-solid fa-book-bookmark"></i>
+                  <span>SỔ TAY TỪ VỰNG CÁ NHÂN</span>
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: '#0f172a' }}>
+                  Thêm Thẻ Từ Vựng Mới
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                  Học viên, Giáo viên và Quản trị viên đều có thể thêm từ vựng để luyện phát âm & phản xạ Active Recall.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAddWordModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                }}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleSaveNewWord} style={{ padding: '24px' }}>
+              {addWordError && (
+                <div
+                  style={{
+                    backgroundColor: '#fee2e2',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '12px',
+                    padding: '10px 14px',
+                    color: '#dc2626',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <i className="fa-solid fa-circle-exclamation"></i>
+                  <span>{addWordError}</span>
+                </div>
+              )}
+
+              {/* Row 0: Chọn Chủ Đề / Bộ Thẻ muốn thêm vào */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                  Thêm vào Chủ Đề / Bộ Thẻ nào? <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  value={newWordForm.deckId}
+                  onChange={(e) => setNewWordForm({ ...newWordForm, deckId: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #8b5cf6',
+                    fontSize: '0.9rem',
+                    fontWeight: '700',
+                    outline: 'none',
+                    backgroundColor: '#faf5ff',
+                    color: '#6b21a8',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {allDecks.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.title} ({d.level}) {d.isCustomDeck ? '★ Chủ đề tự tạo' : ''}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                  Từ vựng mới sẽ được phân loại và hiển thị trong đúng chủ đề này.
+                </span>
+              </div>
+
+              {/* Row 1: Từ tiếng Anh & Phiên âm & Loại từ */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    Từ vựng tiếng Anh <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Resilient, Serendipity..."
+                    value={newWordForm.word}
+                    onChange={(e) => setNewWordForm({ ...newWordForm, word: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    Phiên âm IPA
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="VD: /rɪˈzɪl.jənt/"
+                    value={newWordForm.ipa}
+                    onChange={(e) => setNewWordForm({ ...newWordForm, ipa: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      fontFamily: 'monospace',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    Loại từ
+                  </label>
+                  <select
+                    value={newWordForm.type}
+                    onChange={(e) => setNewWordForm({ ...newWordForm, type: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 10px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      fontWeight: '700',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      backgroundColor: '#ffffff',
+                    }}
+                  >
+                    <option value="Noun">Noun (Danh từ)</option>
+                    <option value="Verb">Verb (Động từ)</option>
+                    <option value="Adjective">Adjective (Tính từ)</option>
+                    <option value="Adverb">Adverb (Trạng từ)</option>
+                    <option value="Idiom">Idiom (Thành ngữ)</option>
+                    <option value="Phrasal Verb">Phrasal Verb (Cụm động từ)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Nghĩa tiếng Việt */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                  Nghĩa tiếng Việt <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Kiên cường, có khả năng phục hồi nhanh trước khó khăn"
+                  value={newWordForm.meaning}
+                  onChange={(e) => setNewWordForm({ ...newWordForm, meaning: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Row 3: Định nghĩa tiếng Anh (tùy chọn) */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                  Định nghĩa tiếng Anh (English definition)
+                </label>
+                <input
+                  type="text"
+                  placeholder="VD: Able to quickly return to a previous good condition after difficulties..."
+                  value={newWordForm.english_def}
+                  onChange={(e) => setNewWordForm({ ...newWordForm, english_def: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Row 4: Câu ví dụ tiếng Anh & Dịch nghĩa tiếng Việt */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    Câu ví dụ tiếng Anh
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="VD: Highly resilient people face challenges with optimism."
+                    value={newWordForm.example}
+                    onChange={(e) => setNewWordForm({ ...newWordForm, example: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    Dịch nghĩa câu ví dụ
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="VD: Những người kiên cường đối mặt thử thách với sự lạc quan."
+                    value={newWordForm.example_vi}
+                    onChange={(e) => setNewWordForm({ ...newWordForm, example_vi: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Row 5: Cụm từ đi kèm (Collocation) */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                  Cụm từ ghi nhớ (Collocation / Phrasal)
+                </label>
+                <input
+                  type="text"
+                  placeholder="VD: highly resilient / resilient economy / bounce back"
+                  value={newWordForm.collocation}
+                  onChange={(e) => setNewWordForm({ ...newWordForm, collocation: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAddWordModalOpen(false)}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    color: '#475569',
+                    fontSize: '0.88rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Hủy bỏ
+                </button>
+
+                <button
+                  type="submit"
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <i className="fa-solid fa-floppy-disk"></i>
+                  <span>Lưu Thẻ Vào Chủ Đề Này</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: TẠO CHỦ ĐỀ / BỘ THẺ TỪ VỰNG MỚI (Dành cho Giáo viên & Admin)
+         ========================================================================= */}
+      {isCreateDeckModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={() => setIsCreateDeckModalOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              maxWidth: '560px',
+              width: '100%',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: '22px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                borderTopLeftRadius: '24px',
+                borderTopRightRadius: '24px',
+              }}
+            >
+              <div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', backgroundColor: '#e0f2fe', padding: '3px 10px', borderRadius: '12px', marginBottom: '6px' }}>
+                  <i className="fa-solid fa-folder-plus"></i>
+                  <span>QUẢN LÝ CHỦ ĐỀ TỪ VỰNG</span>
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: '#0f172a' }}>
+                  Tạo Chủ Đề / Bộ Thẻ Mới
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                  Giáo viên & Quản trị viên có thể tạo các chủ đề mới để phân loại và soạn từ vựng theo chuyên đề.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCreateDeckModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                }}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleCreateNewDeck} style={{ padding: '24px' }}>
+              {createDeckError && (
+                <div
+                  style={{
+                    backgroundColor: '#fee2e2',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '12px',
+                    padding: '10px 14px',
+                    color: '#dc2626',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <i className="fa-solid fa-circle-exclamation"></i>
+                  <span>{createDeckError}</span>
+                </div>
+              )}
+
+              {/* Tên chủ đề */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                  Tên Chủ Đề / Bộ Thẻ <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Từ Vựng Công Nghệ Thông Tin (IT), Tiếng Anh Du Lịch, IELTS Writing..."
+                  value={newDeckForm.title}
+                  onChange={(e) => setNewDeckForm({ ...newDeckForm, title: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Cấp độ & Màu sắc */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    Trình độ áp dụng (Level)
+                  </label>
+                  <select
+                    value={newDeckForm.level}
+                    onChange={(e) => setNewDeckForm({ ...newDeckForm, level: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.88rem',
+                      fontWeight: '700',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      backgroundColor: '#ffffff',
+                    }}
+                  >
+                    <option value="A1 - A2">A1 - A2 (Căn bản)</option>
+                    <option value="B1 - B2">B1 - B2 (Trung cấp)</option>
+                    <option value="B2 - C1">B2 - C1 (Nâng cao)</option>
+                    <option value="IELTS Master">IELTS Master</option>
+                    <option value="TOEIC 800+">TOEIC 800+</option>
+                    <option value="Chuyên ngành">Chuyên ngành</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                    Màu sắc chủ đạo
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', height: '42px' }}>
+                    {[
+                      { hex: '#0284c7', name: 'Xanh biển' },
+                      { hex: '#059669', name: 'Xanh ngọc' },
+                      { hex: '#8b5cf6', name: 'Tím' },
+                      { hex: '#d97706', name: 'Vàng cam' },
+                      { hex: '#db2777', name: 'Hồng' },
+                      { hex: '#dc2626', name: 'Đỏ' },
+                    ].map((c) => (
+                      <div
+                        key={c.hex}
+                        onClick={() => setNewDeckForm({ ...newDeckForm, color: c.hex })}
+                        style={{
+                          width: '26px',
+                          height: '26px',
+                          borderRadius: '50%',
+                          backgroundColor: c.hex,
+                          cursor: 'pointer',
+                          border: newDeckForm.color === c.hex ? '3px solid #0f172a' : '2px solid transparent',
+                          transform: newDeckForm.color === c.hex ? 'scale(1.15)' : 'scale(1)',
+                          transition: 'all 0.15s ease',
+                        }}
+                        title={c.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mô tả ngắn */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                  Mô tả ngắn về chủ đề
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Mô tả mục tiêu từ vựng của chủ đề này (VD: 20 từ vựng cốt lõi thường gặp trong tài liệu kỹ thuật phần mềm)..."
+                  value={newDeckForm.description}
+                  onChange={(e) => setNewDeckForm({ ...newDeckForm, description: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                    resize: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateDeckModalOpen(false)}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    color: '#475569',
+                    fontSize: '0.88rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Hủy bỏ
+                </button>
+
+                <button
+                  type="submit"
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <i className="fa-solid fa-folder-plus"></i>
+                  <span>Tạo Chủ Đề Mới</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -162,6 +162,64 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         return value.strip() if value else value
 
 
+class AdminUserCreateSerializer(serializers.Serializer):
+    """
+    Serializer dành cho Quản trị viên (Admin) tạo mới người dùng với mọi vai trò:
+    STUDENT, TEACHER, REVIEWER (Thẩm định viên), ADMIN.
+    """
+    email = serializers.EmailField(
+        required=True,
+        validators=[EmailValidator(message="Định dạng email không hợp lệ.")],
+        help_text="Email đăng nhập của tài khoản mới"
+    )
+    full_name = serializers.CharField(
+        required=True,
+        max_length=255,
+        min_length=2,
+        help_text="Họ và tên người dùng"
+    )
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        min_length=8,
+        style={'input_type': 'password'},
+        help_text="Mật khẩu bảo mật tối thiểu 8 ký tự"
+    )
+    role = serializers.ChoiceField(
+        choices=UserRole.choices,
+        default=UserRole.STUDENT,
+        help_text="Vai trò: STUDENT, TEACHER, REVIEWER, ADMIN"
+    )
+    level = serializers.ChoiceField(
+        choices=EnglishLevel.choices,
+        default=EnglishLevel.B1,
+        help_text="Trình độ CEFR: A1 - C2"
+    )
+    phone_number = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=20,
+        default="",
+        help_text="Số điện thoại"
+    )
+    bio = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Giới thiệu hoặc ghi chú chuyên môn"
+    )
+
+    def validate_email(self, value):
+        normalized_email = value.lower().strip()
+        if CustomUser.objects.filter(email=normalized_email).exists():
+            raise serializers.ValidationError("Địa chỉ email này đã được sử dụng trong hệ thống.")
+        return normalized_email
+
+    def validate(self, attrs):
+        validate_password(attrs['password'])
+        return attrs
+
+
 class AdminUserUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer dành cho Quản trị viên (Admin) cập nhật vai trò, trạng thái khóa/mở và thông tin của người dùng.

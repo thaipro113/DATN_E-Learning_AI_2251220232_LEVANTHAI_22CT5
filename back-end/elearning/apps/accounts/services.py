@@ -145,6 +145,14 @@ class UserService:
         return target_user
 
     @staticmethod
+    def admin_create_user(validated_data: Dict[str, Any]) -> CustomUser:
+        """
+        Admin tạo tài khoản người dùng mới trực tiếp với mọi vai trò (STUDENT, TEACHER, REVIEWER, ADMIN).
+        """
+        password = validated_data.pop('password')
+        return CustomUser.objects.create_user(password=password, **validated_data)
+
+    @staticmethod
     def admin_delete_user(target_user: CustomUser) -> None:
         """
         Admin xóa vĩnh viễn tài khoản người dùng khỏi hệ thống.

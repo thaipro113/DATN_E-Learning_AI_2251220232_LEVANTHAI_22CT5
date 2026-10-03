@@ -27,6 +27,7 @@ export const authAPI = {
   updateProfile: (data) => apiClient.patch('auth/me/', data),
   changePassword: (data) => apiClient.post('auth/change-password/', data),
   getUsers: (params) => apiClient.get('auth/users/', { params }),
+  createUser: (data) => apiClient.post('auth/users/', data),
   updateUser: (userId, data) => apiClient.patch(`auth/users/${userId}/`, data),
   deleteUser: (userId) => apiClient.delete(`auth/users/${userId}/`),
 };

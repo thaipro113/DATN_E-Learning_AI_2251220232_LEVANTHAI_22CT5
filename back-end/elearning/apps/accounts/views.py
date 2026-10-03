@@ -12,6 +12,7 @@ from .serializers import (
     UpdateProfileSerializer,
     ChangePasswordSerializer,
     UserResponseSerializer,
+    AdminUserCreateSerializer,
     AdminUserUpdateSerializer
 )
 from .services import AuthService, UserService
@@ -201,6 +202,21 @@ class AdminUserListAPIView(APIView):
         serializer = UserResponseSerializer(page, many=True)
 
         return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        serializer = AdminUserCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu tạo tài khoản không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        user = UserService.admin_create_user(serializer.validated_data)
+        return success_response(
+            data=UserResponseSerializer(user).data,
+            message=f"Tạo tài khoản người dùng {user.email} với vai trò {user.get_role_display()} thành công!",
+            status_code=status.HTTP_201_CREATED
+        )
 
 
 class AdminUserDetailAPIView(APIView):
