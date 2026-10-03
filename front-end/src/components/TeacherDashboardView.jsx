@@ -37,6 +37,12 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
 
+  // Modal Chi tiết Phản biện / Từ chối khóa học
+  const [rejectionDetailModal, setRejectionDetailModal] = useState({
+    isOpen: false,
+    course: null,
+  });
+
   useEffect(() => {
     if (toastMsg) {
       const timer = setTimeout(() => setToastMsg(null), 3500);
@@ -571,7 +577,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                               style={{
                                 backgroundColor: '#fef2f2',
                                 border: '1px solid #fecaca',
-                                borderRadius: '6px',
+                                borderRadius: '8px',
                                 padding: '10px 12px',
                                 marginBottom: '12px',
                                 fontSize: '0.78rem',
@@ -579,39 +585,63 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#991b1b', marginBottom: '4px' }}>
                                 <i className="fa-solid fa-scale-balanced" style={{ color: '#dc2626' }}></i>
-                                <span>Ý kiến phản biện từ Thẩm định viên / Hội đồng chuyên môn:</span>
+                                <span>Ý kiến phản biện từ hội đồng thẩm định:</span>
                               </div>
-                              <div style={{ color: '#b91c1c', fontStyle: 'italic', marginBottom: '8px', lineHeight: 1.4 }}>
+                              <div style={{ color: '#b91c1c', fontStyle: 'italic', marginBottom: '8px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                 "{course.rejection_reason || 'Nội dung chưa đạt chuẩn. Vui lòng cập nhật giáo trình và gửi duyệt lại.'}"
                               </div>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    await courseAPI.updateCourse(course.id, { status: 'PENDING' });
-                                    setToastMsg(`✓ Đã gửi yêu cầu xét duyệt lại cho khóa "${course.title}"!`);
-                                    fetchTeacherCourses();
-                                  } catch (err) {
-                                    setToastMsg('Lỗi khi gửi yêu cầu duyệt lại.');
-                                  }
-                                }}
-                                style={{
-                                  padding: '5px 10px',
-                                  backgroundColor: '#dc2626',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  fontSize: '0.74rem',
-                                  fontWeight: '700',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                }}
-                              >
-                                <i className="fa-solid fa-rotate-right"></i>
-                                <span>Gửi duyệt lại cho Admin</span>
-                              </button>
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setRejectionDetailModal({ isOpen: true, course })}
+                                  style={{
+                                    padding: '5px 10px',
+                                    backgroundColor: '#ffffff',
+                                    color: '#b91c1c',
+                                    border: '1px solid #fca5a5',
+                                    borderRadius: '5px',
+                                    fontSize: '0.74rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                  title="Xem toàn bộ văn bản phản biện và các hạng mục cần khắc phục"
+                                >
+                                  <i className="fa-solid fa-eye"></i>
+                                  <span>Xem chi tiết từ chối</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await courseAPI.updateCourse(course.id, { status: 'PENDING' });
+                                      setToastMsg(`✓ Đã gửi yêu cầu xét duyệt lại cho khóa "${course.title}"!`);
+                                      fetchTeacherCourses();
+                                    } catch (err) {
+                                      setToastMsg('Lỗi khi gửi yêu cầu duyệt lại.');
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '5px 10px',
+                                    backgroundColor: '#dc2626',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    fontSize: '0.74rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                  }}
+                                >
+                                  <i className="fa-solid fa-rotate-right"></i>
+                                  <span>Gửi duyệt lại</span>
+                                </button>
+                              </div>
                             </div>
                           )}
 
@@ -1097,6 +1127,232 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
           courses={courses}
           initialCourse={selectedCourseForAIQuiz}
         />
+      )}
+
+      {/* Modal Xem Chi Tiết Góp Ý Phản Biện & Từ Chối Khóa Học */}
+      {rejectionDetailModal.isOpen && rejectionDetailModal.course && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9990,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '620px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden',
+              border: '1px solid #e2e8f0',
+              animation: 'fadeIn 0.2s ease',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '18px 22px',
+                borderBottom: '1px solid #fecaca',
+                backgroundColor: '#fef2f2',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    backgroundColor: '#fee2e2',
+                    color: '#dc2626',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.1rem',
+                  }}
+                >
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                </span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#991b1b' }}>
+                    Chi tiết ý kiến phản biện
+                  </h3>
+                  <span style={{ fontSize: '0.78rem', color: '#b91c1c' }}>
+                    Yêu cầu chỉnh sửa hoàn thiện giáo trình
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectionDetailModal({ isOpen: false, course: null })}
+                style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#991b1b', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Thông tin khóa học */}
+              <div style={{ backgroundColor: '#f8fafc', borderRadius: '10px', padding: '12px 16px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '2px' }}>Khóa học cần chỉnh sửa:</div>
+                <div style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a' }}>
+                  {rejectionDetailModal.course.title}
+                </div>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginTop: '6px', fontSize: '0.78rem', color: '#64748b' }}>
+                  {rejectionDetailModal.course.reviewed_by?.full_name && (
+                    <span>
+                      <i className="fa-solid fa-user-check" style={{ marginRight: '4px', color: '#0284c7' }}></i>
+                      Thẩm định viên: <strong style={{ color: '#0f172a' }}>{rejectionDetailModal.course.reviewed_by.full_name}</strong>
+                    </span>
+                  )}
+                  {rejectionDetailModal.course.reviewed_at && (
+                    <span>
+                      <i className="fa-regular fa-clock" style={{ marginRight: '4px', color: '#d97706' }}></i>
+                      Thời gian: {new Date(rejectionDetailModal.course.reviewed_at).toLocaleDateString('vi-VN')}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Nội dung phản biện chi tiết */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Nội dung phản biện và góp ý từ hội đồng thẩm định:
+                </label>
+                <div
+                  style={{
+                    backgroundColor: '#fff5f5',
+                    border: '1px solid #fed7d7',
+                    borderRadius: '10px',
+                    padding: '14px 16px',
+                    color: '#9b2c2c',
+                    fontSize: '0.88rem',
+                    lineHeight: '1.6',
+                    whiteSpace: 'pre-line',
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {rejectionDetailModal.course.rejection_reason || 'Nội dung khóa học chưa đạt chuẩn sư phạm hoặc thiếu bài giảng. Vui lòng rà soát và hoàn thiện lại giáo trình.'}
+                </div>
+              </div>
+
+              {/* Hướng dẫn khắc phục */}
+              <div style={{ backgroundColor: '#eff6ff', borderRadius: '10px', padding: '12px 16px', border: '1px solid #bfdbfe', fontSize: '0.82rem', color: '#1e40af', lineHeight: '1.5' }}>
+                <div style={{ fontWeight: '800', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <i className="fa-solid fa-lightbulb"></i>
+                  <span>Hướng dẫn dành cho giảng viên:</span>
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  <li>Bấm nút <strong>"Cập nhật giáo trình ngay"</strong> để chỉnh sửa các chương, bổ sung video bài giảng hoặc ngân hàng đề thi theo đúng góp ý ở trên.</li>
+                  <li>Sau khi hoàn tất chỉnh sửa, bấm <strong>"Gửi duyệt lại"</strong> để khóa học được thẩm định và xuất bản công khai lên hệ thống.</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '14px 22px',
+                borderTop: '1px solid #e2e8f0',
+                backgroundColor: '#f8fafc',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const course = rejectionDetailModal.course;
+                  setRejectionDetailModal({ isOpen: false, course: null });
+                  setSelectedCourseForCurriculum(course);
+                  setShowCurriculumModal(true);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '0.84rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <i className="fa-solid fa-pen-to-square"></i>
+                <span>Cập nhật giáo trình ngay</span>
+              </button>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setRejectionDetailModal({ isOpen: false, course: null })}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    color: '#475569',
+                    fontSize: '0.84rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Đóng
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const course = rejectionDetailModal.course;
+                    try {
+                      await courseAPI.updateCourse(course.id, { status: 'PENDING' });
+                      setToastMsg(`✓ Đã gửi yêu cầu xét duyệt lại cho khóa "${course.title}"!`);
+                      setRejectionDetailModal({ isOpen: false, course: null });
+                      fetchTeacherCourses();
+                    } catch (err) {
+                      setToastMsg('Lỗi khi gửi yêu cầu duyệt lại.');
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    backgroundColor: '#dc2626',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '0.84rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <i className="fa-solid fa-paper-plane"></i>
+                  <span>Gửi duyệt lại</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast thông báo ở góc dưới */}
