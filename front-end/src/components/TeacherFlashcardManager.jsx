@@ -5,6 +5,7 @@ import {
   saveStoredCustomDecks,
   getStoredCustomWords,
   saveStoredCustomWords,
+  getAllDecksWithWords,
   speakWord,
 } from '../utils/flashcardStorage';
 
@@ -61,24 +62,9 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     saveStoredCustomWords(customWords);
   }, [customWords]);
 
-  // Tổng hợp tất cả các bộ thẻ
+  // Tổng hợp tất cả các bộ thẻ (Bao gồm các bộ do Admin và Giảng viên quản lý)
   const allDecks = useMemo(() => {
-    const builtIn = DEFAULT_VOCABULARY_DECKS.map((d) => ({
-      ...d,
-      isSystem: true,
-      cards: [
-        ...d.cards,
-        ...customWords.filter((w) => w.deckId === d.id),
-      ],
-    }));
-
-    const custom = customDecks.map((d) => ({
-      ...d,
-      isCustomDeck: true,
-      cards: customWords.filter((w) => w.deckId === d.id),
-    }));
-
-    return [...builtIn, ...custom];
+    return getAllDecksWithWords();
   }, [customDecks, customWords]);
 
   const currentDeck = useMemo(() => {
@@ -609,18 +595,32 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: '800',
-                          padding: '2px 7px',
-                          borderRadius: '5px',
-                          backgroundColor: `${deck.color || '#0284c7'}15`,
-                          color: deck.color || '#0284c7',
-                        }}
-                      >
-                        {deck.level}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: '800',
+                            padding: '2px 7px',
+                            borderRadius: '5px',
+                            backgroundColor: `${deck.color || '#0284c7'}15`,
+                            color: deck.color || '#0284c7',
+                          }}
+                        >
+                          {deck.level}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: '700',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: deck.author === 'Giảng viên' ? '#ede9fe' : '#e0f2fe',
+                            color: deck.author === 'Giảng viên' ? '#7c3aed' : '#0284c7',
+                          }}
+                        >
+                          {deck.author || 'Admin'}
+                        </span>
+                      </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '0.76rem', fontWeight: '800', color: count > 0 ? '#059669' : '#94a3b8' }}>

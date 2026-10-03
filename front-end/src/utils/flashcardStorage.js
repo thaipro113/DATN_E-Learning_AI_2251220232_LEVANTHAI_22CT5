@@ -7,6 +7,7 @@ export const DEFAULT_VOCABULARY_DECKS = [
     icon: 'fa-comments',
     color: '#0284c7',
     description: '15 từ vựng căn bản giúp bạn tự tin giao tiếp, mô tả thói quen và các hoạt động thường nhật.',
+    author: 'Admin',
     cards: [
       {
         id: 1,
@@ -182,6 +183,7 @@ export const DEFAULT_VOCABULARY_DECKS = [
     icon: 'fa-briefcase',
     color: '#7c3aed',
     description: '15 từ vựng chuyên nghiệp dùng trong công việc, họp hành, báo cáo và thương thảo kinh doanh.',
+    author: 'Admin',
     cards: [
       {
         id: 101,
@@ -357,6 +359,7 @@ export const DEFAULT_VOCABULARY_DECKS = [
     icon: 'fa-graduation-cap',
     color: '#059669',
     description: '15 từ vựng học thuật học thức, xuất hiện thường xuyên trong các bài thi IELTS Reading/Writing và TOEIC.',
+    author: 'Admin',
     cards: [
       {
         id: 201,
@@ -604,24 +607,121 @@ export const saveStoredCustomWords = (words) => {
   }
 };
 
+export const getDeckOverrides = () => {
+  try {
+    const saved = localStorage.getItem('elearning_deck_overrides');
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const saveDeckOverrides = (overrides) => {
+  try {
+    localStorage.setItem('elearning_deck_overrides', JSON.stringify(overrides));
+  } catch {}
+};
+
+export const getDeletedDeckIds = () => {
+  try {
+    const saved = localStorage.getItem('elearning_deleted_deck_ids');
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveDeletedDeckIds = (ids) => {
+  try {
+    localStorage.setItem('elearning_deleted_deck_ids', JSON.stringify(ids));
+  } catch {}
+};
+
+export const getWordOverrides = () => {
+  try {
+    const saved = localStorage.getItem('elearning_word_overrides');
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const saveWordOverrides = (overrides) => {
+  try {
+    localStorage.setItem('elearning_word_overrides', JSON.stringify(overrides));
+  } catch {}
+};
+
+export const getDeletedWordIds = () => {
+  try {
+    const saved = localStorage.getItem('elearning_deleted_word_ids');
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveDeletedWordIds = (ids) => {
+  try {
+    localStorage.setItem('elearning_deleted_word_ids', JSON.stringify(ids));
+  } catch {}
+};
+
 export const getAllDecksWithWords = () => {
   const customDecks = getStoredCustomDecks();
   const customWords = getStoredCustomWords();
+  const deckOverrides = getDeckOverrides();
+  const deletedDeckIds = getDeletedDeckIds();
+  const wordOverrides = getWordOverrides();
+  const deletedWordIds = getDeletedWordIds();
 
-  const builtIn = VOCABULARY_DECKS.map((d) => ({
-    ...d,
-    isSystem: true,
-    cards: [
-      ...d.cards,
-      ...customWords.filter((w) => w.deckId === d.id),
-    ],
-  }));
+  // 3 bộ gốc mặc định được gán chính thức cho Admin quản lý
+  const builtIn = DEFAULT_VOCABULARY_DECKS
+    .filter((d) => !deletedDeckIds.includes(d.id))
+    .map((d) => {
+      const override = deckOverrides[d.id] || {};
+      const baseCards = d.cards
+        .filter((c) => !deletedWordIds.includes(c.id))
+        .map((c) => ({
+          ...c,
+          deckId: d.id,
+          isCustom: true,
+          ...(wordOverrides[c.id] || {}),
+        }));
+      const extraCards = customWords
+        .filter((w) => w.deckId === d.id && !deletedWordIds.includes(w.id))
+        .map((w) => ({
+          ...w,
+          ...(wordOverrides[w.id] || {}),
+        }));
 
-  const custom = customDecks.map((d) => ({
-    ...d,
-    isCustomDeck: true,
-    cards: customWords.filter((w) => w.deckId === d.id),
-  }));
+      return {
+        ...d,
+        author: 'Admin',
+        isCustomDeck: true,
+        ...override,
+        cards: [...baseCards, ...extraCards],
+      };
+    });
+
+  const custom = customDecks
+    .filter((d) => !deletedDeckIds.includes(d.id))
+    .map((d) => {
+      const override = deckOverrides[d.id] || {};
+      const cards = customWords
+        .filter((w) => w.deckId === d.id && !deletedWordIds.includes(w.id))
+        .map((w) => ({
+          ...w,
+          ...(wordOverrides[w.id] || {}),
+        }));
+      return {
+        ...d,
+        author: d.author || 'Admin',
+        isCustomDeck: true,
+        ...override,
+        cards,
+      };
+    });
 
   return [...builtIn, ...custom];
 };

@@ -5,12 +5,25 @@ import {
   saveStoredCustomDecks,
   getStoredCustomWords,
   saveStoredCustomWords,
+  getDeckOverrides,
+  saveDeckOverrides,
+  getDeletedDeckIds,
+  saveDeletedDeckIds,
+  getWordOverrides,
+  saveWordOverrides,
+  getDeletedWordIds,
+  saveDeletedWordIds,
   speakWord,
 } from '../utils/flashcardStorage';
 
 export default function AdminFlashcardManager() {
   const [customDecks, setCustomDecks] = useState(() => getStoredCustomDecks());
   const [customWords, setCustomWords] = useState(() => getStoredCustomWords());
+  const [deckOverrides, setDeckOverrides] = useState(() => getDeckOverrides());
+  const [deletedDeckIds, setDeletedDeckIds] = useState(() => getDeletedDeckIds());
+  const [wordOverrides, setWordOverrides] = useState(() => getWordOverrides());
+  const [deletedWordIds, setDeletedWordIds] = useState(() => getDeletedWordIds());
+
   const [activeDeckId, setActiveDeckId] = useState('daily_life');
   const [wordSearch, setWordSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
@@ -50,35 +63,65 @@ export default function AdminFlashcardManager() {
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  // Đồng bộ customDecks vào localStorage
-  useEffect(() => {
-    saveStoredCustomDecks(customDecks);
-  }, [customDecks]);
+  // Đồng bộ vào localStorage
+  useEffect(() => saveStoredCustomDecks(customDecks), [customDecks]);
+  useEffect(() => saveStoredCustomWords(customWords), [customWords]);
+  useEffect(() => saveDeckOverrides(deckOverrides), [deckOverrides]);
+  useEffect(() => saveDeletedDeckIds(deletedDeckIds), [deletedDeckIds]);
+  useEffect(() => saveWordOverrides(wordOverrides), [wordOverrides]);
+  useEffect(() => saveDeletedWordIds(deletedWordIds), [deletedWordIds]);
 
-  // Đồng bộ customWords vào localStorage
-  useEffect(() => {
-    saveStoredCustomWords(customWords);
-  }, [customWords]);
-
-  // Danh sách tất cả các chủ đề (hệ thống + tự tạo)
+  // Danh sách tất cả các chủ đề (Toàn bộ 3 bộ ban đầu gán quyền sở hữu cho Admin quản lý 100%)
   const allDecks = useMemo(() => {
-    const builtIn = DEFAULT_VOCABULARY_DECKS.map((d) => ({
-      ...d,
-      isSystem: true,
-      cards: [
-        ...d.cards,
-        ...customWords.filter((w) => w.deckId === d.id),
-      ],
-    }));
+    const builtIn = DEFAULT_VOCABULARY_DECKS
+      .filter((d) => !deletedDeckIds.includes(d.id))
+      .map((d) => {
+        const override = deckOverrides[d.id] || {};
+        const baseCards = d.cards
+          .filter((c) => !deletedWordIds.includes(c.id))
+          .map((c) => ({
+            ...c,
+            deckId: d.id,
+            isCustom: true,
+            ...(wordOverrides[c.id] || {}),
+          }));
+        const extraCards = customWords
+          .filter((w) => w.deckId === d.id && !deletedWordIds.includes(w.id))
+          .map((w) => ({
+            ...w,
+            ...(wordOverrides[w.id] || {}),
+          }));
 
-    const custom = customDecks.map((d) => ({
-      ...d,
-      isCustomDeck: true,
-      cards: customWords.filter((w) => w.deckId === d.id),
-    }));
+        return {
+          ...d,
+          author: 'Admin',
+          isCustomDeck: true,
+          ...override,
+          cards: [...baseCards, ...extraCards],
+        };
+      });
+
+    const custom = customDecks
+      .filter((d) => !deletedDeckIds.includes(d.id))
+      .map((d) => {
+        const override = deckOverrides[d.id] || {};
+        const cards = customWords
+          .filter((w) => w.deckId === d.id && !deletedWordIds.includes(w.id))
+          .map((w) => ({
+            ...w,
+            ...(wordOverrides[w.id] || {}),
+          }));
+        return {
+          ...d,
+          author: d.author || 'Admin',
+          isCustomDeck: true,
+          ...override,
+          cards,
+        };
+      });
 
     return [...builtIn, ...custom];
-  }, [customDecks, customWords]);
+  }, [customDecks, customWords, deckOverrides, deletedDeckIds, wordOverrides, deletedWordIds]);
 
   // Bộ thẻ đang chọn
   const activeDeck = useMemo(() => {
@@ -102,8 +145,8 @@ export default function AdminFlashcardManager() {
   // Thống kê tổng quan
   const totalDecksCount = allDecks.length;
   const totalWordsCount = allDecks.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
-  const systemDecksCount = DEFAULT_VOCABULARY_DECKS.length;
-  const customDecksCount = customDecks.length;
+  const adminDecksCount = allDecks.filter((d) => d.author === 'Admin' || !d.author).length;
+  const teacherDecksCount = allDecks.filter((d) => d.author === 'Giảng viên').length;
 
   // Phát âm từ vựng
   const handlePlayAudio = (word) => {
@@ -138,7 +181,7 @@ export default function AdminFlashcardManager() {
     });
   };
 
-  // Lưu chủ đề
+  // Lưu chủ đề (Áp dụng cho mọi chủ đề do Admin quản lý)
   const handleSaveDeck = (e) => {
     e.preventDefault();
     if (!deckModal.title.trim()) {
@@ -162,35 +205,50 @@ export default function AdminFlashcardManager() {
       setActiveDeckId(newDeck.id);
       showToast('Đã tạo chủ đề từ vựng mới thành công!');
     } else {
-      setCustomDecks((prev) =>
-        prev.map((d) =>
-          d.id === deckModal.id
-            ? {
-                ...d,
-                title: deckModal.title.trim(),
-                level: deckModal.level,
-                color: deckModal.color,
-                description: deckModal.description.trim(),
-              }
-            : d
-        )
-      );
+      const isBuiltIn = DEFAULT_VOCABULARY_DECKS.some((d) => d.id === deckModal.id);
+      if (isBuiltIn) {
+        setDeckOverrides((prev) => ({
+          ...prev,
+          [deckModal.id]: {
+            title: deckModal.title.trim(),
+            level: deckModal.level,
+            color: deckModal.color,
+            description: deckModal.description.trim(),
+          },
+        }));
+      } else {
+        setCustomDecks((prev) =>
+          prev.map((d) =>
+            d.id === deckModal.id
+              ? {
+                  ...d,
+                  title: deckModal.title.trim(),
+                  level: deckModal.level,
+                  color: deckModal.color,
+                  description: deckModal.description.trim(),
+                }
+              : d
+          )
+        );
+      }
       showToast('Đã cập nhật thông tin chủ đề thành công!');
     }
     setDeckModal({ ...deckModal, isOpen: false });
   };
 
-  // Xóa chủ đề
+  // Xóa chủ đề (Admin có toàn quyền xóa bất kỳ chủ đề nào)
   const handleDeleteDeck = (deckId, deckTitle) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa chủ đề "${deckTitle}" cùng tất cả các từ vựng liên quan?`)) {
       return;
     }
+    setDeletedDeckIds((prev) => [...prev, deckId]);
     setCustomDecks((prev) => prev.filter((d) => d.id !== deckId));
     setCustomWords((prev) => prev.filter((w) => w.deckId !== deckId));
     if (activeDeckId === deckId) {
-      setActiveDeckId('daily_life');
+      const remaining = allDecks.filter((d) => d.id !== deckId);
+      setActiveDeckId(remaining[0]?.id || 'daily_life');
     }
-    showToast('Đã xóa chủ đề từ vựng thành công!');
+    showToast(`Đã xóa chủ đề "${deckTitle}" thành công!`);
   };
 
   // Mở modal thêm từ vựng
@@ -229,7 +287,7 @@ export default function AdminFlashcardManager() {
     });
   };
 
-  // Lưu từ vựng
+  // Lưu từ vựng (Áp dụng cho mọi từ trong hệ thống)
   const handleSaveWord = (e) => {
     e.preventDefault();
     if (!wordModal.word.trim() || !wordModal.meaning.trim()) {
@@ -255,11 +313,10 @@ export default function AdminFlashcardManager() {
       setActiveDeckId(wordModal.deckId);
       showToast(`Đã thêm từ vựng "${newCard.word}" thành công!`);
     } else {
-      // Cập nhật từ vựng
-      setCustomWords((prev) => {
-        const exists = prev.some((w) => w.id === wordModal.id);
-        if (exists) {
-          return prev.map((w) =>
+      const isCustomInState = customWords.some((w) => w.id === wordModal.id);
+      if (isCustomInState) {
+        setCustomWords((prev) =>
+          prev.map((w) =>
             w.id === wordModal.id
               ? {
                   ...w,
@@ -274,36 +331,36 @@ export default function AdminFlashcardManager() {
                   collocation: wordModal.collocation.trim(),
                 }
               : w
-          );
-        } else {
-          return [
-            {
-              id: wordModal.id,
-              deckId: wordModal.deckId,
-              isCustom: true,
-              word: wordModal.word.trim(),
-              ipa: wordModal.ipa.trim(),
-              type: wordModal.type,
-              meaning: wordModal.meaning.trim(),
-              english_def: wordModal.english_def.trim(),
-              example: wordModal.example.trim(),
-              example_vi: wordModal.example_vi.trim(),
-              collocation: wordModal.collocation.trim(),
-            },
-            ...prev,
-          ];
-        }
-      });
+          )
+        );
+      } else {
+        // Built-in word override
+        setWordOverrides((prev) => ({
+          ...prev,
+          [wordModal.id]: {
+            deckId: wordModal.deckId,
+            word: wordModal.word.trim(),
+            ipa: wordModal.ipa.trim(),
+            type: wordModal.type,
+            meaning: wordModal.meaning.trim(),
+            english_def: wordModal.english_def.trim(),
+            example: wordModal.example.trim(),
+            example_vi: wordModal.example_vi.trim(),
+            collocation: wordModal.collocation.trim(),
+          },
+        }));
+      }
       showToast(`Đã cập nhật từ vựng "${wordModal.word}" thành công!`);
     }
     setWordModal({ ...wordModal, isOpen: false });
   };
 
-  // Xóa từ vựng
+  // Xóa từ vựng (Admin có toàn quyền xóa bất kỳ từ nào)
   const handleDeleteWord = (wordId, wordText) => {
     if (!window.confirm(`Bạn có chắc muốn xóa từ vựng "${wordText}"?`)) {
       return;
     }
+    setDeletedWordIds((prev) => [...prev, wordId]);
     setCustomWords((prev) => prev.filter((w) => w.id !== wordId));
     showToast(`Đã xóa từ vựng "${wordText}" thành công!`);
   };
@@ -368,7 +425,7 @@ export default function AdminFlashcardManager() {
             </h1>
           </div>
           <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '4px 0 0 46px' }}>
-            Hệ thống bộ thẻ từ vựng phân loại theo chủ đề, cấp độ chuẩn CEFR và lưu trữ tập trung phục vụ học viên ôn tập.
+            Hệ thống bộ thẻ từ vựng phân loại theo chủ đề, cấp độ CEFR do Admin quản trị tập trung phục vụ học viên ôn tập.
           </p>
         </div>
 
@@ -419,7 +476,7 @@ export default function AdminFlashcardManager() {
         </div>
       </div>
 
-      {/* KPI Stats Row (Chuẩn phong cách Dashboard Admin) */}
+      {/* KPI Stats Row (Gán quyền sở hữu rõ ràng cho Admin) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
         <div
           style={{
@@ -441,7 +498,7 @@ export default function AdminFlashcardManager() {
               {totalDecksCount} chủ đề
             </div>
             <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Bao quát các kỹ năng & giao tiếp
+              Đang hoạt động trên hệ thống
             </div>
           </div>
           <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
@@ -491,17 +548,17 @@ export default function AdminFlashcardManager() {
         >
           <div>
             <div style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              CHỦ ĐỀ CHUẨN CEFR
+              DO ADMIN QUẢN TRỊ
             </div>
-            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>
-              {systemDecksCount} bộ gốc
+            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#0284c7', marginTop: '4px' }}>
+              {adminDecksCount} chủ đề
             </div>
             <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              A1-A2, B1-B2 và Học thuật C1
+              Toàn quyền sửa, xóa & thêm từ
             </div>
           </div>
-          <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
-            <i className="fa-solid fa-award"></i>
+          <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
+            <i className="fa-solid fa-user-shield"></i>
           </div>
         </div>
 
@@ -519,17 +576,17 @@ export default function AdminFlashcardManager() {
         >
           <div>
             <div style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              CHỦ ĐỀ BIÊN SOẠN THÊM
+              DO GIẢNG VIÊN BIÊN SOẠN
             </div>
             <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#7c3aed', marginTop: '4px' }}>
-              {customDecksCount} chủ đề
+              {teacherDecksCount} chủ đề
             </div>
             <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Do Admin & Giảng viên khởi tạo
+              Bộ thẻ do giáo viên tự tạo
             </div>
           </div>
           <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#ede9fe', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
-            <i className="fa-solid fa-pen-nib"></i>
+            <i className="fa-solid fa-chalkboard-user"></i>
           </div>
         </div>
       </div>
@@ -550,7 +607,7 @@ export default function AdminFlashcardManager() {
               Danh Sách Chủ Đề / Bộ Thẻ Từ Vựng ({allDecks.length})
             </h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-              Nhấp "Xem từ vựng" để tải và quản lý danh sách chi tiết các từ trong chủ đề đó ở bảng bên dưới.
+              Tất cả các chủ đề đều do Admin toàn quyền quản lý, chỉnh sửa nội dung hoặc xóa bỏ khi cần thiết.
             </p>
           </div>
         </div>
@@ -571,6 +628,7 @@ export default function AdminFlashcardManager() {
               {allDecks.map((deck, idx) => {
                 const isSelected = activeDeckId === deck.id;
                 const wordCount = deck.cards?.length || 0;
+                const isAdminDeck = deck.author === 'Admin' || !deck.author;
 
                 return (
                   <tr
@@ -623,13 +681,13 @@ export default function AdminFlashcardManager() {
                     </td>
 
                     <td style={{ padding: '12px 14px' }}>
-                      {deck.isSystem ? (
-                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', backgroundColor: '#f1f5f9', padding: '3px 8px', borderRadius: '6px' }}>
-                          <i className="fa-solid fa-lock" style={{ marginRight: '4px' }}></i>Hệ thống
+                      {isAdminDeck ? (
+                        <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', backgroundColor: '#e0f2fe', padding: '3px 8px', borderRadius: '6px' }}>
+                          <i className="fa-solid fa-user-shield" style={{ marginRight: '4px' }}></i>Admin
                         </span>
                       ) : (
-                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#7c3aed', backgroundColor: '#ede9fe', padding: '3px 8px', borderRadius: '6px' }}>
-                          <i className="fa-solid fa-user-pen" style={{ marginRight: '4px' }}></i>Tự biên soạn
+                        <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#7c3aed', backgroundColor: '#ede9fe', padding: '3px 8px', borderRadius: '6px' }}>
+                          <i className="fa-solid fa-chalkboard-user" style={{ marginRight: '4px' }}></i>Giảng viên
                         </span>
                       )}
                     </td>
@@ -654,43 +712,39 @@ export default function AdminFlashcardManager() {
                           {isSelected ? 'Đang chọn' : 'Xem từ vựng'}
                         </button>
 
-                        {deck.isCustomDeck && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditDeck(deck)}
-                              style={{
-                                padding: '5px 8px',
-                                borderRadius: '6px',
-                                backgroundColor: 'transparent',
-                                color: '#0284c7',
-                                border: '1px solid #bae6fd',
-                                fontSize: '0.78rem',
-                                cursor: 'pointer',
-                              }}
-                              title="Chỉnh sửa chủ đề"
-                            >
-                              <i className="fa-solid fa-pen"></i>
-                            </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditDeck(deck)}
+                          style={{
+                            padding: '5px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: 'transparent',
+                            color: '#0284c7',
+                            border: '1px solid #bae6fd',
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                          }}
+                          title="Chỉnh sửa chủ đề"
+                        >
+                          <i className="fa-solid fa-pen"></i>
+                        </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteDeck(deck.id, deck.title)}
-                              style={{
-                                padding: '5px 8px',
-                                borderRadius: '6px',
-                                backgroundColor: 'transparent',
-                                color: '#dc2626',
-                                border: '1px solid #fecaca',
-                                fontSize: '0.78rem',
-                                cursor: 'pointer',
-                              }}
-                              title="Xóa chủ đề"
-                            >
-                              <i className="fa-solid fa-trash-can"></i>
-                            </button>
-                          </>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDeck(deck.id, deck.title)}
+                          style={{
+                            padding: '5px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: 'transparent',
+                            color: '#dc2626',
+                            border: '1px solid #fecaca',
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                          }}
+                          title="Xóa chủ đề"
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -736,7 +790,7 @@ export default function AdminFlashcardManager() {
                 </span>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                Quản lý chi tiết từng từ, ngữ nghĩa, phiên âm quốc tế IPA và ví dụ ngữ cảnh.
+                Admin có toàn quyền chỉnh sửa phát âm, định nghĩa, ví dụ hoặc xóa từ vựng trong bất kỳ bộ thẻ nào.
               </p>
             </div>
 
@@ -941,24 +995,22 @@ export default function AdminFlashcardManager() {
                             <i className="fa-solid fa-pen"></i>
                           </button>
 
-                          {card.isCustom && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteWord(card.id, card.word)}
-                              style={{
-                                padding: '5px 8px',
-                                borderRadius: '6px',
-                                backgroundColor: 'transparent',
-                                color: '#dc2626',
-                                border: '1px solid #fecaca',
-                                fontSize: '0.78rem',
-                                cursor: 'pointer',
-                              }}
-                              title="Xóa từ vựng"
-                            >
-                              <i className="fa-solid fa-trash-can"></i>
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteWord(card.id, card.word)}
+                            style={{
+                              padding: '5px 8px',
+                              borderRadius: '6px',
+                              backgroundColor: 'transparent',
+                              color: '#dc2626',
+                              border: '1px solid #fecaca',
+                              fontSize: '0.78rem',
+                              cursor: 'pointer',
+                            }}
+                            title="Xóa từ vựng"
+                          >
+                            <i className="fa-solid fa-trash-can"></i>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -970,7 +1022,7 @@ export default function AdminFlashcardManager() {
         </div>
       )}
 
-      {/* ==================== MODAL TẠO / SỬA CHỦ ĐỀ (ADMIN STYLE) ==================== */}
+      {/* ==================== MODAL TẠO / SỬA CHỦ ĐỀ ==================== */}
       {deckModal.isOpen && (
         <div
           style={{
@@ -1143,7 +1195,7 @@ export default function AdminFlashcardManager() {
         </div>
       )}
 
-      {/* ==================== MODAL THÊM / SỬA TỪ VỰNG (ADMIN STYLE) ==================== */}
+      {/* ==================== MODAL THÊM / SỬA TỪ VỰNG ==================== */}
       {wordModal.isOpen && (
         <div
           style={{
