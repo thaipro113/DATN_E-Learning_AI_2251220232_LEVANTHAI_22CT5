@@ -144,7 +144,7 @@ class CourseService:
         if course.status != CourseStatus.PUBLISHED:
             if not user or not user.is_authenticated:
                 return None
-            if user.role != 'ADMIN' and course.teacher != user:
+            if user.role not in ['ADMIN', 'REVIEWER'] and course.teacher != user:
                 return None
 
         return course
@@ -185,7 +185,11 @@ class CourseService:
     def reject_course(course: Course, reason: str = "", user=None) -> tuple[bool, str, Course]:
         from django.utils import timezone
         course.status = CourseStatus.REJECTED
-        course.rejection_reason = reason.strip() or "Khóa học chưa đáp ứng tiêu chuẩn nội dung hoặc chất lượng sư phạm."
+        if isinstance(reason, dict):
+            reason_str = reason.get('reason', '')
+        else:
+            reason_str = str(reason or '')
+        course.rejection_reason = reason_str.strip() or "Khóa học chưa đáp ứng tiêu chuẩn nội dung hoặc chất lượng sư phạm."
         if hasattr(course, 'reviewed_by') and user and user.is_authenticated:
             course.reviewed_by = user
             course.reviewed_at = timezone.now()

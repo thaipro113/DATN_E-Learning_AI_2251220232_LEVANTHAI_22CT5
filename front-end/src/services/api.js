@@ -45,7 +45,10 @@ export const courseAPI = {
   deleteCourse: (identifier) => apiClient.delete(`courses/${identifier}/`),
   publishCourse: (identifier) => apiClient.post(`courses/${identifier}/publish/`),
   approveCourse: (identifier) => apiClient.post(`courses/${identifier}/approve/`),
-  rejectCourse: (identifier, reason) => apiClient.post(`courses/${identifier}/reject/`, { reason }),
+  rejectCourse: (identifier, reason) => {
+    const payload = typeof reason === 'object' && reason !== null ? reason : { reason };
+    return apiClient.post(`courses/${identifier}/reject/`, payload);
+  },
   createChapter: (courseId, data) => apiClient.post(`courses/${courseId}/chapters/`, data),
   updateChapter: (chapterId, data) => apiClient.patch(`courses/chapters/${chapterId}/`, data),
   deleteChapter: (chapterId) => apiClient.delete(`courses/chapters/${chapterId}/`),
