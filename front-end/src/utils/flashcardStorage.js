@@ -667,7 +667,7 @@ export const saveDeletedWordIds = (ids) => {
   } catch {}
 };
 
-export const getAllDecksWithWords = () => {
+export const getAllDecksWithWords = (forUser = null) => {
   const customDecks = getStoredCustomDecks();
   const customWords = getStoredCustomWords();
   const deckOverrides = getDeckOverrides();
@@ -675,7 +675,7 @@ export const getAllDecksWithWords = () => {
   const wordOverrides = getWordOverrides();
   const deletedWordIds = getDeletedWordIds();
 
-  // 3 bộ gốc mặc định được gán chính thức cho Admin quản lý
+  // 3 bộ gốc mặc định được gán chính thức cho Admin quản lý (mặc định luôn PUBLISHED)
   const builtIn = DEFAULT_VOCABULARY_DECKS
     .filter((d) => !deletedDeckIds.includes(d.id))
     .map((d) => {
@@ -698,6 +698,8 @@ export const getAllDecksWithWords = () => {
       return {
         ...d,
         author: 'Admin',
+        authorRole: 'ADMIN',
+        status: override.status || 'PUBLISHED',
         isCustomDeck: true,
         ...override,
         cards: [...baseCards, ...extraCards],
@@ -716,14 +718,107 @@ export const getAllDecksWithWords = () => {
         }));
       return {
         ...d,
-        author: d.author || 'Admin',
+        author: d.author || 'Giảng viên',
+        authorRole: d.authorRole || 'TEACHER',
+        status: override.status || d.status || 'PUBLISHED',
         isCustomDeck: true,
         ...override,
         cards,
       };
     });
 
-  return [...builtIn, ...custom];
+  const all = [...builtIn, ...custom];
+
+  // Phân quyền hiển thị theo người dùng
+  if (!forUser) return all;
+
+  // 1. Phản biện viên (REVIEWER) & Quản trị viên (ADMIN): Thấy toàn bộ để kiểm duyệt và quản lý
+  if (forUser.role === 'ADMIN' || forUser.role === 'REVIEWER') {
+    return all;
+  }
+
+  // 2. Giảng viên (TEACHER):
+  // Chỉ thấy các bộ của chính mình tạo + các bộ hệ thống/Admin đã duyệt
+  // KHÔNG thấy đề tài của các giảng viên khác (chờ duyệt/nháp)
+  if (forUser.role === 'TEACHER') {
+    return all.filter((d) => {
+      // Bộ hệ thống mặc định của Admin
+      if (d.author === 'Admin' || d.authorRole === 'ADMIN') return true;
+      // Bộ do chính giảng viên này tạo
+      const isOwner =
+        (forUser.id && d.authorId && String(d.authorId) === String(forUser.id)) ||
+        (forUser.full_name && d.author === forUser.full_name) ||
+        (forUser.email && d.authorEmail === forUser.email);
+      return isOwner;
+    });
+  }
+
+  // 3. Học viên (STUDENT) hoặc Khách:
+  // Chỉ xem các đề tài đã được Phê duyệt xuất bản (PUBLISHED)
+  return all.filter((d) => d.status === 'PUBLISHED');
+};
+
+// Cập nhật trạng thái duyệt đề tài flashcard (Dành cho Reviewer / Admin)
+export const updateDeckStatus = (deckId, status, rejectionReason = null, reviewerName = 'Thẩm định viên') => {
+  const customDecks = getStoredCustomDecks();
+  const deckExists = customDecks.some((d) => d.id === deckId);
+
+  if (deckExists) {
+    const updated = customDecks.map((d) => {
+      if (d.id === deckId) {
+        return {
+          ...d,
+          status,
+          rejectionReason: status === 'REJECTED' ? rejectionReason : null,
+          reviewedBy: reviewerName,
+          reviewedAt: new Date().toISOString(),
+        };
+      }
+      return d;
+    });
+    saveStoredCustomDecks(updated);
+  } else {
+    // Nếu là deck gốc mặc định, lưu vào overrides
+    const overrides = getDeckOverrides();
+    overrides[deckId] = {
+      ...(overrides[deckId] || {}),
+      status,
+      rejectionReason: status === 'REJECTED' ? rejectionReason : null,
+      reviewedBy: reviewerName,
+      reviewedAt: new Date().toISOString(),
+    };
+    saveDeckOverrides(overrides);
+  }
+};
+
+// Giảng viên gửi lại đề tài sau khi đã chỉnh sửa theo phản biện
+export const resubmitDeckForReview = (deckId) => {
+  const customDecks = getStoredCustomDecks();
+  const deckExists = customDecks.some((d) => d.id === deckId);
+
+  if (deckExists) {
+    const updated = customDecks.map((d) => {
+      if (d.id === deckId) {
+        return {
+          ...d,
+          status: 'PENDING',
+          rejectionReason: null,
+          resubmittedAt: new Date().toISOString(),
+        };
+      }
+      return d;
+    });
+    saveStoredCustomDecks(updated);
+  } else {
+    const overrides = getDeckOverrides();
+    overrides[deckId] = {
+      ...(overrides[deckId] || {}),
+      status: 'PENDING',
+      rejectionReason: null,
+      resubmittedAt: new Date().toISOString(),
+    };
+    saveDeckOverrides(overrides);
+  }
 };
 
 export const speakWord = (wordText, rate = 1.0) => {

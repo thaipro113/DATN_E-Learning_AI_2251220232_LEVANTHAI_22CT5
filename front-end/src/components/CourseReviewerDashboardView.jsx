@@ -5,6 +5,7 @@ import {
   updateDeckStatus,
   speakWord,
 } from '../utils/flashcardStorage';
+import { isYouTubeUrl, getYouTubeEmbedUrl } from '../utils/media';
 
 export default function CourseReviewerDashboardView({ user, onBackToDashboard, initialTab = 'courses' }) {
   // Tab điều hướng thẩm định: 'courses' (Khóa học) hoặc 'flashcards' (Bộ thẻ từ vựng)
@@ -30,6 +31,12 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
     details: null,
     loadingDetails: false,
   });
+
+  // State bài giảng đang xem video và thẩm định chi tiết trong modal
+  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [lessonDetail, setLessonDetail] = useState(null);
+  const [loadingLessonDetail, setLoadingLessonDetail] = useState(false);
+  const [lessonTab, setLessonTab] = useState('content'); // 'content' | 'materials'
 
   // Modal phản biện / yêu cầu chỉnh sửa khóa học
   const [reviewModal, setReviewModal] = useState({
@@ -205,8 +212,27 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
     }
   };
 
-  // 5. Xem trước chi tiết cấu trúc bài giảng để thẩm định
+  // 5. Chọn và tải chi tiết một bài giảng để thẩm định video & tài liệu
+  const handleSelectLesson = async (lesson) => {
+    setSelectedLesson(lesson);
+    setLoadingLessonDetail(true);
+    setLessonTab('content');
+    try {
+      const res = await courseAPI.getLessonDetail(lesson.id);
+      const data = res.data?.data || res.data;
+      setLessonDetail(data);
+    } catch (err) {
+      // Fallback về thông tin cơ bản của bài học
+      setLessonDetail(lesson);
+    } finally {
+      setLoadingLessonDetail(false);
+    }
+  };
+
+  // Xem trước chi tiết cấu trúc bài giảng để thẩm định
   const handleOpenPreview = async (course) => {
+    setSelectedLesson(null);
+    setLessonDetail(null);
     setPreviewModal({
       isOpen: true,
       course,
@@ -221,6 +247,15 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
         details: detailData,
         loadingDetails: false,
       }));
+
+      // Tự động chọn bài học đầu tiên (ưu tiên bài có video bài giảng)
+      const allLessons = (detailData?.chapters || []).flatMap((ch) =>
+        (ch.lessons || []).map((l) => ({ ...l, chapterTitle: ch.title }))
+      );
+      const firstLesson = allLessons.find((l) => l.video_url) || allLessons[0] || null;
+      if (firstLesson) {
+        handleSelectLesson(firstLesson);
+      }
     } catch (err) {
       setPreviewModal((prev) => ({ ...prev, loadingDetails: false }));
     }
@@ -412,32 +447,99 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
         </div>
       )}
 
-      {/* 1. Sub Navigation Chuyên Môn Của Phản Biện Viên */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      {/* Header Kiểu Giảng viên (Đơn giản, chuyên nghiệp, không màu mè) */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '20px',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          padding: '24px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}
+      >
+        <div>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              borderRadius: '9999px',
+              backgroundColor: '#eff6ff',
+              color: '#1d4ed8',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              marginBottom: '8px',
+            }}
+          >
+            <i className="fa-solid fa-clipboard-check"></i>
+            <span>CỔNG THẨM ĐỊNH & KIỂM ĐỊNH CHUYÊN MÔN</span>
+          </div>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a', margin: '0 0 6px 0' }}>
+            Không gian Thẩm định viên - {user?.full_name || 'Hội đồng thẩm định'}
+          </h1>
+          <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0, maxWidth: '780px', lineHeight: '1.5' }}>
+            {activeReviewTab === 'courses'
+              ? 'Rà soát đề cương giáo án, video bài giảng, hệ thống đề thi và phản biện chất lượng chuyên môn trước khi xuất bản công khai.'
+              : 'Rà soát tính chuẩn xác của phát âm IPA, nghĩa từ vựng tiếng Việt, câu ví dụ và phân bổ trình độ CEFR của các bộ thẻ Flashcards.'}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={activeReviewTab === 'courses' ? fetchAllCourses : reloadFlashcards}
+            style={{
+              padding: '9px 16px',
+              borderRadius: '10px',
+              backgroundColor: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              color: '#334155',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <i className="fa-solid fa-arrows-rotate"></i>
+            <span>Làm mới dữ liệu</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Switcher Chuẩn Phong Cách Giảng Viên */}
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e2e8f0', marginBottom: '22px' }}>
         <button
           type="button"
           onClick={() => setActiveReviewTab('courses')}
           style={{
-            padding: '11px 22px',
-            borderRadius: '12px',
-            border: activeReviewTab === 'courses' ? '2px solid #312e81' : '1px solid #cbd5e1',
-            backgroundColor: activeReviewTab === 'courses' ? '#1e1b4b' : '#ffffff',
-            color: activeReviewTab === 'courses' ? '#ffffff' : '#334155',
-            fontWeight: '800',
-            fontSize: '0.92rem',
+            padding: '10px 18px',
+            border: 'none',
+            borderBottom: activeReviewTab === 'courses' ? '3px solid #0284c7' : '3px solid transparent',
+            backgroundColor: 'transparent',
+            color: activeReviewTab === 'courses' ? '#0284c7' : '#64748b',
+            fontWeight: '700',
+            fontSize: '0.9rem',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            boxShadow: activeReviewTab === 'courses' ? '0 4px 14px rgba(30, 27, 75, 0.25)' : '0 2px 4px rgba(0,0,0,0.03)',
-            transition: 'all 0.2s ease',
+            gap: '8px',
+            transition: 'all 0.15s ease',
           }}
         >
-          <i className="fa-solid fa-graduation-cap"></i>
-          <span>Thẩm Định Khóa Học & Bài Giảng</span>
+          <i className="fa-solid fa-book-open"></i>
+          <span>Thẩm định Khóa học & Bài giảng</span>
           {countPending > 0 && (
-            <span style={{ backgroundColor: '#ef4444', color: '#ffffff', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', fontWeight: '900' }}>
-              {countPending} cần duyệt
+            <span style={{ backgroundColor: '#ef4444', color: '#ffffff', fontSize: '0.72rem', padding: '2px 7px', borderRadius: '9999px', fontWeight: '800' }}>
+              {countPending}
             </span>
           )}
         </button>
@@ -446,87 +548,28 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
           type="button"
           onClick={() => setActiveReviewTab('flashcards')}
           style={{
-            padding: '11px 22px',
-            borderRadius: '12px',
-            border: activeReviewTab === 'flashcards' ? '2px solid #7c3aed' : '1px solid #cbd5e1',
-            backgroundColor: activeReviewTab === 'flashcards' ? '#7c3aed' : '#ffffff',
-            color: activeReviewTab === 'flashcards' ? '#ffffff' : '#334155',
-            fontWeight: '800',
-            fontSize: '0.92rem',
+            padding: '10px 18px',
+            border: 'none',
+            borderBottom: activeReviewTab === 'flashcards' ? '3px solid #0284c7' : '3px solid transparent',
+            backgroundColor: 'transparent',
+            color: activeReviewTab === 'flashcards' ? '#0284c7' : '#64748b',
+            fontWeight: '700',
+            fontSize: '0.9rem',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            boxShadow: activeReviewTab === 'flashcards' ? '0 4px 14px rgba(124, 58, 237, 0.25)' : '0 2px 4px rgba(0,0,0,0.03)',
-            transition: 'all 0.2s ease',
+            gap: '8px',
+            transition: 'all 0.15s ease',
           }}
         >
           <i className="fa-solid fa-layer-group"></i>
-          <span>Thẩm Định Đề Tài Flashcards</span>
+          <span>Thẩm định Đề tài Flashcards</span>
           {countPendingDecks > 0 && (
-            <span style={{ backgroundColor: '#f59e0b', color: '#ffffff', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', fontWeight: '900' }}>
-              {countPendingDecks} cần duyệt
+            <span style={{ backgroundColor: '#f59e0b', color: '#ffffff', fontSize: '0.72rem', padding: '2px 7px', borderRadius: '9999px', fontWeight: '800' }}>
+              {countPendingDecks}
             </span>
           )}
         </button>
-      </div>
-
-      {/* 2. Header Banner Động Chuẩn Thẩm Định & Kiểm Định */}
-      <div
-        style={{
-          background: activeReviewTab === 'courses'
-            ? 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)'
-            : 'linear-gradient(135deg, #2e1065 0%, #581c87 50%, #7c3aed 100%)',
-          borderRadius: '20px',
-          padding: '28px 32px',
-          color: '#ffffff',
-          marginBottom: '28px',
-          boxShadow: activeReviewTab === 'courses'
-            ? '0 10px 30px -10px rgba(49, 46, 129, 0.4)'
-            : '0 10px 30px -10px rgba(124, 58, 237, 0.4)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderRadius: '20px', backgroundColor: 'rgba(255, 255, 255, 0.15)', fontSize: '0.78rem', fontWeight: '700', letterSpacing: '0.5px', marginBottom: '10px' }}>
-              <i className="fa-solid fa-scale-balanced" style={{ color: '#fbbf24' }}></i>
-              <span>{activeReviewTab === 'courses' ? 'CỔNG THẨM ĐỊNH & KIỂM ĐỊNH BÀI GIẢNG' : 'CỔNG THẨM ĐỊNH & KIỂM ĐỊNH TỪ VỰNG FLASHCARDS'}</span>
-            </div>
-            <h1 style={{ fontSize: '1.85rem', fontWeight: '900', margin: '0 0 8px 0', letterSpacing: '-0.5px' }}>
-              {activeReviewTab === 'courses'
-                ? 'Không Gian Phản Biện & Phê Duyệt Bài Giảng'
-                : 'Không Gian Phản Biện & Phê Duyệt Flashcards'}
-            </h1>
-            <p style={{ margin: 0, fontSize: '0.95rem', color: '#c7d2fe', maxWidth: '720px', lineHeight: '1.5' }}>
-              {activeReviewTab === 'courses'
-                ? `Chào mừng ${user?.full_name || 'Thẩm định viên'}. Bạn có quyền rà soát đề cương, kiểm định video bài giảng, ngân hàng đề thi và phản biện chất lượng sư phạm trước khi khóa học được xuất bản công khai.`
-                : `Chào mừng ${user?.full_name || 'Thẩm định viên'}. Rà soát chuẩn hóa phát âm IPA, giải nghĩa từ vựng tiếng Việt, tính chính xác của ngữ pháp câu ví dụ và chuẩn CEFR của các đề tài do Giảng viên biên soạn trước khi duyệt lên web.`}
-            </p>
-          </div>
-          <button
-            onClick={activeReviewTab === 'courses' ? fetchAllCourses : reloadFlashcards}
-            style={{
-              padding: '10px 18px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
-              fontSize: '0.88rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              backdropFilter: 'blur(8px)',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <i className="fa-solid fa-arrows-rotate"></i>
-            <span>{activeReviewTab === 'courses' ? 'Làm mới khóa học' : 'Làm mới đề tài'}</span>
-          </button>
-        </div>
       </div>
 
       {/* =========================================================================
@@ -535,79 +578,79 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
       {activeReviewTab === 'courses' && (
         <>
           {/* 3 Thống kê trạng thái Khóa Học */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div
-          onClick={() => setStatusFilter('PENDING')}
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            padding: '20px',
-            border: statusFilter === 'PENDING' ? '2px solid #f59e0b' : '1px solid #e2e8f0',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>CHỜ THẨM ĐỊNH (CẦN DUYỆT)</span>
-            <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <i className="fa-solid fa-clock-rotate-left"></i>
-            </span>
-          </div>
-          <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#d97706', marginTop: '8px' }}>
-            {countPending}
-          </div>
-          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Giảng viên đã gửi yêu cầu duyệt</span>
-        </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '22px' }}>
+            <div
+              onClick={() => setStatusFilter('PENDING')}
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                padding: '18px 20px',
+                border: statusFilter === 'PENDING' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b' }}>CHỜ THẨM ĐỊNH (CẦN DUYỆT)</span>
+                <span style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="fa-solid fa-clock-rotate-left"></i>
+                </span>
+              </div>
+              <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
+                {countPending}
+              </div>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Giảng viên đã gửi yêu cầu duyệt</span>
+            </div>
 
-        <div
-          onClick={() => setStatusFilter('PUBLISHED')}
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            padding: '20px',
-            border: statusFilter === 'PUBLISHED' ? '2px solid #10b981' : '1px solid #e2e8f0',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>ĐÃ THẨM ĐỊNH & XUẤT BẢN</span>
-            <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#d1fae5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <i className="fa-solid fa-shield-check"></i>
-            </span>
-          </div>
-          <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#059669', marginTop: '8px' }}>
-            {countPublished}
-          </div>
-          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Đang mở công khai cho học viên</span>
-        </div>
+            <div
+              onClick={() => setStatusFilter('PUBLISHED')}
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                padding: '18px 20px',
+                border: statusFilter === 'PUBLISHED' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b' }}>ĐÃ THẨM ĐỊNH & XUẤT BẢN</span>
+                <span style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="fa-solid fa-shield-check"></i>
+                </span>
+              </div>
+              <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
+                {countPublished}
+              </div>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Đang mở công khai cho học viên</span>
+            </div>
 
-        <div
-          onClick={() => setStatusFilter('REJECTED')}
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            padding: '20px',
-            border: statusFilter === 'REJECTED' ? '2px solid #ef4444' : '1px solid #e2e8f0',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>ĐÃ PHẢN BIỆN (CẦN SỬA)</span>
-            <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <i className="fa-solid fa-comments"></i>
-            </span>
+            <div
+              onClick={() => setStatusFilter('REJECTED')}
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                padding: '18px 20px',
+                border: statusFilter === 'REJECTED' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b' }}>ĐÃ PHẢN BIỆN (CẦN SỬA)</span>
+                <span style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="fa-solid fa-comments"></i>
+                </span>
+              </div>
+              <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
+                {countRejected}
+              </div>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Yêu cầu giảng viên hoàn thiện lại</span>
+            </div>
           </div>
-          <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#dc2626', marginTop: '8px' }}>
-            {countRejected}
-          </div>
-          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Yêu cầu giảng viên hoàn thiện lại</span>
-        </div>
-      </div>
 
       {/* Bộ lọc & Tìm kiếm */}
       <div
@@ -707,14 +750,14 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                 key={c.id}
                 style={{
                   backgroundColor: '#ffffff',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  border: isPending ? '1.5px solid #f59e0b' : '1px solid #e2e8f0',
-                  boxShadow: isPending ? '0 4px 15px -3px rgba(245, 158, 11, 0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
+                  borderRadius: '12px',
+                  padding: '18px 20px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '16px',
-                  transition: 'all 0.2s',
+                  gap: '14px',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -883,98 +926,98 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
       {activeReviewTab === 'flashcards' && (
         <div>
           {/* 4 Thống kê trạng thái Flashcards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '22px' }}>
             <div
               onClick={() => setFlashcardStatusFilter('PENDING')}
               style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '20px',
-                border: flashcardStatusFilter === 'PENDING' ? '2px solid #f59e0b' : '1px solid #e2e8f0',
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
+                borderRadius: '12px',
+                padding: '18px 20px',
+                border: flashcardStatusFilter === 'PENDING' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>CHỜ THẨM ĐỊNH (CẦN DUYỆT)</span>
-                <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b' }}>CHỜ THẨM ĐỊNH (CẦN DUYỆT)</span>
+                <span style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="fa-solid fa-clock-rotate-left"></i>
                 </span>
               </div>
-              <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#d97706', marginTop: '8px' }}>
+              <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countPendingDecks}
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Giảng viên gửi đề tài mới</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Giảng viên gửi đề tài mới</span>
             </div>
 
             <div
               onClick={() => setFlashcardStatusFilter('PUBLISHED')}
               style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '20px',
-                border: flashcardStatusFilter === 'PUBLISHED' ? '2px solid #10b981' : '1px solid #e2e8f0',
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
+                borderRadius: '12px',
+                padding: '18px 20px',
+                border: flashcardStatusFilter === 'PUBLISHED' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>ĐÃ THẨM ĐỊNH & XUẤT BẢN</span>
-                <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#d1fae5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b' }}>ĐÃ THẨM ĐỊNH & XUẤT BẢN</span>
+                <span style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="fa-solid fa-circle-check"></i>
                 </span>
               </div>
-              <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#059669', marginTop: '8px' }}>
+              <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countPublishedDecks}
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Đang mở công khai cho học viên</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Đang mở công khai cho học viên</span>
             </div>
 
             <div
               onClick={() => setFlashcardStatusFilter('REJECTED')}
               style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '20px',
-                border: flashcardStatusFilter === 'REJECTED' ? '2px solid #ef4444' : '1px solid #e2e8f0',
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
+                borderRadius: '12px',
+                padding: '18px 20px',
+                border: flashcardStatusFilter === 'REJECTED' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>ĐÃ PHẢN BIỆN (CẦN SỬA)</span>
-                <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b' }}>ĐÃ PHẢN BIỆN (CẦN SỬA)</span>
+                <span style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="fa-solid fa-triangle-exclamation"></i>
                 </span>
               </div>
-              <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#dc2626', marginTop: '8px' }}>
+              <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countRejectedDecks}
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Yêu cầu giảng viên sửa đổi</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Yêu cầu giảng viên sửa đổi</span>
             </div>
 
             <div
               style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '20px',
+                borderRadius: '12px',
+                padding: '18px 20px',
                 border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>TỔNG TỪ VỰNG HỆ THỐNG</span>
-                <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#ede9fe', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b' }}>TỔNG TỪ VỰNG HỆ THỐNG</span>
+                <span style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="fa-solid fa-spell-check"></i>
                 </span>
               </div>
-              <div style={{ fontSize: '1.9rem', fontWeight: '900', color: '#7c3aed', marginTop: '8px' }}>
+              <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countTotalWords}
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Thuộc {flashcardDecks.length} đề tài</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Thuộc {flashcardDecks.length} đề tài</span>
             </div>
           </div>
 
@@ -1071,14 +1114,14 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                     key={deck.id}
                     style={{
                       backgroundColor: '#ffffff',
-                      borderRadius: '16px',
-                      padding: '20px 24px',
-                      border: isPending ? '1.5px solid #f59e0b' : isRejected ? '1.5px solid #fca5a5' : '1px solid #e2e8f0',
-                      boxShadow: isPending ? '0 4px 15px -3px rgba(245, 158, 11, 0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
+                      borderRadius: '12px',
+                      padding: '18px 20px',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '14px',
-                      transition: 'all 0.2s',
+                      transition: 'all 0.15s ease',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
@@ -1259,7 +1302,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
       )}
 
       {/* =========================================================================
-          MODAL 1: XEM CHI TIẾT GIÁO ÁN ĐỂ THẨM ĐỊNH (PREVIEW CURRICULUM AUDIT)
+          MODAL 1: XEM CHI TIẾT GIÁO ÁN & THẨM ĐỊNH VIDEO BÀI GIẢNG
          ========================================================================= */}
       {previewModal.isOpen && (
         <div
@@ -1278,160 +1321,409 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
           <div
             style={{
               backgroundColor: '#ffffff',
-              borderRadius: '20px',
-              maxWidth: '850px',
-              width: '100%',
-              maxHeight: '90vh',
+              borderRadius: '16px',
+              maxWidth: '1200px',
+              width: '96%',
+              maxHeight: '92vh',
               display: 'flex',
               flexDirection: 'column',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               overflow: 'hidden',
+              border: '1px solid #e2e8f0',
             }}
           >
             {/* Modal Header */}
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#4338ca', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                  HỒ SƠ THẨM ĐỊNH GIÁO TRÌNH
-                </span>
-                <h2 style={{ margin: '4px 0 0 0', fontSize: '1.25rem', fontWeight: '800', color: '#0f172a' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', textTransform: 'uppercase', marginBottom: '2px' }}>
+                  <i className="fa-solid fa-circle-play"></i>
+                  <span>KHÔNG GIAN RÀ SOÁT & KIỂM ĐỊNH VIDEO BÀI GIẢNG</span>
+                </div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: '#0f172a' }}>
                   {previewModal.course?.title}
                 </h2>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginTop: '4px', fontSize: '0.8rem', color: '#64748b' }}>
+                  <span>Giảng viên: <strong style={{ color: '#0f172a' }}>{previewModal.details?.teacher?.full_name || previewModal.course?.teacher?.full_name}</strong></span>
+                  <span>Trình độ: <strong style={{ color: '#0f172a' }}>{previewModal.details?.level_display || previewModal.course?.level}</strong></span>
+                  <span>Trạng thái: <strong style={{ color: '#0f172a' }}>{previewModal.course?.status_display || previewModal.course?.status}</strong></span>
+                </div>
               </div>
               <button
-                onClick={() => setPreviewModal({ isOpen: false, course: null, details: null, loadingDetails: false })}
-                style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#64748b', cursor: 'pointer' }}
+                onClick={() => {
+                  setPreviewModal({ isOpen: false, course: null, details: null, loadingDetails: false });
+                  setSelectedLesson(null);
+                  setLessonDetail(null);
+                }}
+                style={{ background: 'none', border: 'none', fontSize: '1.3rem', color: '#64748b', cursor: 'pointer', padding: '4px 8px' }}
+                title="Đóng modal"
               >
                 ✕
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+            {/* Modal Content: Split Screen Layout */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
               {previewModal.loadingDetails ? (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
-                  <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.8rem', color: '#4338ca', marginBottom: '10px' }}></i>
-                  <p>Đang tải chi tiết đề cương & video bài học...</p>
+                <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b' }}>
+                  <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', color: '#0284c7', marginBottom: '12px' }}></i>
+                  <p style={{ fontWeight: '600' }}>Đang nạp video bài giảng và cấu trúc đề cương...</p>
                 </div>
               ) : (
-                <div>
-                  {/* Tổng quan khóa học */}
-                  <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.85rem' }}>
-                        Giảng viên: <strong>{previewModal.details?.teacher?.full_name || previewModal.course?.teacher?.full_name}</strong>
-                      </span>
-                      <span style={{ fontSize: '0.85rem' }}>
-                        Trình độ: <strong>{previewModal.details?.level_display || previewModal.course?.level}</strong>
-                      </span>
-                      <span style={{ fontSize: '0.85rem' }}>
-                        Trạng thái hiện tại: <strong>{previewModal.course?.status_display || previewModal.course?.status}</strong>
-                      </span>
-                    </div>
-                    <p style={{ margin: '10px 0 0 0', fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }}>
-                      {previewModal.details?.description || previewModal.course?.description}
-                    </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: '22px' }}>
+                  {/* CỘT TRÁI: KHU VỰC TRÌNH CHIẾU VIDEO & CHI TIẾT BÀI HỌC */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {selectedLesson ? (
+                      <>
+                        {/* Video Player Box */}
+                        <div style={{ backgroundColor: '#000000', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                          {(lessonDetail?.video_url || selectedLesson.video_url) ? (
+                            isYouTubeUrl(lessonDetail?.video_url || selectedLesson.video_url) ? (
+                              <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%' }}>
+                                <iframe
+                                  key={`yt-${selectedLesson.id}-${lessonDetail?.video_url || selectedLesson.video_url}`}
+                                  src={getYouTubeEmbedUrl(lessonDetail?.video_url || selectedLesson.video_url)}
+                                  title={selectedLesson.title}
+                                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                            ) : (
+                              <video
+                                key={`video-${selectedLesson.id}-${lessonDetail?.video_url || selectedLesson.video_url}`}
+                                controls
+                                src={lessonDetail?.video_url || selectedLesson.video_url}
+                                style={{ width: '100%', maxHeight: '380px', display: 'block', backgroundColor: '#000000' }}
+                              />
+                            )
+                          ) : (
+                            <div style={{ padding: '44px 20px', textAlign: 'center', backgroundColor: '#f8fafc', color: '#64748b' }}>
+                              <i className="fa-solid fa-video-slash" style={{ fontSize: '2.5rem', color: '#94a3b8', marginBottom: '10px' }}></i>
+                              <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: '800', color: '#334155' }}>
+                                Bài giảng này chưa gắn video
+                              </h4>
+                              <p style={{ margin: 0, fontSize: '0.84rem' }}>
+                                Giảng viên có thể chỉ cung cấp tài liệu đọc lý thuyết hoặc chưa bổ sung liên kết video.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Chi tiết bài giảng đang xem */}
+                        <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#0284c7' }}>
+                              {selectedLesson.chapterTitle && <span>{selectedLesson.chapterTitle} • </span>}
+                              Bài {selectedLesson.order_index || 1}
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              {selectedLesson.duration_minutes > 0 && (
+                                <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '6px', fontWeight: '600' }}>
+                                  <i className="fa-regular fa-clock" style={{ marginRight: '4px' }}></i>
+                                  {selectedLesson.duration_minutes} phút
+                                </span>
+                              )}
+                              {selectedLesson.is_preview && (
+                                <span style={{ fontSize: '0.72rem', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: '6px', fontWeight: '800' }}>
+                                  HỌC THỬ
+                                </span>
+                              )}
+                              {(lessonDetail?.video_url || selectedLesson.video_url) && (
+                                <a
+                                  href={lessonDetail?.video_url || selectedLesson.video_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ fontSize: '0.75rem', color: '#0284c7', textDecoration: 'none', fontWeight: '600', marginLeft: '6px' }}
+                                  title="Mở liên kết video gốc trong tab mới"
+                                >
+                                  <i className="fa-solid fa-arrow-up-right-from-square"></i> Mở link gốc
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
+                          <h3 style={{ margin: '0 0 12px 0', fontSize: '1.15rem', fontWeight: '800', color: '#0f172a' }}>
+                            {selectedLesson.title}
+                          </h3>
+
+                          {/* Tabs bài học */}
+                          <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid #e2e8f0', marginBottom: '12px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setLessonTab('content')}
+                              style={{
+                                padding: '8px 14px',
+                                border: 'none',
+                                borderBottom: lessonTab === 'content' ? '2px solid #0284c7' : '2px solid transparent',
+                                backgroundColor: 'transparent',
+                                color: lessonTab === 'content' ? '#0284c7' : '#64748b',
+                                fontWeight: '700',
+                                fontSize: '0.82rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <i className="fa-solid fa-align-left" style={{ marginRight: '6px' }}></i>
+                              Nội dung lý thuyết
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setLessonTab('materials')}
+                              style={{
+                                padding: '8px 14px',
+                                border: 'none',
+                                borderBottom: lessonTab === 'materials' ? '2px solid #0284c7' : '2px solid transparent',
+                                backgroundColor: 'transparent',
+                                color: lessonTab === 'materials' ? '#0284c7' : '#64748b',
+                                fontWeight: '700',
+                                fontSize: '0.82rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <i className="fa-solid fa-paperclip" style={{ marginRight: '6px' }}></i>
+                              Tài liệu đính kèm ({lessonDetail?.materials?.length || selectedLesson.materials?.length || 0})
+                            </button>
+                          </div>
+
+                          {/* Tab Body */}
+                          {loadingLessonDetail ? (
+                            <div style={{ textAlign: 'center', padding: '24px 0', color: '#64748b' }}>
+                              <i className="fa-solid fa-spinner fa-spin" style={{ color: '#0284c7' }}></i>
+                              <span style={{ marginLeft: '8px', fontSize: '0.82rem' }}>Đang nạp chi tiết bài giảng...</span>
+                            </div>
+                          ) : lessonTab === 'content' ? (
+                            <div style={{ fontSize: '0.86rem', color: '#334155', lineHeight: '1.6', maxHeight: '180px', overflowY: 'auto' }}>
+                              {lessonDetail?.content || selectedLesson.content ? (
+                                <div style={{ whiteSpace: 'pre-line' }}>{lessonDetail?.content || selectedLesson.content}</div>
+                              ) : (
+                                <p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>
+                                  Bài học này không có ghi chú lý thuyết bằng văn bản.
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                              {(!lessonDetail?.materials || lessonDetail.materials.length === 0) && (!selectedLesson.materials || selectedLesson.materials.length === 0) ? (
+                                <p style={{ color: '#94a3b8', fontStyle: 'italic', margin: 0, fontSize: '0.84rem' }}>
+                                  Bài giảng này không có file tài liệu đính kèm.
+                                </p>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  {(lessonDetail?.materials || selectedLesson.materials || []).map((m, mIdx) => (
+                                    <div
+                                      key={m.id || mIdx}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        backgroundColor: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
+                                        fontSize: '0.82rem',
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <i className="fa-solid fa-file-lines" style={{ color: '#0284c7' }}></i>
+                                        <span style={{ fontWeight: '600', color: '#1e293b' }}>{m.title || `Tài liệu ${mIdx + 1}`}</span>
+                                      </div>
+                                      {m.file_url && (
+                                        <a
+                                          href={m.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          style={{ color: '#0284c7', fontWeight: '700', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <i className="fa-solid fa-download"></i> Xem file
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ padding: '60px 20px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                        <i className="fa-solid fa-circle-play" style={{ fontSize: '3rem', color: '#cbd5e1', marginBottom: '12px' }}></i>
+                        <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: '700', color: '#475569' }}>
+                          Vui lòng chọn bài học từ danh mục bên phải
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8' }}>
+                          Bấm vào bất kỳ bài học nào để thẩm định trực tiếp video và nội dung sư phạm.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Mục lục các chương và bài học */}
-                  <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: '800', color: '#1e293b' }}>
-                    Cấu trúc chương trình học ({previewModal.details?.chapters?.length || 0} chương):
-                  </h4>
-
-                  {(!previewModal.details?.chapters || previewModal.details.chapters.length === 0) ? (
-                    <div style={{ padding: '24px', textAlign: 'center', backgroundColor: '#fef2f2', borderRadius: '10px', color: '#b91c1c' }}>
-                      <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '8px' }}></i>
-                      Khóa học này chưa có chương học nào! Giảng viên cần bổ sung ít nhất 1 chương và bài học.
+                  {/* CỘT PHẢI: MỤC LỤC GIÁO TRÌNH & CÁC CHƯƠNG BÀI HỌC */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '620px', overflowY: 'auto', paddingRight: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#0f172a' }}>
+                        Mục lục giáo trình ({previewModal.details?.chapters?.length || 0} chương)
+                      </h4>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                        Bấm để kiểm định video
+                      </span>
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {previewModal.details.chapters.map((ch, idx) => (
-                        <div key={ch.id} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', backgroundColor: '#ffffff' }}>
-                          <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#0f172a', marginBottom: '8px' }}>
-                            Chương {idx + 1}: {ch.title}
-                          </div>
-                          {ch.description && (
-                            <p style={{ margin: '0 0 10px 0', fontSize: '0.82rem', color: '#64748b' }}>{ch.description}</p>
-                          )}
 
-                          {/* Danh sách bài học */}
+                    {(!previewModal.details?.chapters || previewModal.details.chapters.length === 0) ? (
+                      <div style={{ padding: '24px', textAlign: 'center', backgroundColor: '#fef2f2', borderRadius: '10px', color: '#b91c1c' }}>
+                        <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '8px' }}></i>
+                        Khóa học này chưa có chương học nào! Giảng viên cần bổ sung ít nhất 1 chương và bài học.
+                      </div>
+                    ) : (
+                      previewModal.details.chapters.map((ch, idx) => (
+                        <div key={ch.id} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px', backgroundColor: '#ffffff' }}>
+                          <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#0f172a', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Chương {idx + 1}: {ch.title}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>
+                              {(ch.lessons || []).length} bài
+                            </span>
+                          </div>
+
+                          {/* Danh sách bài học của chương */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {(ch.lessons || []).map((l, lIdx) => (
-                              <div
-                                key={l.id}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  padding: '8px 12px',
-                                  backgroundColor: '#f8fafc',
-                                  borderRadius: '8px',
-                                  fontSize: '0.82rem',
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <i className="fa-solid fa-circle-play" style={{ color: '#4338ca' }}></i>
-                                  <span style={{ fontWeight: '600' }}>
-                                    {lIdx + 1}. {l.title}
-                                  </span>
-                                  {l.duration_minutes > 0 && (
-                                    <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>({l.duration_minutes} phút)</span>
-                                  )}
-                                  {l.is_preview && (
-                                    <span style={{ backgroundColor: '#e0e7ff', color: '#3730a3', fontSize: '0.68rem', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>
-                                      HỌC THỬ
+                            {(ch.lessons || []).map((l, lIdx) => {
+                              const isCurrent = selectedLesson?.id === l.id;
+                              const hasVideo = !!l.video_url;
+
+                              return (
+                                <div
+                                  key={l.id}
+                                  onClick={() => handleSelectLesson({ ...l, chapterTitle: ch.title })}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '9px 12px',
+                                    backgroundColor: isCurrent ? '#eff6ff' : '#f8fafc',
+                                    border: isCurrent ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                                    <i
+                                      className={isCurrent ? 'fa-solid fa-circle-play' : 'fa-regular fa-circle-play'}
+                                      style={{ color: isCurrent ? '#0284c7' : hasVideo ? '#10b981' : '#94a3b8', fontSize: '0.95rem' }}
+                                    ></i>
+                                    <span
+                                      style={{
+                                        fontWeight: isCurrent ? '800' : '600',
+                                        fontSize: '0.82rem',
+                                        color: isCurrent ? '#0284c7' : '#334155',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {lIdx + 1}. {l.title}
                                     </span>
-                                  )}
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                    {hasVideo ? (
+                                      <span style={{ fontSize: '0.7rem', color: '#16a34a', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                        <i className="fa-solid fa-video" style={{ marginRight: '3px' }}></i> Video
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: '0.7rem', color: '#d97706', backgroundColor: '#fef3c7', padding: '2px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                                        Chưa video
+                                      </span>
+                                    )}
+                                    {l.duration_minutes > 0 && (
+                                      <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{l.duration_minutes}m</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {l.video_url ? (
-                                    <span style={{ color: '#059669', fontSize: '0.75rem', fontWeight: '700' }}>
-                                      <i className="fa-solid fa-video" style={{ marginRight: '4px' }}></i> Có Video
-                                    </span>
-                                  ) : (
-                                    <span style={{ color: '#d97706', fontSize: '0.75rem' }}>Chưa gắn Video</span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Modal Actions */}
-            <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                onClick={() => setPreviewModal({ isOpen: false, course: null, details: null, loadingDetails: false })}
-                style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#475569', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
-              >
-                Đóng
-              </button>
-              <button
-                onClick={() => {
-                  const course = previewModal.course;
-                  setPreviewModal({ isOpen: false, course: null, details: null, loadingDetails: false });
-                  handleOpenReviewModal(course);
-                }}
-                style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #fca5a5', backgroundColor: '#fee2e2', color: '#b91c1c', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
-              >
-                <i className="fa-solid fa-comment-pen" style={{ marginRight: '6px' }}></i>
-                Gửi phản biện
-              </button>
-              <button
-                onClick={() => {
-                  const course = previewModal.course;
-                  handleApprove(course);
-                }}
-                style={{ padding: '8px 18px', borderRadius: '10px', border: 'none', backgroundColor: '#059669', color: '#ffffff', fontSize: '0.85rem', fontWeight: '800', cursor: 'pointer' }}
-              >
-                <i className="fa-solid fa-check" style={{ marginRight: '6px' }}></i>
-                Phê duyệt khóa học
-              </button>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                {selectedLesson && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const course = previewModal.course;
+                      const lessonTitle = selectedLesson.title;
+                      setPreviewModal({ isOpen: false, course: null, details: null, loadingDetails: false });
+                      setReviewModal({
+                        isOpen: true,
+                        course,
+                        criteria: { content: false, video: true, quiz: false, materials: false },
+                        notes: `[Phản biện Bài giảng "${lessonTitle}"]:\n- Video: \n- Nội dung: `,
+                        isSubmitting: false,
+                      });
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid #fca5a5',
+                      backgroundColor: '#ffffff',
+                      color: '#dc2626',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                    title="Gửi phản biện riêng cho bài giảng video đang xem"
+                  >
+                    <i className="fa-solid fa-comment-dots"></i>
+                    <span>Phản biện bài học này</span>
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  onClick={() => {
+                    setPreviewModal({ isOpen: false, course: null, details: null, loadingDetails: false });
+                    setSelectedLesson(null);
+                    setLessonDetail(null);
+                  }}
+                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#475569', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  Đóng
+                </button>
+
+                <button
+                  onClick={() => {
+                    const course = previewModal.course;
+                    setPreviewModal({ isOpen: false, course: null, details: null, loadingDetails: false });
+                    handleOpenReviewModal(course);
+                  }}
+                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #fca5a5', backgroundColor: '#fee2e2', color: '#b91c1c', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <i className="fa-solid fa-message-exclamation"></i>
+                  <span>Yêu cầu sửa khóa học</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const course = previewModal.course;
+                    handleApprove(course);
+                  }}
+                  style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', backgroundColor: '#059669', color: '#ffffff', fontSize: '0.85rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <i className="fa-solid fa-check"></i>
+                  <span>Phê duyệt khóa học</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

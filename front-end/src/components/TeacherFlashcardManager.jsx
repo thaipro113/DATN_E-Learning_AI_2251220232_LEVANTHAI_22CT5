@@ -6,6 +6,7 @@ import {
   getStoredCustomWords,
   saveStoredCustomWords,
   getAllDecksWithWords,
+  resubmitDeckForReview,
   speakWord,
 } from '../utils/flashcardStorage';
 
@@ -62,10 +63,11 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     saveStoredCustomWords(customWords);
   }, [customWords]);
 
-  // Tổng hợp tất cả các bộ thẻ (Bao gồm các bộ do Admin và Giảng viên quản lý)
+  // Tổng hợp đề tài: CHỈ hiển thị đề tài của giảng viên này + đề tài hệ thống/Admin đã duyệt
+  // Tuyệt đối không hiển thị đề tài nháp/chờ duyệt của giảng viên khác
   const allDecks = useMemo(() => {
-    return getAllDecksWithWords();
-  }, [customDecks, customWords]);
+    return getAllDecksWithWords(user);
+  }, [customDecks, customWords, user]);
 
   const currentDeck = useMemo(() => {
     return allDecks.find((d) => d.id === selectedDeckId) || allDecks[0] || null;
@@ -89,6 +91,13 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     setPlayingWord(word);
     speakWord(word, 1.0);
     setTimeout(() => setPlayingWord(null), 1500);
+  };
+
+  // Gửi lại đề tài cho Phản biện duyệt sau khi giảng viên đã chỉnh sửa
+  const handleResubmitDeck = (deckId) => {
+    resubmitDeckForReview(deckId);
+    setCustomDecks(getStoredCustomDecks());
+    showToast('✓ Đã gửi đề tài lại cho Hội đồng Phản biện phê duyệt!', 'success');
   };
 
   // Tạo đề tài mới
@@ -133,11 +142,15 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
         icon: 'fa-book-bookmark',
         isCustomDeck: true,
         author: user?.full_name || 'Giảng viên',
+        authorId: user?.id || user?.email || 'teacher',
+        authorRole: 'TEACHER',
+        // Đề tài mới tạo của Giảng viên phải chuyển sang trạng thái chờ phản biện phê duyệt trước khi lên web
+        status: 'PENDING',
         created_at: new Date().toISOString().split('T')[0],
       };
       setCustomDecks((prev) => [...prev, newDeck]);
       setSelectedDeckId(newDeck.id);
-      showToast('Đã tạo đề tài từ vựng mới thành công!');
+      showToast('Đã gửi đề tài mới đến Hội đồng Phản biện để kiểm tra và phê duyệt!');
     } else {
       setCustomDecks((prev) =>
         prev.map((d) =>
@@ -595,7 +608,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                         <span
                           style={{
                             fontSize: '0.72rem',
@@ -620,6 +633,22 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                         >
                           {deck.author || 'Admin'}
                         </span>
+
+                        {deck.status === 'PENDING' && (
+                          <span style={{ fontSize: '0.66rem', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                            ⏳ Chờ phản biện duyệt
+                          </span>
+                        )}
+                        {deck.status === 'PUBLISHED' && (
+                          <span style={{ fontSize: '0.66rem', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                            ✓ Đã lên web
+                          </span>
+                        )}
+                        {deck.status === 'REJECTED' && (
+                          <span style={{ fontSize: '0.66rem', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+                            ⚠️ Cần sửa
+                          </span>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -677,6 +706,102 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
               }}
             >
+              {/* Thông báo tình trạng thẩm định của đề tài đang chọn */}
+              {currentDeck.status === 'REJECTED' && (
+                <div
+                  style={{
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '10px',
+                    padding: '14px 18px',
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: '280px' }}>
+                    <i className="fa-solid fa-triangle-exclamation" style={{ color: '#dc2626', fontSize: '1.2rem', marginTop: '2px' }}></i>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#991b1b', fontSize: '0.9rem' }}>
+                        Đề tài bị Hội đồng Thẩm định yêu cầu chỉnh sửa & phản biện
+                      </div>
+                      <div style={{ color: '#b91c1c', fontSize: '0.84rem', marginTop: '4px', whiteSpace: 'pre-wrap' }}>
+                        {currentDeck.rejectionReason || 'Vui lòng kiểm tra lại chất lượng từ vựng, phiên âm hoặc ví dụ ngữ cảnh.'}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleResubmitDeck(currentDeck.id)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <i className="fa-solid fa-paper-plane"></i>
+                    <span>Gửi lại Thẩm định</span>
+                  </button>
+                </div>
+              )}
+
+              {currentDeck.status === 'PENDING' && (
+                <div
+                  style={{
+                    backgroundColor: '#fffbeb',
+                    border: '1px solid #fcd34d',
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    color: '#92400e',
+                    fontSize: '0.84rem',
+                    fontWeight: '600',
+                  }}
+                >
+                  <i className="fa-solid fa-clock-rotate-left" style={{ color: '#d97706', fontSize: '1.1rem' }}></i>
+                  <span>
+                    Đề tài đang ở trạng thái <strong>Chờ phản biện phê duyệt</strong>. Sau khi Thẩm định viên kiểm định đạt chuẩn sẽ tự động xuất bản lên web cho học viên.
+                  </span>
+                </div>
+              )}
+
+              {currentDeck.status === 'PUBLISHED' && (
+                <div
+                  style={{
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #86efac',
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    color: '#166534',
+                    fontSize: '0.84rem',
+                    fontWeight: '600',
+                  }}
+                >
+                  <i className="fa-solid fa-circle-check" style={{ color: '#16a34a', fontSize: '1.1rem' }}></i>
+                  <span>
+                    Đề tài đã được <strong>Thẩm định & Phê duyệt xuất bản</strong> công khai trên web cho toàn bộ học viên ôn luyện.
+                  </span>
+                </div>
+              )}
+
               {/* Header Bảng từ vựng */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>

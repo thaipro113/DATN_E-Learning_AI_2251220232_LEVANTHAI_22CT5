@@ -276,8 +276,8 @@ class CurriculumService:
 
         course = lesson.chapter.course
 
-        # 1. Admin hoặc giáo viên sở hữu
-        if user and user.is_authenticated and (user.role == 'ADMIN' or course.teacher == user):
+        # 1. Admin, Thẩm định viên (Reviewer) hoặc giáo viên sở hữu
+        if user and user.is_authenticated and (user.role in ['ADMIN', 'REVIEWER'] or course.teacher == user):
             return lesson, True, "Thành công"
 
         # 2. Bài học cho phép học thử công khai

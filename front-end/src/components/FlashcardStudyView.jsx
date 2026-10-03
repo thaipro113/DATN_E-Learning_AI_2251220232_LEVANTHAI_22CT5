@@ -612,7 +612,8 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
     }
   }, [customWords]);
 
-  // 3. Tổng hợp danh sách TẤT CẢ các Chủ đề / Bộ thẻ (3 bộ chuẩn CEFR + các bộ tự tạo của Giáo viên/Admin)
+  // 3. Tổng hợp danh sách các Chủ đề / Bộ thẻ được phép học (CHỈ những bộ đã được Phê duyệt PUBLISHED hoặc bộ hệ thống)
+  // Các đề tài PENDING (chờ duyệt) hoặc REJECTED (bị từ chối) của Giảng viên TUYỆT ĐỐI KHÔNG hiển thị cho học viên
   const allDecks = [
     // 3 bộ gốc: lấy từ mặc định cộng thêm các từ mới được thêm vào đúng bộ đó
     ...VOCABULARY_DECKS.map((d) => ({
@@ -622,11 +623,13 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
         ...customWords.filter((w) => w.deckId === d.id),
       ],
     })),
-    // Các bộ do Giáo viên, Admin hoặc Người dùng tạo
-    ...customDecks.map((d) => ({
-      ...d,
-      cards: customWords.filter((w) => w.deckId === d.id),
-    })),
+    // Các bộ do Giáo viên tạo đã qua phản biện và phê duyệt xuất bản (PUBLISHED)
+    ...customDecks
+      .filter((d) => d.status === 'PUBLISHED' || (!d.status && d.id === 'custom_personal'))
+      .map((d) => ({
+        ...d,
+        cards: customWords.filter((w) => w.deckId === d.id),
+      })),
   ];
 
   // State quản lý bộ thẻ & thẻ hiện tại

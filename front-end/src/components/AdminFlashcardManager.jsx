@@ -199,6 +199,8 @@ export default function AdminFlashcardManager() {
         icon: 'fa-folder-open',
         isCustomDeck: true,
         author: 'Admin',
+        authorRole: 'ADMIN',
+        status: 'PUBLISHED',
         created_at: new Date().toISOString().split('T')[0],
       };
       setCustomDecks((prev) => [...prev, newDeck]);
