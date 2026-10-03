@@ -8,6 +8,7 @@ from .managers import CustomUserManager
 class UserRole(models.TextChoices):
     STUDENT = 'STUDENT', _('Học viên')
     TEACHER = 'TEACHER', _('Giáo viên')
+    REVIEWER = 'REVIEWER', _('Người phản biện / Thẩm định bài giảng')
     ADMIN = 'ADMIN', _('Quản trị viên')
 
 

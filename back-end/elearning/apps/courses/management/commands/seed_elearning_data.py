@@ -57,7 +57,19 @@ class Command(BaseCommand):
             teacher2.set_password('levanthai113')
             teacher2.save()
 
-            self.stdout.write(self.style.SUCCESS('   ✓ Đã tạo các tài khoản chuẩn (Học viên & Giảng viên).'))
+            reviewer, _ = CustomUser.objects.get_or_create(
+                email='reviewer@gmail.com',
+                defaults={
+                    'full_name': 'TS. Đặng Thanh Tùng (Thẩm định viên bài giảng)',
+                    'role': UserRole.REVIEWER,
+                    'level': EnglishLevel.C2,
+                    'is_active': True
+                }
+            )
+            reviewer.set_password('levanthai113')
+            reviewer.save()
+
+            self.stdout.write(self.style.SUCCESS('   ✓ Đã tạo các tài khoản chuẩn (Học viên, Giảng viên & Thẩm định viên Reviewer).'))
 
             # 2. TẠO DANH MỤC KHÓA HỌC (CATEGORIES)
             self.stdout.write('2. Khởi tạo danh mục khóa học...')

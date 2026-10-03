@@ -24,6 +24,8 @@ import CourseDetailModal from './components/CourseDetailModal';
 import CourseDetailFullView from './components/CourseDetailFullView';
 import PaymentCheckoutModal from './components/PaymentCheckoutModal';
 import AdminDashboardView from './components/AdminDashboardView';
+import CourseReviewerDashboardView from './components/CourseReviewerDashboardView';
+import FlashcardStudyView from './components/FlashcardStudyView';
 import AICommunicationView from './components/AICommunicationView';
 import Footer from './components/Footer';
 import FloatingContactWidget from './components/FloatingContactWidget';
@@ -40,8 +42,8 @@ export default function App() {
     }
     const validTabs = [
       'dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 
-      'ai_coach', 'teacher_dashboard', 'teacher_quizzes', 'admin_dashboard', 
-      'cert_verify', 'login', 'register', 'profile'
+      'flashcards', 'ai_coach', 'teacher_dashboard', 'teacher_quizzes', 'admin_dashboard', 
+      'reviewer_dashboard', 'cert_verify', 'login', 'register', 'profile'
     ];
     return { tab: validTabs.includes(rawHash) ? rawHash : 'dashboard', slug: null };
   };
@@ -54,6 +56,9 @@ export default function App() {
         const u = JSON.parse(savedUser);
         if (u.role === 'ADMIN' && (initialRoute.tab === 'dashboard' || !initialRoute.tab)) {
           return 'admin_dashboard';
+        }
+        if (u.role === 'REVIEWER' && (initialRoute.tab === 'dashboard' || !initialRoute.tab)) {
+          return 'reviewer_dashboard';
         }
       } catch (e) {}
     }
@@ -337,9 +342,27 @@ export default function App() {
       setIsAuthModalOpen(true);
       return;
     }
-    const targetTab = (user?.role === 'ADMIN' && tab === 'dashboard') ? 'admin_dashboard' : tab;
+    const targetTab = (user?.role === 'ADMIN' && tab === 'dashboard') 
+      ? 'admin_dashboard' 
+      : (user?.role === 'REVIEWER' && tab === 'dashboard')
+      ? 'reviewer_dashboard'
+      : tab;
     setCurrentTab(targetTab);
     setIsMobileDrawerOpen(false);
+  };
+
+  // Ghi nhận phiên học tập tích cực (dành cho Streak Chú Chim Mascot)
+  const handleRecordStudySession = () => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    try {
+      const lastStudyDate = localStorage.getItem('study_session_date');
+      let streak = parseInt(localStorage.getItem('daily_study_streak') || '1', 10);
+      if (lastStudyDate !== todayStr) {
+        streak += 1;
+        localStorage.setItem('daily_study_streak', String(streak));
+        localStorage.setItem('study_session_date', todayStr);
+      }
+    } catch (e) {}
   };
 
   const handleOpenCourseDetail = (course) => {
@@ -355,10 +378,12 @@ export default function App() {
     quizzes: 'Luyện Đề Thi',
     path: 'Luyện Lỗi Sai AI',
     skills: 'Luyện Lỗi Sai AI',
+    flashcards: 'Flashcards Từ Vựng',
     ai_coach: 'Phòng Luyện Giao Tiếp AI',
     teacher_dashboard: 'Studio Giảng dạy',
     teacher_quizzes: 'Quản lý Đề thi',
     admin_dashboard: 'Quản trị Hệ thống',
+    reviewer_dashboard: 'Cổng Thẩm Định Khóa Học',
     cert_verify: 'Tra cứu Chứng chỉ số',
     login: 'Đăng nhập',
     register: 'Đăng ký tài khoản',
@@ -368,7 +393,7 @@ export default function App() {
   // Tự động chuyển hướng nếu vào #/login hoặc #/register khi ĐÃ ĐĂNG NHẬP
   useEffect(() => {
     if (isLoggedIn && (currentTab === 'login' || currentTab === 'register')) {
-      handleSelectTab(user?.role === 'TEACHER' ? 'teacher_dashboard' : user?.role === 'ADMIN' ? 'admin_dashboard' : 'dashboard');
+      handleSelectTab(user?.role === 'TEACHER' ? 'teacher_dashboard' : user?.role === 'ADMIN' ? 'admin_dashboard' : user?.role === 'REVIEWER' ? 'reviewer_dashboard' : 'dashboard');
     }
   }, [isLoggedIn, currentTab, user?.role]);
 
@@ -517,9 +542,9 @@ export default function App() {
       </div>
 
       {/* 2. Main Content Area */}
-      <main className={`main-content ${currentTab === 'admin_dashboard' || (user?.role === 'ADMIN' && currentTab === 'dashboard') ? 'full-width-admin' : ''}`}>
+      <main className={`main-content ${currentTab === 'admin_dashboard' || currentTab === 'reviewer_dashboard' || (user?.role === 'ADMIN' && currentTab === 'dashboard') || (user?.role === 'REVIEWER' && currentTab === 'dashboard') ? 'full-width-admin' : ''}`}>
         {/* Breadcrumb Bar with Back Button when in Subviews */}
-        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && !(user?.role === 'ADMIN' && currentTab === 'dashboard') && (
+        {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'reviewer_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && !(user?.role === 'ADMIN' && currentTab === 'dashboard') && !(user?.role === 'REVIEWER' && currentTab === 'dashboard') && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
             {/* Nút Quay lại thông minh theo ngữ cảnh */}
             {currentTab === 'learning' ? (
@@ -743,6 +768,13 @@ export default function App() {
               />
             )}
 
+            {currentTab === 'flashcards' && (
+              <FlashcardStudyView
+                user={user}
+                onRecordStudySession={handleRecordStudySession}
+              />
+            )}
+
             {(currentTab === 'path' || currentTab === 'skills') && (
               <AdaptivePathView
                 learningPath={learningPath}
@@ -842,6 +874,18 @@ export default function App() {
             )}
           </>
         )}
+
+        {/* ==================== D. REVIEWER VIEWS ==================== */}
+        {isLoggedIn && user.role === 'REVIEWER' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
+          <>
+            {(currentTab === 'reviewer_dashboard' || currentTab === 'dashboard') && (
+              <CourseReviewerDashboardView
+                user={user}
+                onBackToDashboard={() => handleSelectTab('reviewer_dashboard')}
+              />
+            )}
+          </>
+        )}
       </main>
 
       {/* Quiz Import Tool Modal for Teachers with CSDL Confirm */}
@@ -892,13 +936,13 @@ export default function App() {
         }}
       />
 
-      {/* 9. Site Footer (Ẩn trong giao diện Quản trị Admin) */}
-      {user?.role !== 'ADMIN' && currentTab !== 'admin_dashboard' && (
+      {/* 9. Site Footer (Ẩn trong giao diện Quản trị Admin và Reviewer Portal) */}
+      {user?.role !== 'ADMIN' && user?.role !== 'REVIEWER' && currentTab !== 'admin_dashboard' && currentTab !== 'reviewer_dashboard' && (
         <Footer onSelectTab={handleSelectTab} currentTab={currentTab} />
       )}
 
-      {/* 10. Floating Quick Contact Stack (Zalo, FB Messenger, Hotline, Scroll Top) - Ẩn hoàn toàn trong Admin */}
-      {user?.role !== 'ADMIN' && currentTab !== 'admin_dashboard' && (
+      {/* 10. Floating Quick Contact Stack (Zalo, FB Messenger, Hotline, Scroll Top) - Ẩn hoàn toàn trong Admin và Reviewer */}
+      {user?.role !== 'ADMIN' && user?.role !== 'REVIEWER' && currentTab !== 'admin_dashboard' && currentTab !== 'reviewer_dashboard' && (
         <FloatingContactWidget onOpenAITutor={() => setIsAITutorModalOpen(true)} />
       )}
 

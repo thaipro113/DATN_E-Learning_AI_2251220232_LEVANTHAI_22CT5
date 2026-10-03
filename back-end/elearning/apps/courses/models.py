@@ -90,10 +90,23 @@ class Course(BaseModel):
         default=CourseStatus.DRAFT
     )
     rejection_reason = models.TextField(
-        _('Lý do từ chối phê duyệt'),
+        _('Lý do từ chối / Phản biện khóa học'),
         blank=True,
         null=True,
-        help_text=_('Phản hồi từ Quản trị viên khi từ chối khóa học')
+        help_text=_('Ý kiến phản biện từ Thẩm định viên / Quản trị viên khi từ chối khóa học')
+    )
+    reviewed_by = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_courses',
+        verbose_name=_('Người thẩm định / Phản biện')
+    )
+    reviewed_at = models.DateTimeField(
+        _('Thời gian thẩm định'),
+        null=True,
+        blank=True
     )
 
     class Meta:

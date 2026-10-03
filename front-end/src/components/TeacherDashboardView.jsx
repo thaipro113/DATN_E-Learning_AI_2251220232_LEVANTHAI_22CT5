@@ -568,8 +568,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#991b1b', marginBottom: '4px' }}>
-                                <i className="fa-solid fa-circle-xmark" style={{ color: '#ef4444' }}></i>
-                                <span>Phản hồi từ Admin:</span>
+                                <i className="fa-solid fa-scale-balanced" style={{ color: '#dc2626' }}></i>
+                                <span>Ý kiến phản biện từ Thẩm định viên / Hội đồng chuyên môn:</span>
                               </div>
                               <div style={{ color: '#b91c1c', fontStyle: 'italic', marginBottom: '8px', lineHeight: 1.4 }}>
                                 "{course.rejection_reason || 'Nội dung chưa đạt chuẩn. Vui lòng cập nhật giáo trình và gửi duyệt lại.'}"

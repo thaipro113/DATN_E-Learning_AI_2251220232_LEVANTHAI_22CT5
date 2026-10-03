@@ -13,6 +13,31 @@ class IsAdminUserRole(BasePermission):
         )
 
 
+class IsReviewerUserRole(BasePermission):
+    """
+    Cho phép truy cập chỉ dành cho Người phản biện / Thẩm định bài giảng (REVIEWER).
+    """
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            (request.user.role == 'REVIEWER' or request.user.is_staff or request.user.is_superuser)
+        )
+
+
+class IsReviewerOrAdminUserRole(BasePermission):
+    """
+    Cho phép truy cập dành cho Người phản biện (REVIEWER) hoặc Quản trị viên (ADMIN)
+    để rà soát, phản biện và phê duyệt khóa học.
+    """
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            (request.user.role in ['REVIEWER', 'ADMIN'] or request.user.is_staff or request.user.is_superuser)
+        )
+
+
 class IsTeacherUserRole(BasePermission):
     """
     Allows access only to users with the TEACHER or ADMIN role.

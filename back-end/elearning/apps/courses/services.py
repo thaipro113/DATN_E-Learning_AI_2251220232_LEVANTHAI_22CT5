@@ -75,7 +75,7 @@ class CourseService:
         filters = filters or {}
         queryset = Course.objects.select_related('category', 'teacher')
 
-        if user and user.is_authenticated and user.role == 'ADMIN':
+        if user and user.is_authenticated and user.role in ['ADMIN', 'REVIEWER']:
             if filters.get('status'):
                 queryset = queryset.filter(status=filters.get('status'))
         elif user and user.is_authenticated and user.role == 'TEACHER':
@@ -171,16 +171,24 @@ class CourseService:
         return True, "Khóa học và toàn bộ giáo trình bên trong đã được xóa khỏi hệ thống thành công."
 
     @staticmethod
-    def approve_course(course: Course) -> tuple[bool, str, Course]:
+    def approve_course(course: Course, user=None) -> tuple[bool, str, Course]:
+        from django.utils import timezone
         course.status = CourseStatus.PUBLISHED
         course.rejection_reason = None
+        if hasattr(course, 'reviewed_by') and user and user.is_authenticated:
+            course.reviewed_by = user
+            course.reviewed_at = timezone.now()
         course.save()
         return True, f"Khóa học '{course.title}' đã được phê duyệt và xuất bản thành công!", course
 
     @staticmethod
-    def reject_course(course: Course, reason: str = "") -> tuple[bool, str, Course]:
+    def reject_course(course: Course, reason: str = "", user=None) -> tuple[bool, str, Course]:
+        from django.utils import timezone
         course.status = CourseStatus.REJECTED
         course.rejection_reason = reason.strip() or "Khóa học chưa đáp ứng tiêu chuẩn nội dung hoặc chất lượng sư phạm."
+        if hasattr(course, 'reviewed_by') and user and user.is_authenticated:
+            course.reviewed_by = user
+            course.reviewed_at = timezone.now()
         course.save()
         return True, f"Khóa học '{course.title}' đã bị từ chối phê duyệt.", course
 

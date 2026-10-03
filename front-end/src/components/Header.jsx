@@ -57,7 +57,7 @@ export default function Header({
             href="#dashboard"
             onClick={(e) => {
               e.preventDefault();
-              onSelectTab(role === 'TEACHER' ? 'teacher_dashboard' : role === 'ADMIN' ? 'admin_dashboard' : 'dashboard');
+              onSelectTab(role === 'TEACHER' ? 'teacher_dashboard' : role === 'ADMIN' ? 'admin_dashboard' : role === 'REVIEWER' ? 'reviewer_dashboard' : 'dashboard');
             }}
             className="brand-logo"
             title="TL-ENGLISH: Learn Smarter - Speak Confidently"
@@ -126,6 +126,15 @@ export default function Header({
                     </li>
                     <li>
                       <button
+                        className={`nav-link ${currentTab === 'flashcards' ? 'active' : ''}`}
+                        onClick={() => onSelectTab('flashcards')}
+                      >
+                        <span>Flashcards</span>
+                        <span style={{ fontSize: '0.62rem', backgroundColor: '#2563eb', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>TỪ VỰNG</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
                         className={`nav-link ${currentTab === 'ai_coach' ? 'active' : ''}`}
                         onClick={() => onSelectTab('ai_coach')}
                         style={{ position: 'relative' }}
@@ -169,6 +178,21 @@ export default function Header({
                   onClick={() => onSelectTab('admin_dashboard')}
                 >
                   <span>Bảng Quản Trị Hệ Thống</span>
+                </button>
+              </li>
+            )}
+
+            {/* 4. TABS DÀNH CHO THẨM ĐỊNH VIÊN / REVIEWER (CHỈ KHI ĐANG ĐĂNG NHẬP) */}
+            {isLoggedIn && role === 'REVIEWER' && (
+              <li>
+                <button
+                  className={`nav-link ${currentTab === 'reviewer_dashboard' || currentTab === 'dashboard' ? 'active' : ''}`}
+                  onClick={() => onSelectTab('reviewer_dashboard')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <i className="fa-solid fa-scale-balanced" style={{ color: '#8b5cf6' }}></i>
+                  <span>Cổng Thẩm Định Khóa Học</span>
+                  <span style={{ fontSize: '0.62rem', backgroundColor: '#8b5cf6', color: 'white', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>AUDIT</span>
                 </button>
               </li>
             )}
@@ -289,8 +313,8 @@ export default function Header({
                           </span>
                         </div>
                       </div>
-                      <div style={{ marginTop: '4px', fontSize: '0.78rem', fontWeight: '800', color: '#0284c7' }}>
-                        Vai trò: {role === 'TEACHER' ? 'Giảng viên' : role === 'ADMIN' ? 'Quản trị viên' : `Học viên (${user?.level || 'B1'})`}
+                      <div style={{ marginTop: '4px', fontSize: '0.78rem', fontWeight: '800', color: role === 'REVIEWER' ? '#8b5cf6' : '#0284c7' }}>
+                        Vai trò: {role === 'TEACHER' ? 'Giảng viên' : role === 'ADMIN' ? 'Quản trị viên' : role === 'REVIEWER' ? 'Hội đồng Thẩm định (Reviewer)' : `Học viên (${user?.level || 'B1'})`}
                       </div>
                     </div>
 

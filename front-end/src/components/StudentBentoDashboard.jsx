@@ -61,8 +61,232 @@ export default function StudentBentoDashboard({
   const calculatedXP = Math.max(30, totalCompletedLessons * 20 + totalAttempts * 15 + aiSessionCount * 10);
   const currentStreak = totalAttempts > 0 || totalCompletedLessons > 0 || aiSessionCount > 0 ? 1 : 0;
 
+  // 4. Quản lý trạng thái Nudge & Streak thông minh (Duolingo Style Mascot Nudge)
+  const [isNudgeDismissed, setIsNudgeDismissed] = React.useState(() => {
+    try {
+      return sessionStorage.getItem('bird_nudge_dismissed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleDismissNudge = () => {
+    setIsNudgeDismissed(true);
+    try {
+      sessionStorage.setItem('bird_nudge_dismissed', 'true');
+    } catch (e) {}
+  };
+
+  // Xác định xem hôm nay học viên đã học bài nào chưa
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const studiedTodayFromAttempts = Array.isArray(myAttempts) && myAttempts.some((a) => a.created_at?.slice(0, 10) === todayStr);
+  let studiedTodayFromStorage = false;
+  try {
+    studiedTodayFromStorage = localStorage.getItem('study_session_date') === todayStr;
+  } catch (e) {}
+  const hasStudiedToday = studiedTodayFromAttempts || studiedTodayFromStorage;
+
+  // Chuỗi streak ngày
+  let streakDays = 1;
+  try {
+    const saved = localStorage.getItem('daily_study_streak');
+    streakDays = saved ? Math.max(1, parseInt(saved, 10)) : (currentStreak || 1);
+  } catch (e) {
+    streakDays = 1;
+  }
+
   return (
     <section className="student-bento-section" style={{ margin: '20px 0 28px 0' }}>
+      {/* =========================================================================
+          LINH VẬT ĐỒNG HÀNH & CÚ HUÝCH HỌC TẬP HÀNG NGÀY (DUOLINGO STYLE MASCOT NUDGE)
+         ========================================================================= */}
+      {!isNudgeDismissed ? (
+        <div
+          style={{
+            background: hasStudiedToday
+              ? 'linear-gradient(135deg, #065f46 0%, #059669 60%, #10b981 100%)'
+              : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4f46e5 100%)',
+            borderRadius: '20px',
+            padding: '20px 24px',
+            color: '#ffffff',
+            marginBottom: '20px',
+            boxShadow: hasStudiedToday
+              ? '0 10px 25px -5px rgba(5, 150, 105, 0.25)'
+              : '0 10px 25px -5px rgba(79, 70, 229, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Nút đóng / thu nhỏ 1-click */}
+          <button
+            onClick={handleDismissNudge}
+            style={{
+              position: 'absolute',
+              top: '12px',
+              right: '12px',
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '26px',
+              height: '26px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              transition: 'background 0.2s',
+            }}
+            title="Thu nhỏ lời nhắc nhở"
+          >
+            ✕
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flex: '1 1 340px' }}>
+            {/* Mascot Chú chim */}
+            <div
+              style={{
+                width: '74px',
+                height: '74px',
+                borderRadius: '18px',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                backdropFilter: 'blur(8px)',
+                padding: '4px',
+              }}
+            >
+              <img
+                src="/Bird_Student.png"
+                alt="Linh vật Chú Chim Đồng Hành"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            </div>
+
+            {/* Lời thoại ngữ cảnh của chú chim */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: '800',
+                    backgroundColor: hasStudiedToday ? '#34d399' : '#f59e0b',
+                    color: '#064e3b',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    letterSpacing: '0.4px',
+                  }}
+                >
+                  {hasStudiedToday ? 'ĐÃ DUY TRÌ THÀNH CÔNG' : 'CÚ HUÝCH DUY TRÌ THÓI QUEN'}
+                </span>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#fef08a' }}>
+                  🔥 Chuỗi {streakDays} ngày liên tục
+                </span>
+              </div>
+
+              <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', fontWeight: '900', letterSpacing: '-0.3px' }}>
+                {hasStudiedToday
+                  ? `Xuất sắc! Bạn đã hoàn thành bài học hôm nay!`
+                  : `Hôm nay bạn chưa học bài nào đấy nhé!`}
+              </h4>
+
+              <p style={{ margin: 0, fontSize: '0.84rem', color: hasStudiedToday ? '#d1fae5' : '#e0e7ff', lineHeight: '1.4' }}>
+                {hasStudiedToday
+                  ? `Mục tiêu hôm nay đã đạt được. Hãy giữ vững phong độ hoặc thử thách với một bộ từ vựng Flashcard mới nhé!`
+                  : `Chỉ cần dành 5 phút lướt thẻ từ vựng hoặc làm 1 bài kiểm tra mini để chuỗi ngày học 🔥 không bị đóng băng!`}
+              </p>
+            </div>
+          </div>
+
+          {/* Nhóm nút hành động nhanh */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => onSelectTab && onSelectTab('flashcards')}
+              style={{
+                padding: '9px 16px',
+                borderRadius: '12px',
+                backgroundColor: '#ffffff',
+                color: hasStudiedToday ? '#065f46' : '#312e81',
+                border: 'none',
+                fontSize: '0.84rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              }}
+            >
+              <i className="fa-solid fa-layer-group" style={{ color: '#2563eb' }}></i>
+              <span>{hasStudiedToday ? 'Ôn Flashcards từ vựng' : '📚 Học Flashcards 5 phút'}</span>
+            </button>
+
+            {!hasStudiedToday && (
+              <button
+                onClick={() => onSelectTab && onSelectTab('quizzes')}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  fontSize: '0.84rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                <i className="fa-solid fa-bolt" style={{ color: '#fef08a' }}></i>
+                <span>Luyện đề nhanh</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Khi học viên thu nhỏ: Hiển thị thanh mini chip kín đáo */
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            marginBottom: '14px',
+          }}
+        >
+          <div
+            onClick={() => setIsNudgeDismissed(false)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              color: '#334155',
+              transition: 'all 0.2s',
+            }}
+            title="Bấm để mở lại lời nhắc học tập của Chú Chim"
+          >
+            <img src="/Bird_Student.png" alt="Bird" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+            <span>🔥 Chuỗi {streakDays} ngày</span>
+            <span style={{ color: '#2563eb', fontSize: '0.75rem' }}>(Xem lời nhắc)</span>
+          </div>
+        </div>
+      )}
       <div
         className="student-bento-grid"
         style={{
@@ -571,7 +795,52 @@ export default function StudentBentoDashboard({
               <i className="fa-solid fa-chevron-right" style={{ fontSize: '0.75rem', color: '#a855f7' }}></i>
             </div>
 
-            {/* Quick Action Item 2: Luyện đề trắc nghiệm */}
+            {/* Quick Action Item 2: Thẻ từ vựng Flashcards */}
+            <div
+              onClick={() => onSelectTab && onSelectTab('flashcards')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                backgroundColor: '#eff6ff',
+                border: '1px solid #dbeafe',
+                marginBottom: '10px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              className="quick-hub-item"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1rem',
+                  }}
+                >
+                  <i className="fa-solid fa-volume-high"></i>
+                </span>
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: '800', color: '#1e293b' }}>
+                    Flashcards & Phát Âm IPA
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
+                    Thẻ từ vựng thông minh + Giọng đọc bản xứ
+                  </div>
+                </div>
+              </div>
+              <i className="fa-solid fa-chevron-right" style={{ fontSize: '0.75rem', color: '#3b82f6' }}></i>
+            </div>
+
+            {/* Quick Action Item 3: Luyện đề trắc nghiệm */}
             <div
               onClick={() => onSelectTab && onSelectTab('quizzes')}
               style={{
@@ -616,7 +885,7 @@ export default function StudentBentoDashboard({
               <i className="fa-solid fa-chevron-right" style={{ fontSize: '0.75rem', color: '#10b981' }}></i>
             </div>
 
-            {/* Quick Action Item 3: Phòng học của tôi */}
+            {/* Quick Action Item 4: Phòng học của tôi */}
             <div
               onClick={() => onSelectTab && onSelectTab('learning')}
               style={{

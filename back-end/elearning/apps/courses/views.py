@@ -3,7 +3,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 
 from common.responses import success_response, error_response
-from common.permissions import IsAdminUserRole, IsTeacherUserRole, IsOwnerOrReadOnly
+from common.permissions import IsAdminUserRole, IsTeacherUserRole, IsOwnerOrReadOnly, IsReviewerOrAdminUserRole
 from .models import Course, Chapter, Lesson, Material, CourseStatus
 from .serializers import (
     CategorySerializer,
@@ -659,9 +659,9 @@ class MaterialDetailAPIView(APIView):
 
 class CourseApproveAPIView(APIView):
     """
-    API Endpoint dành cho Quản trị viên (Admin) phê duyệt và xuất bản khóa học.
+    API Endpoint dành cho Người thẩm định (Reviewer) hoặc Quản trị viên (Admin) phê duyệt và xuất bản khóa học.
     """
-    permission_classes = [IsAdminUserRole]
+    permission_classes = [IsReviewerOrAdminUserRole]
 
     def post(self, request, identifier):
         course = CourseService.get_course_detail(identifier=identifier, user=request.user)
@@ -671,7 +671,7 @@ class CourseApproveAPIView(APIView):
                 status_code=status.HTTP_404_NOT_FOUND
             )
 
-        _, msg, approved_course = CourseService.approve_course(course)
+        _, msg, approved_course = CourseService.approve_course(course, user=request.user)
         return success_response(
             data=CourseDetailSerializer(approved_course).data,
             message=msg,
@@ -681,9 +681,9 @@ class CourseApproveAPIView(APIView):
 
 class CourseRejectAPIView(APIView):
     """
-    API Endpoint dành cho Quản trị viên (Admin) từ chối phê duyệt khóa học kèm lý do phản hồi.
+    API Endpoint dành cho Người thẩm định (Reviewer) hoặc Quản trị viên (Admin) từ chối / phản biện khóa học kèm lý do.
     """
-    permission_classes = [IsAdminUserRole]
+    permission_classes = [IsReviewerOrAdminUserRole]
 
     def post(self, request, identifier):
         course = CourseService.get_course_detail(identifier=identifier, user=request.user)
@@ -694,7 +694,7 @@ class CourseRejectAPIView(APIView):
             )
 
         reason = request.data.get('reason', '')
-        _, msg, rejected_course = CourseService.reject_course(course, reason=reason)
+        _, msg, rejected_course = CourseService.reject_course(course, reason=reason, user=request.user)
         return success_response(
             data=CourseDetailSerializer(rejected_course).data,
             message=msg,
