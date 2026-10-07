@@ -759,22 +759,24 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
               {currentDeck.status === 'PENDING' && (
                 <div
                   style={{
-                    backgroundColor: '#fffbeb',
-                    border: '1px solid #fcd34d',
+                    backgroundColor: currentDeck.is_resubmitted ? '#eff6ff' : '#fffbeb',
+                    border: `1px solid ${currentDeck.is_resubmitted ? '#bfdbfe' : '#fcd34d'}`,
                     borderRadius: '10px',
                     padding: '12px 16px',
                     marginBottom: '18px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    color: '#92400e',
+                    color: currentDeck.is_resubmitted ? '#1d4ed8' : '#92400e',
                     fontSize: '0.84rem',
                     fontWeight: '600',
                   }}
                 >
-                  <i className="fa-solid fa-clock-rotate-left" style={{ color: '#d97706', fontSize: '1.1rem' }}></i>
+                  <i className={currentDeck.is_resubmitted ? "fa-solid fa-arrows-rotate" : "fa-solid fa-clock-rotate-left"} style={{ color: currentDeck.is_resubmitted ? '#2563eb' : '#d97706', fontSize: '1.1rem' }}></i>
                   <span>
-                    Đề tài đang ở trạng thái <strong>Chờ phản biện phê duyệt</strong>. Sau khi Thẩm định viên kiểm định đạt chuẩn sẽ tự động xuất bản lên web cho học viên.
+                    {currentDeck.is_resubmitted
+                      ? 'Đề tài đã được cập nhật và gửi duyệt lại. Đang chờ Hội đồng Thẩm định xem xét.'
+                      : 'Đề tài đang ở trạng thái Chờ phản biện phê duyệt. Sau khi Thẩm định viên kiểm định đạt chuẩn sẽ tự động xuất bản lên web cho học viên.'}
                   </span>
                 </div>
               )}

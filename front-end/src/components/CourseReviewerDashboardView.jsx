@@ -296,13 +296,13 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
     });
   };
 
-  // 7. Mở Modal phản biện đề tài Flashcard
+  // 7. Mở Modal phản biện đề tài Flashcard (Luôn để trống ô nhập để không chồng ý cũ)
   const handleOpenReviewDeckModal = (deck) => {
     setReviewDeckModal({
       isOpen: true,
       deck,
       criteria: { ipa: false, grammar: false, meaning: false, example: false },
-      notes: deck.rejectionReason || '',
+      notes: '', // Luôn để trống để ghi lỗi mới của lần thẩm định này
       isSubmitting: false,
     });
   };
@@ -322,10 +322,14 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
       if (reviewDeckModal.criteria.meaning) selectedCriteria.push('Nghĩa tiếng Việt chưa chuẩn');
       if (reviewDeckModal.criteria.example) selectedCriteria.push('Định nghĩa chưa khớp trình độ CEFR');
 
+      // Làm sạch ghi chú, loại bỏ prefix tiêu chí cũ nếu có
+      let cleanNotes = reviewDeckModal.notes.trim();
+      cleanNotes = cleanNotes.replace(/^\[Hạng mục cần khắc phục:[^\]]+\]\s*/gm, '').trim();
+
       const criteriaPrefix = selectedCriteria.length > 0
         ? `[Hạng mục cần khắc phục: ${selectedCriteria.join(', ')}]\n`
         : '';
-      const fullFeedback = `${criteriaPrefix}${reviewDeckModal.notes.trim()}`;
+      const fullFeedback = `${criteriaPrefix}${cleanNotes}`;
 
       updateDeckStatus(reviewDeckModal.deck.id, 'REJECTED', fullFeedback, user?.full_name || 'Hội đồng Thẩm định');
       reloadFlashcards();
@@ -333,7 +337,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
       if (previewDeckModal.isOpen && previewDeckModal.deck?.id === reviewDeckModal.deck.id) {
         setPreviewDeckModal((prev) => ({
           ...prev,
-          deck: { ...prev.deck, status: 'REJECTED', rejectionReason: fullFeedback },
+          deck: { ...prev.deck, status: 'REJECTED', rejectionReason: fullFeedback, is_resubmitted: false },
         }));
       }
 
@@ -376,48 +380,72 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
     setTimeout(() => setPlayingWord(null), 1500);
   };
 
-  // Lọc dữ liệu Khóa học hiển thị
-  const filteredCourses = courses.filter((c) => {
-    const matchesSearch =
-      !searchQuery.trim() ||
-      c.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.teacher?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.category?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Lọc và sắp xếp dữ liệu Khóa học hiển thị
+  // Yêu cầu: Khóa học CHỜ THẨM ĐỊNH (hoặc giảng viên mới gửi lại) luôn được xếp LÊN TRÊN CÙNG
+  const filteredCourses = courses
+    .filter((c) => {
+      const matchesSearch =
+        !searchQuery.trim() ||
+        c.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.teacher?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.category?.name?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === 'ALL' ||
-      (statusFilter === 'PENDING' && c.status === 'PENDING') ||
-      (statusFilter === 'PUBLISHED' && c.status === 'PUBLISHED') ||
-      (statusFilter === 'REJECTED' && c.status === 'REJECTED') ||
-      (statusFilter === 'DRAFT' && c.status === 'DRAFT');
+      const matchesStatus =
+        statusFilter === 'ALL' ||
+        (statusFilter === 'PENDING' && c.status === 'PENDING') ||
+        (statusFilter === 'PUBLISHED' && c.status === 'PUBLISHED') ||
+        (statusFilter === 'REJECTED' && c.status === 'REJECTED') ||
+        (statusFilter === 'DRAFT' && c.status === 'DRAFT');
 
-    const matchesLevel = levelFilter === 'ALL' || c.level === levelFilter;
+      const matchesLevel = levelFilter === 'ALL' || c.level === levelFilter;
 
-    return matchesSearch && matchesStatus && matchesLevel;
-  });
+      return matchesSearch && matchesStatus && matchesLevel;
+    })
+    .sort((a, b) => {
+      // 1. CHỜ THẨM ĐỊNH (PENDING) luôn ưu tiên xếp trên cùng
+      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+
+      // 2. Mới gửi lại hoặc mới nhất xếp trước
+      const timeA = new Date(a.resubmitted_at || a.updated_at || a.created_at || 0).getTime();
+      const timeB = new Date(b.resubmitted_at || b.updated_at || b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
 
   // Đếm thống kê Khóa học
   const countPending = courses.filter((c) => c.status === 'PENDING').length;
   const countPublished = courses.filter((c) => c.status === 'PUBLISHED').length;
   const countRejected = courses.filter((c) => c.status === 'REJECTED').length;
 
-  // Lọc dữ liệu Đề tài Flashcard hiển thị
-  const filteredDecks = flashcardDecks.filter((d) => {
-    const matchesSearch =
-      !flashcardSearch.trim() ||
-      d.title?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
-      d.author?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
-      d.description?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
-      d.level?.toLowerCase().includes(flashcardSearch.toLowerCase());
+  // Lọc và sắp xếp dữ liệu Đề tài Flashcard hiển thị
+  // Yêu cầu: Đề tài Giảng viên yêu cầu mới / Chờ thẩm định luôn hiển thị LÊN TRÊN CÙNG
+  const filteredDecks = flashcardDecks
+    .filter((d) => {
+      const matchesSearch =
+        !flashcardSearch.trim() ||
+        d.title?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
+        d.author?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
+        d.description?.toLowerCase().includes(flashcardSearch.toLowerCase()) ||
+        d.level?.toLowerCase().includes(flashcardSearch.toLowerCase());
 
-    const matchesStatus =
-      flashcardStatusFilter === 'ALL' ||
-      (flashcardStatusFilter === 'PENDING' && d.status === 'PENDING') ||
-      (flashcardStatusFilter === 'PUBLISHED' && d.status === 'PUBLISHED') ||
-      (flashcardStatusFilter === 'REJECTED' && d.status === 'REJECTED');
+      const matchesStatus =
+        flashcardStatusFilter === 'ALL' ||
+        (flashcardStatusFilter === 'PENDING' && d.status === 'PENDING') ||
+        (flashcardStatusFilter === 'PUBLISHED' && d.status === 'PUBLISHED') ||
+        (flashcardStatusFilter === 'REJECTED' && d.status === 'REJECTED');
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      // 1. CHỜ THẨM ĐỊNH (PENDING) luôn ưu tiên xếp trên cùng
+      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+
+      // 2. Đề tài gửi lại hoặc mới cập nhật xếp trước
+      const timeA = new Date(a.resubmittedAt || a.updated_at || a.created_at || (a.isCustomDeck ? 9999999999999 : 0)).getTime();
+      const timeB = new Date(b.resubmittedAt || b.updated_at || b.created_at || (b.isCustomDeck ? 9999999999999 : 0)).getTime();
+      return timeB - timeA;
+    });
 
   // Đếm thống kê Flashcards
   const countPendingDecks = flashcardDecks.filter((d) => d.status === 'PENDING').length;
@@ -592,13 +620,14 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
           {/* 3 Thống kê trạng thái Khóa Học */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '22px' }}>
             <div
-              onClick={() => setStatusFilter('PENDING')}
+              onClick={() => setStatusFilter((prev) => (prev === 'PENDING' ? 'ALL' : 'PENDING'))}
+              title={statusFilter === 'PENDING' ? 'Bấm để hiển thị lại toàn bộ khóa học' : 'Bấm để lọc các khóa chờ thẩm định'}
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '12px',
                 padding: '18px 20px',
                 border: statusFilter === 'PENDING' ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                boxShadow: statusFilter === 'PENDING' ? '0 4px 12px rgba(2, 132, 199, 0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -612,17 +641,20 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
               <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countPending}
               </div>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Giảng viên đã gửi yêu cầu duyệt</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {statusFilter === 'PENDING' ? 'Đang lọc (bấm lại để xem tất cả)' : 'Giảng viên đã gửi yêu cầu duyệt'}
+              </span>
             </div>
 
             <div
-              onClick={() => setStatusFilter('PUBLISHED')}
+              onClick={() => setStatusFilter((prev) => (prev === 'PUBLISHED' ? 'ALL' : 'PUBLISHED'))}
+              title={statusFilter === 'PUBLISHED' ? 'Bấm để hiển thị lại toàn bộ khóa học' : 'Bấm để lọc các khóa đã xuất bản'}
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '12px',
                 padding: '18px 20px',
                 border: statusFilter === 'PUBLISHED' ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                boxShadow: statusFilter === 'PUBLISHED' ? '0 4px 12px rgba(2, 132, 199, 0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -636,17 +668,20 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
               <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countPublished}
               </div>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Đang mở công khai cho học viên</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {statusFilter === 'PUBLISHED' ? 'Đang lọc (bấm lại để xem tất cả)' : 'Đang mở công khai cho học viên'}
+              </span>
             </div>
 
             <div
-              onClick={() => setStatusFilter('REJECTED')}
+              onClick={() => setStatusFilter((prev) => (prev === 'REJECTED' ? 'ALL' : 'REJECTED'))}
+              title={statusFilter === 'REJECTED' ? 'Bấm để hiển thị lại toàn bộ khóa học' : 'Bấm để lọc các khóa bị phản biện'}
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '12px',
                 padding: '18px 20px',
                 border: statusFilter === 'REJECTED' ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                boxShadow: statusFilter === 'REJECTED' ? '0 4px 12px rgba(2, 132, 199, 0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -660,7 +695,9 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
               <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countRejected}
               </div>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Yêu cầu giảng viên hoàn thiện lại</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {statusFilter === 'REJECTED' ? 'Đang lọc (bấm lại để xem tất cả)' : 'Yêu cầu giảng viên hoàn thiện lại'}
+              </span>
             </div>
           </div>
 
@@ -1018,13 +1055,14 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
           {/* 4 Thống kê trạng thái Flashcards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '22px' }}>
             <div
-              onClick={() => setFlashcardStatusFilter('PENDING')}
+              onClick={() => setFlashcardStatusFilter((prev) => (prev === 'PENDING' ? 'ALL' : 'PENDING'))}
+              title={flashcardStatusFilter === 'PENDING' ? 'Bấm để hiển thị lại toàn bộ đề tài' : 'Bấm để lọc các đề tài chờ thẩm định'}
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '12px',
                 padding: '18px 20px',
                 border: flashcardStatusFilter === 'PENDING' ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                boxShadow: flashcardStatusFilter === 'PENDING' ? '0 4px 12px rgba(2, 132, 199, 0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -1038,17 +1076,20 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
               <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countPendingDecks}
               </div>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Giảng viên gửi đề tài mới</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {flashcardStatusFilter === 'PENDING' ? 'Đang lọc (bấm lại để xem tất cả)' : 'Giảng viên gửi đề tài mới'}
+              </span>
             </div>
 
             <div
-              onClick={() => setFlashcardStatusFilter('PUBLISHED')}
+              onClick={() => setFlashcardStatusFilter((prev) => (prev === 'PUBLISHED' ? 'ALL' : 'PUBLISHED'))}
+              title={flashcardStatusFilter === 'PUBLISHED' ? 'Bấm để hiển thị lại toàn bộ đề tài' : 'Bấm để lọc các đề tài đã xuất bản'}
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '12px',
                 padding: '18px 20px',
                 border: flashcardStatusFilter === 'PUBLISHED' ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                boxShadow: flashcardStatusFilter === 'PUBLISHED' ? '0 4px 12px rgba(2, 132, 199, 0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -1062,17 +1103,20 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
               <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countPublishedDecks}
               </div>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Đang mở công khai cho học viên</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {flashcardStatusFilter === 'PUBLISHED' ? 'Đang lọc (bấm lại để xem tất cả)' : 'Đang mở công khai cho học viên'}
+              </span>
             </div>
 
             <div
-              onClick={() => setFlashcardStatusFilter('REJECTED')}
+              onClick={() => setFlashcardStatusFilter((prev) => (prev === 'REJECTED' ? 'ALL' : 'REJECTED'))}
+              title={flashcardStatusFilter === 'REJECTED' ? 'Bấm để hiển thị lại toàn bộ đề tài' : 'Bấm để lọc các đề tài bị phản biện'}
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '12px',
                 padding: '18px 20px',
                 border: flashcardStatusFilter === 'REJECTED' ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                boxShadow: flashcardStatusFilter === 'REJECTED' ? '0 4px 12px rgba(2, 132, 199, 0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -1086,16 +1130,22 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
               <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countRejectedDecks}
               </div>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Yêu cầu giảng viên sửa đổi</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {flashcardStatusFilter === 'REJECTED' ? 'Đang lọc (bấm lại để xem tất cả)' : 'Yêu cầu giảng viên sửa đổi'}
+              </span>
             </div>
 
             <div
+              onClick={() => setFlashcardStatusFilter('ALL')}
+              title="Bấm để hiển thị toàn bộ đề tài từ vựng"
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '12px',
                 padding: '18px 20px',
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                border: flashcardStatusFilter === 'ALL' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                boxShadow: flashcardStatusFilter === 'ALL' ? '0 4px 12px rgba(2, 132, 199, 0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1107,7 +1157,9 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
               <div style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
                 {countTotalWords}
               </div>
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Thuộc {flashcardDecks.length} đề tài</span>
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {flashcardStatusFilter === 'ALL' ? 'Đang xem tất cả đề tài' : 'Bấm để hiển thị toàn bộ'}
+              </span>
             </div>
           </div>
 
@@ -1217,22 +1269,42 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
                       <div style={{ flex: '1 1 360px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                          <span
-                            style={{
-                              fontSize: '0.72rem',
-                              fontWeight: '800',
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              backgroundColor: isPending ? '#fef3c7' : isPublished ? '#d1fae5' : '#fee2e2',
-                              color: isPending ? '#b45309' : isPublished ? '#065f46' : '#991b1b',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                            }}
-                          >
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isPending ? '#f59e0b' : isPublished ? '#10b981' : '#ef4444' }}></span>
-                            {isPending ? 'CHỜ THẨM ĐỊNH' : isPublished ? 'ĐÃ DUYỆT LÊN WEB' : 'BỊ YÊU CẦU SỬA'}
-                          </span>
+                          {isPending && deck.is_resubmitted ? (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: '800',
+                                padding: '3px 9px',
+                                borderRadius: '6px',
+                                backgroundColor: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                              }}
+                            >
+                              <i className="fa-solid fa-arrows-rotate"></i>
+                              <span>ĐÃ CẬP NHẬT & GỬI DUYỆT LẠI</span>
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: '800',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                backgroundColor: isPending ? '#fef3c7' : isPublished ? '#d1fae5' : '#fee2e2',
+                                color: isPending ? '#b45309' : isPublished ? '#065f46' : '#991b1b',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                              }}
+                            >
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isPending ? '#f59e0b' : isPublished ? '#10b981' : '#ef4444' }}></span>
+                              {isPending ? 'CHỜ THẨM ĐỊNH' : isPublished ? 'ĐÃ DUYỆT LÊN WEB' : 'BỊ YÊU CẦU SỬA'}
+                            </span>
+                          )}
 
                           <span style={{ fontSize: '0.72rem', fontWeight: '800', backgroundColor: `${deck.color || '#0284c7'}15`, color: deck.color || '#0284c7', padding: '3px 8px', borderRadius: '6px' }}>
                             Trình độ: {deck.level}
@@ -1271,8 +1343,66 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                           )}
                         </div>
 
-                        {/* Chi tiết phản biện nếu có */}
-                        {deck.rejectionReason && (
+                        {/* Thông báo nếu giảng viên đã sửa đề tài và gửi duyệt lại */}
+                        {isPending && deck.is_resubmitted && (
+                          <div
+                            style={{
+                              marginTop: '10px',
+                              padding: '9px 13px',
+                              borderRadius: '8px',
+                              backgroundColor: '#f0fdf4',
+                              border: '1px solid #bbf7d0',
+                              color: '#15803d',
+                              fontSize: '0.82rem',
+                              lineHeight: '1.45',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '8px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <i className="fa-solid fa-circle-check" style={{ color: '#16a34a', fontSize: '0.95rem' }}></i>
+                              <div>
+                                <span style={{ fontWeight: '700', color: '#14532d' }}>
+                                  Giảng viên đã cập nhật lại đề tài từ vựng và gửi duyệt lại!
+                                </span>
+                                {deck.resubmittedAt && (
+                                  <span style={{ fontSize: '0.75rem', color: '#166534', marginLeft: '6px' }}>
+                                    ({new Date(deck.resubmittedAt).toLocaleString('vi-VN')})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {deck.previousRejectionReason && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviousReviewModal({ isOpen: true, title: deck.title, reason: deck.previousRejectionReason })}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#ffffff',
+                                  border: '1px solid #86efac',
+                                  color: '#15803d',
+                                  fontSize: '0.74rem',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                }}
+                                title="Xem lại nội dung phản biện lần trước để đối chiếu kiểm tra"
+                              >
+                                <i className="fa-solid fa-clock-rotate-left"></i>
+                                <span>Xem góp ý lần trước</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Chi tiết phản biện CHỈ hiển thị khi BỊ TỪ CHỐI (không hiển thị khi đã gửi lại chờ duyệt) */}
+                        {isRejected && deck.rejectionReason && (
                           <div
                             style={{
                               marginTop: '12px',
@@ -2317,7 +2447,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fef2f2', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  PHIẾU PHẢN BIỆN TỪ VỰNG SƯ PHẠM
+                  Phiếu phản biện từ vựng sư phạm
                 </span>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#991b1b', margin: '2px 0 0 0' }}>
                   Phản biện đề tài: "{reviewDeckModal.deck.title}"
@@ -2332,6 +2462,29 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
             </div>
 
             <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Ý kiến phản biện lần trước để đối chiếu nếu có */}
+              {reviewDeckModal.deck?.previousRejectionReason && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    color: '#475569',
+                    lineHeight: '1.45',
+                  }}
+                >
+                  <div style={{ fontWeight: '700', color: '#64748b', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <i className="fa-solid fa-clock-rotate-left"></i>
+                    <span>Ý kiến phản biện lần trước (để đối chiếu rà soát):</span>
+                  </div>
+                  <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', color: '#64748b', maxHeight: '100px', overflowY: 'auto' }}>
+                    {reviewDeckModal.deck.previousRejectionReason}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
                   Các tiêu chí cần Giảng viên khắc phục / chỉnh sửa:

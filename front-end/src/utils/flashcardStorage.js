@@ -701,6 +701,9 @@ export const getAllDecksWithWords = (forUser = null) => {
         authorRole: 'ADMIN',
         status: override.status || 'PUBLISHED',
         isCustomDeck: true,
+        is_resubmitted: override.is_resubmitted || false,
+        resubmittedAt: override.resubmittedAt || null,
+        previousRejectionReason: override.previousRejectionReason || null,
         ...override,
         cards: [...baseCards, ...extraCards],
       };
@@ -722,6 +725,9 @@ export const getAllDecksWithWords = (forUser = null) => {
         authorRole: d.authorRole || 'TEACHER',
         status: override.status || d.status || 'PUBLISHED',
         isCustomDeck: true,
+        is_resubmitted: override.is_resubmitted != null ? override.is_resubmitted : (d.is_resubmitted || false),
+        resubmittedAt: override.resubmittedAt || d.resubmittedAt || null,
+        previousRejectionReason: override.previousRejectionReason || d.previousRejectionReason || null,
         ...override,
         cards,
       };
@@ -769,6 +775,7 @@ export const updateDeckStatus = (deckId, status, rejectionReason = null, reviewe
         return {
           ...d,
           status,
+          is_resubmitted: false,
           rejectionReason: status === 'REJECTED' ? rejectionReason : null,
           reviewedBy: reviewerName,
           reviewedAt: new Date().toISOString(),
@@ -783,6 +790,7 @@ export const updateDeckStatus = (deckId, status, rejectionReason = null, reviewe
     overrides[deckId] = {
       ...(overrides[deckId] || {}),
       status,
+      is_resubmitted: false,
       rejectionReason: status === 'REJECTED' ? rejectionReason : null,
       reviewedBy: reviewerName,
       reviewedAt: new Date().toISOString(),
@@ -802,6 +810,8 @@ export const resubmitDeckForReview = (deckId) => {
         return {
           ...d,
           status: 'PENDING',
+          is_resubmitted: true,
+          previousRejectionReason: d.rejectionReason || d.previousRejectionReason || null,
           rejectionReason: null,
           resubmittedAt: new Date().toISOString(),
         };
@@ -811,9 +821,12 @@ export const resubmitDeckForReview = (deckId) => {
     saveStoredCustomDecks(updated);
   } else {
     const overrides = getDeckOverrides();
+    const prevReason = (overrides[deckId] && overrides[deckId].rejectionReason) || null;
     overrides[deckId] = {
       ...(overrides[deckId] || {}),
       status: 'PENDING',
+      is_resubmitted: true,
+      previousRejectionReason: prevReason || (overrides[deckId] && overrides[deckId].previousRejectionReason) || null,
       rejectionReason: null,
       resubmittedAt: new Date().toISOString(),
     };
