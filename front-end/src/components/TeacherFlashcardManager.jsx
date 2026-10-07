@@ -41,7 +41,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     isOpen: false,
     mode: 'create',
     id: null,
-    deckId: 'daily_life',
+    deckId: null,
     word: '',
     ipa: '',
     type: 'Noun',
@@ -214,11 +214,20 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
 
   // Thêm / Sửa từ vựng
   const handleOpenAddWord = (deckId) => {
+    if (!allDecks || allDecks.length === 0) {
+      alert('Bạn chưa có đề tài từ vựng nào! Vui lòng bấm "+ Tạo đề tài mới" trước khi thêm từ vựng.');
+      return;
+    }
+    const targetDeckId = deckId || selectedDeckId || allDecks[0]?.id;
+    if (!targetDeckId) {
+      alert('Vui lòng tạo hoặc chọn một đề tài trước khi thêm từ vựng.');
+      return;
+    }
     setWordModal({
       isOpen: true,
       mode: 'create',
       id: null,
-      deckId: deckId || selectedDeckId,
+      deckId: targetDeckId,
       word: '',
       ipa: '',
       type: 'Noun',
@@ -249,6 +258,18 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
 
   const handleSaveWord = (e) => {
     e.preventDefault();
+    if (!allDecks || allDecks.length === 0) {
+      alert('Bạn chưa có đề tài từ vựng nào! Vui lòng tạo đề tài mới trước.');
+      return;
+    }
+
+    const targetDeckId = wordModal.deckId || selectedDeckId || allDecks[0]?.id;
+    const targetDeck = allDecks.find((d) => d.id === targetDeckId);
+    if (!targetDeck) {
+      alert('Không tìm thấy đề tài hợp lệ để lưu từ vựng. Vui lòng tạo đề tài trước!');
+      return;
+    }
+
     if (!wordModal.word.trim() || !wordModal.meaning.trim()) {
       alert('Vui lòng điền từ tiếng Anh và nghĩa tiếng Việt.');
       return;
@@ -257,7 +278,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     if (wordModal.mode === 'create') {
       const newCard = {
         id: `word_${Date.now()}`,
-        deckId: wordModal.deckId,
+        deckId: targetDeckId,
         isCustom: true,
         word: wordModal.word.trim(),
         ipa: wordModal.ipa.trim() || `/${wordModal.word.trim().toLowerCase()}/`,
@@ -271,7 +292,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       const updatedWords = [newCard, ...customWords];
       saveStoredCustomWords(updatedWords);
       setCustomWords(updatedWords);
-      setSelectedDeckId(wordModal.deckId);
+      setSelectedDeckId(targetDeckId);
       showToast(`Đã thêm từ vựng "${newCard.word}" thành công!`);
     } else {
       const exists = customWords.some((w) => w.id === wordModal.id);
@@ -448,20 +469,23 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
           <button
             type="button"
             onClick={() => handleOpenAddWord(selectedDeckId)}
+            disabled={allDecks.length === 0}
             style={{
               padding: '9px 16px',
               borderRadius: '8px',
-              backgroundColor: '#7c3aed',
+              backgroundColor: allDecks.length === 0 ? '#94a3b8' : '#7c3aed',
               color: '#ffffff',
               border: 'none',
               fontSize: '0.85rem',
               fontWeight: '700',
-              cursor: 'pointer',
+              cursor: allDecks.length === 0 ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 2px 6px rgba(124, 58, 237, 0.25)',
+              boxShadow: allDecks.length === 0 ? 'none' : '0 2px 6px rgba(124, 58, 237, 0.25)',
+              opacity: allDecks.length === 0 ? 0.65 : 1,
             }}
+            title={allDecks.length === 0 ? 'Vui lòng tạo đề tài trước khi thêm từ vựng' : 'Thêm từ vựng mới'}
           >
             <i className="fa-solid fa-plus-circle"></i>
             <span>+ Thêm từ vựng mới</span>
@@ -1346,15 +1370,20 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                   Thuộc Đề Tài / Chủ Đề <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <select
-                  value={wordModal.deckId}
+                  value={wordModal.deckId || ''}
                   onChange={(e) => setWordModal({ ...wordModal, deckId: e.target.value })}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', fontWeight: '700' }}
+                  required
                 >
-                  {allDecks.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      [{d.level}] {d.title} ({d.cards?.length || 0} từ)
-                    </option>
-                  ))}
+                  {allDecks.length === 0 ? (
+                    <option value="">Chưa có đề tài nào (vui lòng tạo trước)</option>
+                  ) : (
+                    allDecks.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        [{d.level}] {d.title} ({d.cards?.length || 0} từ)
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

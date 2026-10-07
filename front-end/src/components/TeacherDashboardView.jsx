@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import TeacherGradebookView from './TeacherGradebookView';
 import TeacherAIQuizModal from './TeacherAIQuizModal';
 import TeacherCourseCurriculumModal from './TeacherCourseCurriculumModal';
@@ -16,7 +16,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 8; // Phân trang 8 khóa học / 1 trang
 
   useEffect(() => {
     setCurrentPage(1);
@@ -192,6 +192,11 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
     ? Math.round(courses.reduce((acc, c) => acc + (c.completion_rate || 0), 0) / courses.length)
     : 0;
   const teacherDisplayName = user?.full_name || 'Giảng viên';
+
+  // Lọc danh sách khóa học theo trạng thái tab được chọn
+  const filteredCourses = useMemo(() => {
+    return courses.filter((c) => statusFilter === 'ALL' || c.status === statusFilter);
+  }, [courses, statusFilter]);
 
   return (
     <div>
@@ -443,7 +448,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             </div>
           ) : (
             <>
-              {courses.filter((c) => statusFilter === 'ALL' || c.status === statusFilter).length === 0 ? (
+              {filteredCourses.length === 0 ? (
                 <div style={{ padding: '30px', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-card)' }}>
                   <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
                     Không có khóa học nào thuộc trạng thái này.
@@ -451,8 +456,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                  {courses
-                    .filter((c) => statusFilter === 'ALL' || c.status === statusFilter)
+                  {filteredCourses
                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                     .map((course) => (
                       <div
@@ -708,11 +712,11 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                 </div>
               )}
 
-              {/* Phân trang Khóa học */}
+              {/* Phân trang Khóa học (Hiển thị 8 khóa học / 1 trang) */}
               <Pagination
                 currentPage={currentPage}
-                totalPages={Math.ceil(courses.length / itemsPerPage)}
-                totalItems={courses.length}
+                totalPages={Math.ceil(filteredCourses.length / itemsPerPage)}
+                totalItems={filteredCourses.length}
                 itemsPerPage={itemsPerPage}
                 onPageChange={setCurrentPage}
               />
