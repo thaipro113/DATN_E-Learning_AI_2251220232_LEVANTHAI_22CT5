@@ -60,7 +60,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
   });
 
   // States quản lý Thẩm định Flashcards
-  const [flashcardDecks, setFlashcardDecks] = useState(() => getAllDecksWithWords());
+  const [flashcardDecks, setFlashcardDecks] = useState(() => getAllDecksWithWords(user || { role: 'REVIEWER' }));
   const [flashcardSearch, setFlashcardSearch] = useState('');
   const [flashcardStatusFilter, setFlashcardStatusFilter] = useState('ALL');
   const [playingWord, setPlayingWord] = useState(null);
@@ -86,7 +86,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
   });
 
   const reloadFlashcards = () => {
-    setFlashcardDecks(getAllDecksWithWords());
+    setFlashcardDecks(getAllDecksWithWords(user || { role: 'REVIEWER' }));
   };
 
   // 1. Tải danh sách toàn bộ khóa học để thẩm định (Sửa lỗi parse pagination API Django)

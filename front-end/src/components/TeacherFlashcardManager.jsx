@@ -6,6 +6,7 @@ import {
   getStoredCustomWords,
   saveStoredCustomWords,
   getAllDecksWithWords,
+  submitDeckForReview,
   resubmitDeckForReview,
   speakWord,
 } from '../utils/flashcardStorage';
@@ -13,7 +14,10 @@ import {
 export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
   const [customDecks, setCustomDecks] = useState(() => getStoredCustomDecks());
   const [customWords, setCustomWords] = useState(() => getStoredCustomWords());
-  const [selectedDeckId, setSelectedDeckId] = useState('daily_life');
+  const [selectedDeckId, setSelectedDeckId] = useState(() => {
+    const stored = getStoredCustomDecks();
+    return stored[0]?.id || null;
+  });
   const [wordSearch, setWordSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [isPreviewStudentMode, setIsPreviewStudentMode] = useState(false);
@@ -63,13 +67,14 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     saveStoredCustomWords(customWords);
   }, [customWords]);
 
-  // Tổng hợp đề tài: CHỈ hiển thị đề tài của giảng viên này + đề tài hệ thống/Admin đã duyệt
-  // Tuyệt đối không hiển thị đề tài nháp/chờ duyệt của giảng viên khác
+  // Tổng hợp đề tài: Giảng viên chỉ xem đề tài do chính mình tạo
+  // Cập nhật phản hồi ngay lập tức từ customDecks và customWords trong state
   const allDecks = useMemo(() => {
-    return getAllDecksWithWords(user);
+    return getAllDecksWithWords(user, customDecks, customWords);
   }, [customDecks, customWords, user]);
 
   const currentDeck = useMemo(() => {
+    if (!allDecks.length) return null;
     return allDecks.find((d) => d.id === selectedDeckId) || allDecks[0] || null;
   }, [allDecks, selectedDeckId]);
 
@@ -98,6 +103,24 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     resubmitDeckForReview(deckId);
     setCustomDecks(getStoredCustomDecks());
     showToast('✓ Đã gửi đề tài lại cho Hội đồng Phản biện phê duyệt!', 'success');
+  };
+
+  // Giảng viên gửi đề tài bản nháp sang Hội đồng Thẩm định sau khi đã thêm từ vựng
+  const handleSubmitDeckForReview = (deckId) => {
+    const deck = allDecks.find((d) => d.id === deckId);
+    const wordCount = deck?.cards?.length || 0;
+    if (wordCount === 0) {
+      alert('Đề tài chưa có từ vựng nào! Vui lòng thêm ít nhất 1 từ vựng trước khi gửi thẩm định cho Hội đồng.');
+      return;
+    }
+
+    if (!window.confirm(`Xác nhận gửi đề tài "${deck?.title || 'này'}" gồm ${wordCount} từ vựng đến Hội đồng Thẩm định để kiểm định và phê duyệt?`)) {
+      return;
+    }
+
+    submitDeckForReview(deckId);
+    setCustomDecks(getStoredCustomDecks());
+    showToast(`✓ Đã gửi đề tài "${deck?.title || ''}" (${wordCount} từ) đến Hội đồng Thẩm định!`, 'success');
   };
 
   // Tạo đề tài mới
@@ -144,27 +167,29 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
         author: user?.full_name || 'Giảng viên',
         authorId: user?.id || user?.email || 'teacher',
         authorRole: 'TEACHER',
-        // Đề tài mới tạo của Giảng viên phải chuyển sang trạng thái chờ phản biện phê duyệt trước khi lên web
-        status: 'PENDING',
+        // Đề tài mới tạo của Giảng viên ở trạng thái Bản nháp, cần thêm từ vựng trước khi gửi thẩm định
+        status: 'DRAFT',
         created_at: new Date().toISOString().split('T')[0],
       };
-      setCustomDecks((prev) => [...prev, newDeck]);
+      const updatedDecks = [...customDecks, newDeck];
+      saveStoredCustomDecks(updatedDecks);
+      setCustomDecks(updatedDecks);
       setSelectedDeckId(newDeck.id);
-      showToast('Đã gửi đề tài mới đến Hội đồng Phản biện để kiểm tra và phê duyệt!');
+      showToast('Đã tạo đề tài mới dạng bản nháp. Hãy thêm từ vựng trước khi gửi thẩm định!');
     } else {
-      setCustomDecks((prev) =>
-        prev.map((d) =>
-          d.id === deckModal.id
-            ? {
-                ...d,
-                title: deckModal.title.trim(),
-                level: deckModal.level,
-                color: deckModal.color,
-                description: deckModal.description.trim(),
-              }
-            : d
-        )
+      const updatedDecks = customDecks.map((d) =>
+        d.id === deckModal.id
+          ? {
+              ...d,
+              title: deckModal.title.trim(),
+              level: deckModal.level,
+              color: deckModal.color,
+              description: deckModal.description.trim(),
+            }
+          : d
       );
+      saveStoredCustomDecks(updatedDecks);
+      setCustomDecks(updatedDecks);
       showToast('Đã cập nhật đề tài thành công!');
     }
     setDeckModal({ ...deckModal, isOpen: false });
@@ -175,10 +200,14 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     if (!window.confirm(`Bạn có chắc muốn xóa đề tài "${deckTitle}" và toàn bộ từ vựng bên trong?`)) {
       return;
     }
-    setCustomDecks((prev) => prev.filter((d) => d.id !== deckId));
-    setCustomWords((prev) => prev.filter((w) => w.deckId !== deckId));
+    const updatedDecks = customDecks.filter((d) => d.id !== deckId);
+    const updatedWords = customWords.filter((w) => w.deckId !== deckId);
+    saveStoredCustomDecks(updatedDecks);
+    saveStoredCustomWords(updatedWords);
+    setCustomDecks(updatedDecks);
+    setCustomWords(updatedWords);
     if (selectedDeckId === deckId) {
-      setSelectedDeckId('daily_life');
+      setSelectedDeckId(updatedDecks[0]?.id || null);
     }
     showToast('Đã xóa đề tài thành công!');
   };
@@ -239,48 +268,51 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
         example_vi: wordModal.example_vi.trim(),
         collocation: wordModal.collocation.trim(),
       };
-      setCustomWords((prev) => [newCard, ...prev]);
+      const updatedWords = [newCard, ...customWords];
+      saveStoredCustomWords(updatedWords);
+      setCustomWords(updatedWords);
       setSelectedDeckId(wordModal.deckId);
       showToast(`Đã thêm từ vựng "${newCard.word}" thành công!`);
     } else {
-      setCustomWords((prev) => {
-        const exists = prev.some((w) => w.id === wordModal.id);
-        if (exists) {
-          return prev.map((w) =>
-            w.id === wordModal.id
-              ? {
-                  ...w,
-                  deckId: wordModal.deckId,
-                  word: wordModal.word.trim(),
-                  ipa: wordModal.ipa.trim(),
-                  type: wordModal.type,
-                  meaning: wordModal.meaning.trim(),
-                  english_def: wordModal.english_def.trim(),
-                  example: wordModal.example.trim(),
-                  example_vi: wordModal.example_vi.trim(),
-                  collocation: wordModal.collocation.trim(),
-                }
-              : w
-          );
-        } else {
-          return [
-            {
-              id: wordModal.id,
-              deckId: wordModal.deckId,
-              isCustom: true,
-              word: wordModal.word.trim(),
-              ipa: wordModal.ipa.trim(),
-              type: wordModal.type,
-              meaning: wordModal.meaning.trim(),
-              english_def: wordModal.english_def.trim(),
-              example: wordModal.example.trim(),
-              example_vi: wordModal.example_vi.trim(),
-              collocation: wordModal.collocation.trim(),
-            },
-            ...prev,
-          ];
-        }
-      });
+      const exists = customWords.some((w) => w.id === wordModal.id);
+      let updatedWords;
+      if (exists) {
+        updatedWords = customWords.map((w) =>
+          w.id === wordModal.id
+            ? {
+                ...w,
+                deckId: wordModal.deckId,
+                word: wordModal.word.trim(),
+                ipa: wordModal.ipa.trim(),
+                type: wordModal.type,
+                meaning: wordModal.meaning.trim(),
+                english_def: wordModal.english_def.trim(),
+                example: wordModal.example.trim(),
+                example_vi: wordModal.example_vi.trim(),
+                collocation: wordModal.collocation.trim(),
+              }
+            : w
+        );
+      } else {
+        updatedWords = [
+          {
+            id: wordModal.id,
+            deckId: wordModal.deckId,
+            isCustom: true,
+            word: wordModal.word.trim(),
+            ipa: wordModal.ipa.trim(),
+            type: wordModal.type,
+            meaning: wordModal.meaning.trim(),
+            english_def: wordModal.english_def.trim(),
+            example: wordModal.example.trim(),
+            example_vi: wordModal.example_vi.trim(),
+            collocation: wordModal.collocation.trim(),
+          },
+          ...customWords,
+        ];
+      }
+      saveStoredCustomWords(updatedWords);
+      setCustomWords(updatedWords);
       showToast(`Đã cập nhật từ vựng "${wordModal.word}" thành công!`);
     }
     setWordModal({ ...wordModal, isOpen: false });
@@ -290,7 +322,9 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     if (!window.confirm(`Bạn có chắc muốn xóa từ vựng "${wordText}" khỏi đề tài?`)) {
       return;
     }
-    setCustomWords((prev) => prev.filter((w) => w.id !== wordId));
+    const updatedWords = customWords.filter((w) => w.id !== wordId);
+    saveStoredCustomWords(updatedWords);
+    setCustomWords(updatedWords);
     showToast(`Đã xóa từ vựng "${wordText}" thành công!`);
   };
 
@@ -299,24 +333,29 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
 
   return (
     <div style={{ padding: '0 0 60px 0', maxWidth: '1280px', margin: '0 auto' }}>
-      {/* Toast thông báo */}
+      {/* Toast thông báo ở góc dưới bên phải */}
       {toastMsg && (
         <div
           style={{
             position: 'fixed',
-            top: '20px',
-            right: '20px',
+            bottom: '24px',
+            right: '24px',
             zIndex: 9999,
-            padding: '12px 20px',
+            padding: '12px 22px',
             backgroundColor: toastMsg.type === 'error' ? '#ef4444' : '#059669',
             color: '#ffffff',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            borderRadius: '10px',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
             fontWeight: '700',
             fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'fadeIn 0.2s ease',
           }}
         >
-          {toastMsg.text}
+          <i className={`fa-solid ${toastMsg.type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check'}`}></i>
+          <span>{toastMsg.text}</span>
         </div>
       )}
 
@@ -587,9 +626,64 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
               </span>
             </div>
 
-            {/* Grid các đề tài gọn gàng */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
-              {allDecks.map((deck) => {
+            {/* Grid các đề tài hoặc trạng thái rỗng */}
+            {allDecks.length === 0 ? (
+              <div
+                style={{
+                  padding: '36px 20px',
+                  textAlign: 'center',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px dashed #cbd5e1',
+                }}
+              >
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    margin: '0 auto 10px auto',
+                    borderRadius: '50%',
+                    backgroundColor: '#e0f2fe',
+                    color: '#0284c7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.2rem',
+                  }}
+                >
+                  <i className="fa-solid fa-folder-open"></i>
+                </div>
+                <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.96rem', marginBottom: '4px' }}>
+                  Bạn chưa có đề tài từ vựng nào
+                </div>
+                <p style={{ color: '#64748b', fontSize: '0.84rem', margin: '0 0 14px 0' }}>
+                  Bấm nút bên dưới để tạo đề tài từ vựng mới và bắt đầu biên soạn thẻ flashcards.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateDeck}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+                  }}
+                >
+                  <i className="fa-solid fa-plus-circle"></i>
+                  <span>+ Tạo đề tài đầu tiên</span>
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                {allDecks.map((deck) => {
                 const isSelected = selectedDeckId === deck.id;
                 const count = deck.cards?.length || 0;
 
@@ -634,6 +728,11 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                           {deck.author || 'Admin'}
                         </span>
 
+                        {deck.status === 'DRAFT' && (
+                          <span style={{ fontSize: '0.66rem', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}>
+                            📝 Bản nháp
+                          </span>
+                        )}
                         {deck.status === 'PENDING' && (
                           <span style={{ fontSize: '0.66rem', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
                             ⏳ Chờ phản biện duyệt
@@ -693,7 +792,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                 );
               })}
             </div>
-          </div>
+          )}
+        </div>
 
           {/* 2. BẢNG TỪ VỰNG CỦA ĐỀ TÀI ĐANG CHỌN (GỌN GÀNG, RÕ RÀNG) */}
           {currentDeck && (
@@ -707,6 +807,60 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
               }}
             >
               {/* Thông báo tình trạng thẩm định của đề tài đang chọn */}
+              {currentDeck.status === 'DRAFT' && (
+                <div
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '10px',
+                    padding: '14px 18px',
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: '280px' }}>
+                    <i className="fa-solid fa-file-pen" style={{ color: '#0284c7', fontSize: '1.2rem', marginTop: '2px' }}></i>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.9rem' }}>
+                        Đề tài đang ở trạng thái Bản nháp (Đang biên soạn)
+                      </div>
+                      <div style={{ color: '#64748b', fontSize: '0.84rem', marginTop: '4px' }}>
+                        {cards.length === 0
+                          ? 'Đề tài hiện chưa có từ vựng nào. Hãy thêm từ vựng, phiên âm và ví dụ ngữ cảnh trước khi gửi sang Hội đồng Thẩm định.'
+                          : `Đã soạn ${cards.length} từ vựng. Bạn có thể tiếp tục bổ sung hoặc nhấn nút "Gửi Thẩm Định" bên cạnh để chuyển sang Hội đồng Phê duyệt.`}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSubmitDeckForReview(currentDeck.id)}
+                    disabled={cards.length === 0}
+                    style={{
+                      padding: '9px 18px',
+                      backgroundColor: cards.length > 0 ? '#0284c7' : '#94a3b8',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      fontSize: '0.84rem',
+                      cursor: cards.length > 0 ? 'pointer' : 'not-allowed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: cards.length > 0 ? '0 2px 6px rgba(2, 132, 199, 0.25)' : 'none',
+                    }}
+                    title={cards.length === 0 ? 'Cần có ít nhất 1 từ vựng để gửi thẩm định' : 'Gửi thẩm định đề tài này'}
+                  >
+                    <i className="fa-solid fa-paper-plane"></i>
+                    <span>Gửi Thẩm Định Đề Tài ({cards.length} từ)</span>
+                  </button>
+                </div>
+              )}
+
               {currentDeck.status === 'REJECTED' && (
                 <div
                   style={{

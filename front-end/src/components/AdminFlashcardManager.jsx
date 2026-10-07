@@ -369,24 +369,29 @@ export default function AdminFlashcardManager() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Toast thông báo */}
+      {/* Toast thông báo ở góc dưới bên phải */}
       {toastMsg && (
         <div
           style={{
             position: 'fixed',
-            top: '20px',
-            right: '20px',
+            bottom: '24px',
+            right: '24px',
             zIndex: 9999,
-            padding: '12px 20px',
+            padding: '12px 22px',
             backgroundColor: toastMsg.type === 'error' ? '#ef4444' : '#059669',
             color: '#ffffff',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            borderRadius: '10px',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
             fontWeight: '700',
             fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'fadeIn 0.2s ease',
           }}
         >
-          {toastMsg.text}
+          <i className={`fa-solid ${toastMsg.type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check'}`}></i>
+          <span>{toastMsg.text}</span>
         </div>
       )}
 

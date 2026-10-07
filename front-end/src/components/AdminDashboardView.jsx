@@ -725,24 +725,29 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
 
   return (
     <div style={{ padding: '0 0 60px 0' }}>
-      {/* Toast thông báo */}
+      {/* Toast thông báo ở góc dưới bên phải */}
       {toastMsg && (
         <div
           style={{
             position: 'fixed',
-            top: '20px',
-            right: '20px',
-            zIndex: 200,
-            padding: '12px 20px',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            padding: '12px 22px',
             backgroundColor: '#059669',
             color: 'white',
             borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-lg)',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
             fontWeight: '700',
             fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            animation: 'fadeIn 0.2s ease',
           }}
         >
-          {toastMsg.text}
+          <i className="fa-solid fa-circle-check"></i>
+          <span>{toastMsg.text}</span>
         </div>
       )}
 

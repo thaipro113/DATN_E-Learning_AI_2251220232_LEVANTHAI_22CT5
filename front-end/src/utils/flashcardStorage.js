@@ -667,9 +667,9 @@ export const saveDeletedWordIds = (ids) => {
   } catch {}
 };
 
-export const getAllDecksWithWords = (forUser = null) => {
-  const customDecks = getStoredCustomDecks();
-  const customWords = getStoredCustomWords();
+export const getAllDecksWithWords = (forUser = null, customDecksParam = null, customWordsParam = null) => {
+  const customDecks = customDecksParam || getStoredCustomDecks();
+  const customWords = customWordsParam || getStoredCustomWords();
   const deckOverrides = getDeckOverrides();
   const deletedDeckIds = getDeletedDeckIds();
   const wordOverrides = getWordOverrides();
@@ -719,16 +719,24 @@ export const getAllDecksWithWords = (forUser = null) => {
           ...w,
           ...(wordOverrides[w.id] || {}),
         }));
+
+      // Tự động chuyển các custom deck cũ đang rỗng 0 từ vựng mà lại ở status PENDING về DRAFT để đúng quy trình
+      let resolvedStatus = override.status || d.status || 'PUBLISHED';
+      if (d.isCustomDeck && cards.length === 0 && resolvedStatus === 'PENDING') {
+        resolvedStatus = 'DRAFT';
+      }
+
       return {
         ...d,
         author: d.author || 'Giảng viên',
         authorRole: d.authorRole || 'TEACHER',
-        status: override.status || d.status || 'PUBLISHED',
+        status: resolvedStatus,
         isCustomDeck: true,
         is_resubmitted: override.is_resubmitted != null ? override.is_resubmitted : (d.is_resubmitted || false),
         resubmittedAt: override.resubmittedAt || d.resubmittedAt || null,
         previousRejectionReason: override.previousRejectionReason || d.previousRejectionReason || null,
         ...override,
+        status: resolvedStatus,
         cards,
       };
     });
@@ -736,21 +744,29 @@ export const getAllDecksWithWords = (forUser = null) => {
   const all = [...builtIn, ...custom];
 
   // Phân quyền hiển thị theo người dùng
-  if (!forUser) return all;
+  if (!forUser) {
+    // Mặc định hoặc khách vãng lai: chỉ thấy các đề tài đã xuất bản và có từ vựng
+    return all.filter((d) => d.status === 'PUBLISHED' && (d.cards && d.cards.length > 0));
+  }
 
-  // 1. Phản biện viên (REVIEWER) & Quản trị viên (ADMIN): Thấy toàn bộ để kiểm duyệt và quản lý
-  if (forUser.role === 'ADMIN' || forUser.role === 'REVIEWER') {
+  // 1. Quản trị viên (ADMIN): Thấy toàn bộ để kiểm duyệt và quản lý
+  if (forUser.role === 'ADMIN') {
     return all;
   }
 
-  // 2. Giảng viên (TEACHER):
-  // Chỉ thấy các bộ của chính mình tạo + các bộ hệ thống/Admin đã duyệt
-  // KHÔNG thấy đề tài của các giảng viên khác (chờ duyệt/nháp)
+  // 2. Phản biện viên (REVIEWER):
+  // Chỉ thẩm định các đề tài ĐÃ NỘP (PENDING, REJECTED, PUBLISHED)
+  // Tuyệt đối KHÔNG hiển thị các bản nháp (DRAFT) đang biên soạn của Giảng viên
+  // và KHÔNG hiển thị đề tài rỗng chưa có từ vựng
+  if (forUser.role === 'REVIEWER') {
+    return all.filter((d) => d.status !== 'DRAFT' && (d.cards && d.cards.length > 0));
+  }
+
+  // 3. Giảng viên (TEACHER):
+  // Ai tạo ra thì người đó hiển thị: Giảng viên CHỈ thấy các đề tài do chính mình tạo (kể cả bản nháp DRAFT)
+  // Tuyệt đối KHÔNG hiển thị đề tài của Admin hay giảng viên khác trong màn hình biên soạn của giảng viên
   if (forUser.role === 'TEACHER') {
     return all.filter((d) => {
-      // Bộ hệ thống mặc định của Admin
-      if (d.author === 'Admin' || d.authorRole === 'ADMIN') return true;
-      // Bộ do chính giảng viên này tạo
       const isOwner =
         (forUser.id && d.authorId && String(d.authorId) === String(forUser.id)) ||
         (forUser.full_name && d.author === forUser.full_name) ||
@@ -759,9 +775,9 @@ export const getAllDecksWithWords = (forUser = null) => {
     });
   }
 
-  // 3. Học viên (STUDENT) hoặc Khách:
-  // Chỉ xem các đề tài đã được Phê duyệt xuất bản (PUBLISHED)
-  return all.filter((d) => d.status === 'PUBLISHED');
+  // 4. Học viên (STUDENT) hoặc Khách:
+  // Chỉ xem các đề tài đã được Phê duyệt xuất bản (PUBLISHED) và có từ vựng
+  return all.filter((d) => d.status === 'PUBLISHED' && (d.cards && d.cards.length > 0));
 };
 
 // Cập nhật trạng thái duyệt đề tài flashcard (Dành cho Reviewer / Admin)
@@ -794,6 +810,38 @@ export const updateDeckStatus = (deckId, status, rejectionReason = null, reviewe
       rejectionReason: status === 'REJECTED' ? rejectionReason : null,
       reviewedBy: reviewerName,
       reviewedAt: new Date().toISOString(),
+    };
+    saveDeckOverrides(overrides);
+  }
+};
+
+// Giảng viên nộp đề tài bản nháp sang Hội đồng Thẩm định sau khi đã thêm từ vựng
+export const submitDeckForReview = (deckId) => {
+  const customDecks = getStoredCustomDecks();
+  const deckExists = customDecks.some((d) => d.id === deckId);
+
+  if (deckExists) {
+    const updated = customDecks.map((d) => {
+      if (d.id === deckId) {
+        return {
+          ...d,
+          status: 'PENDING',
+          is_resubmitted: false,
+          submittedAt: new Date().toISOString(),
+          rejectionReason: null,
+        };
+      }
+      return d;
+    });
+    saveStoredCustomDecks(updated);
+  } else {
+    const overrides = getDeckOverrides();
+    overrides[deckId] = {
+      ...(overrides[deckId] || {}),
+      status: 'PENDING',
+      is_resubmitted: false,
+      submittedAt: new Date().toISOString(),
+      rejectionReason: null,
     };
     saveDeckOverrides(overrides);
   }
