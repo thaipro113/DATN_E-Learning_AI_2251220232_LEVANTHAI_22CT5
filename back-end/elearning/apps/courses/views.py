@@ -296,7 +296,7 @@ class CourseDetailAPIView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        updated_course = CourseService.update_course(course, serializer.validated_data)
+        updated_course = CourseService.update_course(course, serializer.validated_data, user=request.user)
 
         return success_response(
             data=CourseDetailSerializer(updated_course).data,

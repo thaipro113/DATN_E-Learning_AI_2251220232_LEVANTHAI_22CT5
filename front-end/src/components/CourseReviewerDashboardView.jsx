@@ -52,6 +52,13 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
     isSubmitting: false,
   });
 
+  // Modal xem lịch sử ý kiến phản biện lần trước
+  const [previousReviewModal, setPreviousReviewModal] = useState({
+    isOpen: false,
+    title: '',
+    reason: '',
+  });
+
   // States quản lý Thẩm định Flashcards
   const [flashcardDecks, setFlashcardDecks] = useState(() => getAllDecksWithWords());
   const [flashcardSearch, setFlashcardSearch] = useState('');
@@ -144,13 +151,13 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
     }
   };
 
-  // 3. Mở Modal phản biện / yêu cầu chỉnh sửa
+  // 3. Mở Modal phản biện / yêu cầu chỉnh sửa (Luôn làm sạch ô nhập để không bị chồng ý cũ)
   const handleOpenReviewModal = (course) => {
     setReviewModal({
       isOpen: true,
       course,
       criteria: { content: false, video: false, quiz: false, materials: false },
-      notes: course.rejection_reason || '',
+      notes: '', // Luôn để trống để Thẩm định viên ghi đúng lỗi mới trong lần kiểm duyệt này
       isSubmitting: false,
     });
   };
@@ -171,10 +178,14 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
       if (reviewModal.criteria.quiz) selectedCriteria.push('Ngân hàng câu hỏi');
       if (reviewModal.criteria.materials) selectedCriteria.push('Tài liệu học tập');
 
+      // Làm sạch ghi chú, loại bỏ các prefix tiêu chí cũ nếu người dùng dán vào
+      let cleanNotes = reviewModal.notes.trim();
+      cleanNotes = cleanNotes.replace(/^\[Hạng mục cần khắc phục:[^\]]+\]\s*/gm, '').trim();
+
       const criteriaPrefix = selectedCriteria.length > 0
         ? `[Hạng mục cần khắc phục: ${selectedCriteria.join(', ')}]\n`
         : '';
-      const fullFeedback = `${criteriaPrefix}${reviewModal.notes.trim()}`;
+      const fullFeedback = `${criteriaPrefix}${cleanNotes}`;
 
       await courseAPI.rejectCourse(reviewModal.course.id, { reason: fullFeedback });
 
@@ -186,6 +197,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                 status: 'REJECTED',
                 status_display: 'Bị từ chối',
                 rejection_reason: fullFeedback,
+                is_resubmitted: false,
                 reviewed_by: { full_name: user?.full_name || 'Hội đồng Thẩm định' },
                 reviewed_at: new Date().toISOString(),
               }
@@ -197,7 +209,7 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
       if (previewModal.isOpen) {
         setPreviewModal((prev) => ({
           ...prev,
-          course: { ...prev.course, status: 'REJECTED', status_display: 'Bị từ chối', rejection_reason: fullFeedback },
+          course: { ...prev.course, status: 'REJECTED', status_display: 'Bị từ chối', rejection_reason: fullFeedback, is_resubmitted: false },
         }));
       }
 
@@ -771,22 +783,42 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                   {/* Thông tin khóa học */}
                   <div style={{ flex: '1 1 360px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: '800',
-                          padding: '3px 8px',
-                          borderRadius: '8px',
-                          backgroundColor: isPending ? '#fef3c7' : isPublished ? '#d1fae5' : '#fee2e2',
-                          color: isPending ? '#b45309' : isPublished ? '#047857' : '#b91c1c',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                        }}
-                      >
-                        <i className={isPending ? 'fa-solid fa-clock' : isPublished ? 'fa-solid fa-check-double' : 'fa-solid fa-circle-exclamation'}></i>
-                        <span>{isPending ? 'CHỜ THẨM ĐỊNH' : isPublished ? 'ĐÃ DUYỆT & XUẤT BẢN' : isRejected ? 'YÊU CẦU CHỈNH SỬA' : 'BẢN NHÁP'}</span>
-                      </span>
+                      {isPending && c.is_resubmitted ? (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: '800',
+                            padding: '3px 9px',
+                            borderRadius: '8px',
+                            backgroundColor: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                          }}
+                        >
+                          <i className="fa-solid fa-arrows-rotate"></i>
+                          <span>ĐÃ CẬP NHẬT & GỬI DUYỆT LẠI</span>
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: '800',
+                            padding: '3px 8px',
+                            borderRadius: '8px',
+                            backgroundColor: isPending ? '#fef3c7' : isPublished ? '#d1fae5' : '#fee2e2',
+                            color: isPending ? '#b45309' : isPublished ? '#047857' : '#b91c1c',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                          }}
+                        >
+                          <i className={isPending ? 'fa-solid fa-clock' : isPublished ? 'fa-solid fa-check-double' : 'fa-solid fa-circle-exclamation'}></i>
+                          <span>{isPending ? 'CHỜ THẨM ĐỊNH' : isPublished ? 'ĐÃ DUYỆT & XUẤT BẢN' : isRejected ? 'YÊU CẦU CHỈNH SỬA' : 'BẢN NHÁP'}</span>
+                        </span>
+                      )}
 
                       <span style={{ fontSize: '0.75rem', fontWeight: '700', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '3px 8px', borderRadius: '8px' }}>
                         Trình độ: {c.level_display || c.level}
@@ -821,8 +853,66 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                       )}
                     </div>
 
-                    {/* Hiển thị lý do phản biện nếu có */}
-                    {c.rejection_reason && (
+                    {/* Thông báo nếu giảng viên đã sửa và gửi duyệt lại */}
+                    {isPending && c.is_resubmitted && (
+                      <div
+                        style={{
+                          marginTop: '10px',
+                          padding: '9px 13px',
+                          borderRadius: '8px',
+                          backgroundColor: '#f0fdf4',
+                          border: '1px solid #bbf7d0',
+                          color: '#15803d',
+                          fontSize: '0.82rem',
+                          lineHeight: '1.45',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <i className="fa-solid fa-circle-check" style={{ color: '#16a34a', fontSize: '0.95rem' }}></i>
+                          <div>
+                            <span style={{ fontWeight: '700', color: '#14532d' }}>
+                              Giảng viên đã cập nhật lại giáo trình và gửi duyệt lại!
+                            </span>
+                            {c.resubmitted_at && (
+                              <span style={{ fontSize: '0.75rem', color: '#166534', marginLeft: '6px' }}>
+                                ({new Date(c.resubmitted_at).toLocaleString('vi-VN')})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {c.previous_rejection_reason && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviousReviewModal({ isOpen: true, title: c.title, reason: c.previous_rejection_reason })}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #86efac',
+                              color: '#15803d',
+                              fontSize: '0.74rem',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                            }}
+                            title="Xem lại nội dung phản biện lần trước để đối chiếu kiểm tra"
+                          >
+                            <i className="fa-solid fa-clock-rotate-left"></i>
+                            <span>Xem góp ý lần trước</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Hiển thị lý do phản biện NẾU ĐANG BỊ TỪ CHỐI (không hiển thị khi đã gửi lại chờ duyệt) */}
+                    {isRejected && c.rejection_reason && (
                       <div
                         style={{
                           marginTop: '10px',
@@ -1759,10 +1849,10 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#dc2626', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                  PHIẾU PHẢN BIỆN SƯ PHẠM
+                  Phiếu phản biện sư phạm
                 </span>
                 <h3 style={{ margin: '4px 0 0 0', fontSize: '1.18rem', fontWeight: '800', color: '#0f172a' }}>
-                  Yêu Cầu Chỉnh Sửa Khóa Học
+                  Yêu cầu chỉnh sửa khóa học
                 </h3>
               </div>
               <button
@@ -1779,6 +1869,30 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                 <br />
                 Giảng viên: <strong>{reviewModal.course?.teacher?.full_name}</strong>
               </p>
+
+              {/* Ý kiến phản biện lần trước để đối chiếu nếu có */}
+              {reviewModal.course?.previous_rejection_reason && (
+                <div
+                  style={{
+                    marginBottom: '16px',
+                    padding: '10px 14px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    color: '#475569',
+                    lineHeight: '1.45',
+                  }}
+                >
+                  <div style={{ fontWeight: '700', color: '#64748b', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <i className="fa-solid fa-clock-rotate-left"></i>
+                    <span>Ý kiến phản biện lần trước (để đối chiếu rà soát):</span>
+                  </div>
+                  <div style={{ whiteSpace: 'pre-line', fontStyle: 'italic', color: '#64748b', maxHeight: '100px', overflowY: 'auto' }}>
+                    {reviewModal.course.previous_rejection_reason}
+                  </div>
+                </div>
+              )}
 
               {/* Tiêu chí cần khắc phục */}
               <div style={{ marginBottom: '16px' }}>
@@ -1877,9 +1991,92 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                 ) : (
                   <>
                     <i className="fa-solid fa-paper-plane"></i>
-                    <span>Gửi phản biện cho Giảng viên</span>
+                    <span>Gửi phản biện cho giảng viên</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xem Ý kiến phản biện lần trước */}
+      {previousReviewModal.isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '560px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-clock-rotate-left" style={{ color: '#0284c7' }}></i>
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#0f172a' }}>
+                  Ý kiến phản biện lần trước
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviousReviewModal({ isOpen: false, title: '', reason: '' })}
+                style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#64748b', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <p style={{ margin: '0 0 12px 0', fontSize: '0.82rem', color: '#64748b' }}>
+                Khóa học: <strong style={{ color: '#0f172a' }}>{previousReviewModal.title}</strong>
+              </p>
+              <div
+                style={{
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '14px',
+                  color: '#334155',
+                  fontSize: '0.85rem',
+                  lineHeight: '1.6',
+                  whiteSpace: 'pre-line',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                }}
+              >
+                {previousReviewModal.reason}
+              </div>
+            </div>
+            <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setPreviousReviewModal({ isOpen: false, title: '', reason: '' })}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                }}
+              >
+                Đã hiểu & Đóng
               </button>
             </div>
           </div>

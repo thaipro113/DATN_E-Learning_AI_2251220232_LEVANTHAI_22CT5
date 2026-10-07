@@ -155,11 +155,22 @@ class CourseService:
 
     @staticmethod
     def update_course(course: Course, validated_data: dict, user: CustomUser = None) -> Course:
-        if user and user.role == 'TEACHER':
-            # Nếu giảng viên gửi duyệt lại khóa học bị từ chối hoặc cập nhật
-            if validated_data.get('status') == CourseStatus.PENDING or course.status == CourseStatus.REJECTED:
-                validated_data['status'] = CourseStatus.PENDING
-                validated_data['rejection_reason'] = None
+        from django.utils import timezone
+        target_status = validated_data.get('status')
+        # Kiểm tra nếu khóa học được gửi duyệt lại (status = PENDING) hoặc đang REJECTED mà được cập nhật/gửi lại
+        if target_status == CourseStatus.PENDING or (course.status == CourseStatus.REJECTED and target_status in [None, CourseStatus.PENDING]):
+            # Nếu khóa học trước đó từng bị từ chối hoặc có ý kiến phản biện
+            if course.status == CourseStatus.REJECTED or course.rejection_reason:
+                course.is_resubmitted = True
+                course.resubmitted_at = timezone.now()
+                # Lưu lại vết ý kiến phản biện lần trước để Thẩm định viên đối chiếu khi cần
+                if course.rejection_reason:
+                    course.previous_rejection_reason = course.rejection_reason
+                # XÓA SẠCH ý kiến phản biện hiện tại để không bị chồng chéo
+                course.rejection_reason = None
+            validated_data['status'] = CourseStatus.PENDING
+            validated_data['rejection_reason'] = None
+
         for attr, value in validated_data.items():
             setattr(course, attr, value)
         course.save()
@@ -175,6 +186,7 @@ class CourseService:
         from django.utils import timezone
         course.status = CourseStatus.PUBLISHED
         course.rejection_reason = None
+        course.is_resubmitted = False
         if hasattr(course, 'reviewed_by') and user and user.is_authenticated:
             course.reviewed_by = user
             course.reviewed_at = timezone.now()
@@ -189,7 +201,9 @@ class CourseService:
             reason_str = reason.get('reason', '')
         else:
             reason_str = str(reason or '')
+        # Chỉ lưu đúng lỗi mới của lần phản biện này, không chồng ý cũ
         course.rejection_reason = reason_str.strip() or "Khóa học chưa đáp ứng tiêu chuẩn nội dung hoặc chất lượng sư phạm."
+        course.is_resubmitted = False
         if hasattr(course, 'reviewed_by') and user and user.is_authenticated:
             course.reviewed_by = user
             course.reviewed_at = timezone.now()
@@ -206,6 +220,7 @@ class CourseService:
 
         course.status = CourseStatus.PUBLISHED
         course.rejection_reason = None
+        course.is_resubmitted = False
         course.save()
         return True, "Khóa học đã được xuất bản công khai thành công!", course
 

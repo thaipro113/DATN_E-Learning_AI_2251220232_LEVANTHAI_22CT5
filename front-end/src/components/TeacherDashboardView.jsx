@@ -649,20 +649,24 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                           {course.status === 'PENDING' && (
                             <div
                               style={{
-                                backgroundColor: '#fffbeb',
-                                border: '1px solid #fde68a',
+                                backgroundColor: course.is_resubmitted ? '#eff6ff' : '#fffbeb',
+                                border: `1px solid ${course.is_resubmitted ? '#bfdbfe' : '#fde68a'}`,
                                 borderRadius: '6px',
                                 padding: '8px 10px',
                                 marginBottom: '12px',
                                 fontSize: '0.76rem',
-                                color: '#92400e',
+                                color: course.is_resubmitted ? '#1d4ed8' : '#92400e',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '6px',
                               }}
                             >
-                              <i className="fa-solid fa-hourglass-half" style={{ color: '#d97706' }}></i>
-                              <span>Khóa học đang chờ Admin xét duyệt trước khi công khai cho học viên.</span>
+                              <i className={course.is_resubmitted ? "fa-solid fa-arrows-rotate" : "fa-solid fa-hourglass-half"} style={{ color: course.is_resubmitted ? '#2563eb' : '#d97706' }}></i>
+                              <span>
+                                {course.is_resubmitted
+                                  ? 'Đã gửi duyệt lại sau chỉnh sửa. Đang chờ hội đồng thẩm định đánh giá lại.'
+                                  : 'Khóa học đang chờ hội đồng thẩm định xét duyệt trước khi công khai cho học viên.'}
+                              </span>
                             </div>
                           )}
 

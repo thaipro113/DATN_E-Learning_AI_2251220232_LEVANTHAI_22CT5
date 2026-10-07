@@ -108,6 +108,22 @@ class Course(BaseModel):
         null=True,
         blank=True
     )
+    is_resubmitted = models.BooleanField(
+        _('Đã gửi duyệt lại sau phản biện'),
+        default=False,
+        help_text=_('Đánh dấu giảng viên đã cập nhật lại nội dung và gửi duyệt lại cho phản biện')
+    )
+    resubmitted_at = models.DateTimeField(
+        _('Thời gian gửi duyệt lại'),
+        null=True,
+        blank=True
+    )
+    previous_rejection_reason = models.TextField(
+        _('Ý kiến phản biện lần trước'),
+        blank=True,
+        null=True,
+        help_text=_('Lưu vết nhận xét phản biện cũ để đối chiếu kiểm tra khi giảng viên gửi lại')
+    )
 
     class Meta:
         db_table = 'courses'

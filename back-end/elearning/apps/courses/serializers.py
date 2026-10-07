@@ -229,6 +229,7 @@ class CourseListSerializer(serializers.ModelSerializer):
     """
     category = CategorySimpleSerializer(read_only=True)
     teacher = TeacherSimpleSerializer(read_only=True)
+    reviewed_by = TeacherSimpleSerializer(read_only=True)
     level_display = serializers.CharField(source='get_level_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     total_chapters = serializers.IntegerField(read_only=True)
@@ -251,6 +252,9 @@ class CourseListSerializer(serializers.ModelSerializer):
             'status',
             'status_display',
             'rejection_reason',
+            'is_resubmitted',
+            'resubmitted_at',
+            'previous_rejection_reason',
             'reviewed_by',
             'reviewed_at',
             'category',
@@ -304,6 +308,9 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'status',
             'status_display',
             'rejection_reason',
+            'is_resubmitted',
+            'resubmitted_at',
+            'previous_rejection_reason',
             'reviewed_by',
             'reviewed_at',
             'category',
