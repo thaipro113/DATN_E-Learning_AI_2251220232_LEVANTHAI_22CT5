@@ -1,4 +1,5 @@
 import React from 'react';
+import { calculateRealStreak } from '../utils/streakCalculator';
 
 const levelDescriptions = {
   A1: 'Căn bản (Beginner)',
@@ -63,8 +64,8 @@ export default function MetricCardsGrid({
   const totalXP = totalCompletedLessons * 50 + (totalAttempts * 30) + ((aiSessions?.length || 0) * 10);
 
   // 5. Chuỗi ngày học (Streak) thực tế
-  const hasRecentActivity = totalAttempts > 0 || totalCompletedLessons > 0 || myCourses.length > 0;
-  const streakCount = totalAttempts > 0 ? Math.min(totalAttempts, 5) : (myCourses.length > 0 ? 1 : 0);
+  const realStreak = calculateRealStreak({ user, myAttempts, myCourses, aiSessions });
+  const streakCount = realStreak.streak;
 
   return (
     <div className="metric-grid">
@@ -269,11 +270,15 @@ export default function MetricCardsGrid({
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
                 Chuỗi ngày học liên tục
               </span>
-              <strong style={{ fontSize: '0.92rem', color: '#ea580c' }}>
+              <strong style={{ fontSize: '0.92rem', color: streakCount > 0 ? '#ea580c' : '#64748b' }}>
                 {streakCount > 0 ? `${streakCount} ngày liên tục` : '0 ngày'}
               </strong>
               <span style={{ fontSize: '0.68rem', color: 'var(--text-light)', display: 'block' }}>
-                {streakCount > 0 ? 'Duy trì thói quen học mỗi ngày' : 'Bắt đầu học hôm nay để tạo chuỗi streak'}
+                {streakCount > 0
+                  ? 'Duy trì thói quen học mỗi ngày'
+                  : realStreak.daysSinceLastStudy !== null
+                  ? `Bị ngắt (${realStreak.daysSinceLastStudy} ngày trước)`
+                  : 'Bắt đầu học hôm nay để tạo chuỗi'}
               </span>
             </div>
           </div>

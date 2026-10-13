@@ -1,4 +1,6 @@
 import React from 'react';
+import { calculateRealStreak } from '../utils/streakCalculator';
+import { learningAPI } from '../services/api';
 
 const levelDescriptions = {
   A1: 'Căn bản (Beginner)',
@@ -59,9 +61,58 @@ export default function StudentBentoDashboard({
   );
   const aiSessionCount = Array.isArray(aiSessions) ? aiSessions.length : (aiSessions?.results?.length ?? 0);
   const calculatedXP = Math.max(30, totalCompletedLessons * 20 + totalAttempts * 15 + aiSessionCount * 10);
-  const currentStreak = totalAttempts > 0 || totalCompletedLessons > 0 || aiSessionCount > 0 ? 1 : 0;
 
-  // 4. Quản lý trạng thái Nudge & Streak thông minh (Duolingo Style Mascot Nudge)
+  // 4. Tính toán Chuỗi học tập (Streak) THẬT dựa trên lịch sử học tập thực tế của học viên
+  const [streakTick, setStreakTick] = React.useState(0);
+  const [backendStreakData, setBackendStreakData] = React.useState(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if (user) {
+      learningAPI
+        .getStudyStreak()
+        .then((res) => {
+          if (isMounted && res.data) {
+            setBackendStreakData(res.data);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not fetch backend streak:', err);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user, streakTick]);
+
+  React.useEffect(() => {
+    const onStudyActivity = () => setStreakTick((prev) => prev + 1);
+    window.addEventListener('study_activity_recorded', onStudyActivity);
+    return () => window.removeEventListener('study_activity_recorded', onStudyActivity);
+  }, []);
+
+  const realStreak = React.useMemo(() => {
+    return calculateRealStreak({
+      user,
+      backendStreak: backendStreakData,
+      myAttempts,
+      myCourses,
+      aiSessions,
+    });
+  }, [user, backendStreakData, myAttempts, myCourses, aiSessions, streakTick]);
+
+  const {
+    streak: streakDays,
+    hasStudiedToday,
+    status: streakStatus,
+    badgeText,
+    headline,
+    subtext,
+    lastStudyDateFormatted,
+    daysSinceLastStudy,
+  } = realStreak;
+
+  // Quản lý trạng thái Nudge thu nhỏ (Duolingo Style Mascot Nudge)
   const [isNudgeDismissed, setIsNudgeDismissed] = React.useState(() => {
     try {
       return sessionStorage.getItem('bird_nudge_dismissed') === 'true';
@@ -77,23 +128,38 @@ export default function StudentBentoDashboard({
     } catch (e) {}
   };
 
-  // Xác định xem hôm nay học viên đã học bài nào chưa
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const studiedTodayFromAttempts = Array.isArray(myAttempts) && myAttempts.some((a) => a.created_at?.slice(0, 10) === todayStr);
-  let studiedTodayFromStorage = false;
-  try {
-    studiedTodayFromStorage = localStorage.getItem('study_session_date') === todayStr;
-  } catch (e) {}
-  const hasStudiedToday = studiedTodayFromAttempts || studiedTodayFromStorage;
+  // Xác định theme màu sắc theo trạng thái chuỗi thật
+  const bannerBackground =
+    streakStatus === 'ACTIVE_TODAY'
+      ? 'linear-gradient(135deg, #065f46 0%, #059669 60%, #10b981 100%)'
+      : streakStatus === 'PENDING_TODAY'
+      ? 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4f46e5 100%)'
+      : 'linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%)';
 
-  // Chuỗi streak ngày
-  let streakDays = 1;
-  try {
-    const saved = localStorage.getItem('daily_study_streak');
-    streakDays = saved ? Math.max(1, parseInt(saved, 10)) : (currentStreak || 1);
-  } catch (e) {
-    streakDays = 1;
-  }
+  const bannerShadow =
+    streakStatus === 'ACTIVE_TODAY'
+      ? '0 10px 25px -5px rgba(5, 150, 105, 0.25)'
+      : streakStatus === 'PENDING_TODAY'
+      ? '0 10px 25px -5px rgba(79, 70, 229, 0.3)'
+      : '0 10px 25px -5px rgba(15, 23, 42, 0.4)';
+
+  const badgeBg =
+    streakStatus === 'ACTIVE_TODAY'
+      ? '#34d399'
+      : streakStatus === 'PENDING_TODAY'
+      ? '#f59e0b'
+      : streakStatus === 'BROKEN'
+      ? '#fee2e2'
+      : '#e2e8f0';
+
+  const badgeColor =
+    streakStatus === 'ACTIVE_TODAY'
+      ? '#064e3b'
+      : streakStatus === 'PENDING_TODAY'
+      ? '#78350f'
+      : streakStatus === 'BROKEN'
+      ? '#991b1b'
+      : '#334155';
 
   return (
     <section className="student-bento-section" style={{ margin: '20px 0 28px 0' }}>
@@ -103,16 +169,12 @@ export default function StudentBentoDashboard({
       {!isNudgeDismissed ? (
         <div
           style={{
-            background: hasStudiedToday
-              ? 'linear-gradient(135deg, #065f46 0%, #059669 60%, #10b981 100%)'
-              : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4f46e5 100%)',
+            background: bannerBackground,
             borderRadius: '20px',
             padding: '20px 24px',
             color: '#ffffff',
             marginBottom: '20px',
-            boxShadow: hasStudiedToday
-              ? '0 10px 25px -5px rgba(5, 150, 105, 0.25)'
-              : '0 10px 25px -5px rgba(79, 70, 229, 0.3)',
+            boxShadow: bannerShadow,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -173,35 +235,31 @@ export default function StudentBentoDashboard({
 
             {/* Lời thoại ngữ cảnh của chú chim */}
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                 <span
                   style={{
                     fontSize: '0.72rem',
                     fontWeight: '800',
-                    backgroundColor: hasStudiedToday ? '#34d399' : '#f59e0b',
-                    color: '#064e3b',
+                    backgroundColor: badgeBg,
+                    color: badgeColor,
                     padding: '2px 8px',
                     borderRadius: '10px',
                     letterSpacing: '0.4px',
                   }}
                 >
-                  {hasStudiedToday ? 'ĐÃ DUY TRÌ THÀNH CÔNG' : 'CÚ HUÝCH DUY TRÌ THÓI QUEN'}
+                  {badgeText}
                 </span>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#fef08a' }}>
-                  🔥 Chuỗi {streakDays} ngày liên tục
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: streakDays > 0 ? '#fef08a' : '#cbd5e1' }}>
+                  {streakDays > 0 ? `🔥 Chuỗi ${streakDays} ngày liên tục` : `❄️ Chuỗi hiện tại: 0 ngày`}
                 </span>
               </div>
 
               <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', fontWeight: '900', letterSpacing: '-0.3px' }}>
-                {hasStudiedToday
-                  ? `Xuất sắc! Bạn đã hoàn thành bài học hôm nay!`
-                  : `Hôm nay bạn chưa học bài nào đấy nhé!`}
+                {headline}
               </h4>
 
-              <p style={{ margin: 0, fontSize: '0.84rem', color: hasStudiedToday ? '#d1fae5' : '#e0e7ff', lineHeight: '1.4' }}>
-                {hasStudiedToday
-                  ? `Mục tiêu hôm nay đã đạt được. Hãy giữ vững phong độ hoặc thử thách với một bộ từ vựng Flashcard mới nhé!`
-                  : `Chỉ cần dành 5 phút lướt thẻ từ vựng hoặc làm 1 bài kiểm tra mini để chuỗi ngày học 🔥 không bị đóng băng!`}
+              <p style={{ margin: 0, fontSize: '0.84rem', color: streakStatus === 'ACTIVE_TODAY' ? '#d1fae5' : '#e0e7ff', lineHeight: '1.4' }}>
+                {subtext}
               </p>
             </div>
           </div>
@@ -214,7 +272,7 @@ export default function StudentBentoDashboard({
                 padding: '9px 16px',
                 borderRadius: '12px',
                 backgroundColor: '#ffffff',
-                color: hasStudiedToday ? '#065f46' : '#312e81',
+                color: streakStatus === 'ACTIVE_TODAY' ? '#065f46' : '#1e1b4b',
                 border: 'none',
                 fontSize: '0.84rem',
                 fontWeight: '800',
@@ -226,7 +284,13 @@ export default function StudentBentoDashboard({
               }}
             >
               <i className="fa-solid fa-layer-group" style={{ color: '#2563eb' }}></i>
-              <span>{hasStudiedToday ? 'Ôn Flashcards từ vựng' : '📚 Học Flashcards 5 phút'}</span>
+              <span>
+                {streakStatus === 'ACTIVE_TODAY'
+                  ? 'Ôn Flashcards từ vựng'
+                  : streakDays === 0
+                  ? '🚀 Bắt đầu chuỗi: Học Flashcards 5 phút'
+                  : '📚 Học Flashcards để giữ chuỗi'}
+              </span>
             </button>
 
             {!hasStudiedToday && (
@@ -282,7 +346,7 @@ export default function StudentBentoDashboard({
             title="Bấm để mở lại lời nhắc học tập của Chú Chim"
           >
             <img src="/Bird_Student.png" alt="Bird" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
-            <span>🔥 Chuỗi {streakDays} ngày</span>
+            <span>{streakDays > 0 ? `🔥 Chuỗi ${streakDays} ngày` : `❄️ Chuỗi 0 ngày (Chưa học)`}</span>
             <span style={{ color: '#2563eb', fontSize: '0.75rem' }}>(Xem lời nhắc)</span>
           </div>
         </div>
@@ -435,16 +499,26 @@ export default function StudentBentoDashboard({
                   gap: '10px',
                   padding: '8px 12px',
                   borderRadius: '10px',
-                  backgroundColor: currentStreak > 0 ? '#fff7ed' : '#f8fafc',
-                  border: `1px solid ${currentStreak > 0 ? '#ffedd5' : '#e2e8f0'}`,
+                  backgroundColor: streakDays > 0 ? '#fff7ed' : '#f8fafc',
+                  border: `1px solid ${streakDays > 0 ? '#ffedd5' : '#e2e8f0'}`,
                 }}
               >
-                <span style={{ fontSize: '1.2rem', color: '#ea580c' }}>🔥</span>
+                <span style={{ fontSize: '1.2rem', color: streakDays > 0 ? '#ea580c' : '#94a3b8' }}>
+                  {streakDays > 0 ? '🔥' : '❄️'}
+                </span>
                 <div>
-                  <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#9a3412', lineHeight: '1.1' }}>
-                    {currentStreak > 0 ? `${currentStreak} ngày` : '0 ngày'}
+                  <div style={{ fontSize: '0.86rem', fontWeight: '800', color: streakDays > 0 ? '#9a3412' : '#475569', lineHeight: '1.1' }}>
+                    {streakDays > 0 ? `${streakDays} ngày` : '0 ngày'}
                   </div>
-                  <div style={{ fontSize: '0.68rem', color: '#c2410c' }}>Chuỗi học liên tục</div>
+                  <div style={{ fontSize: '0.68rem', color: streakDays > 0 ? '#c2410c' : '#64748b' }}>
+                    {streakStatus === 'ACTIVE_TODAY'
+                      ? 'Đã duy trì hôm nay'
+                      : streakStatus === 'PENDING_TODAY'
+                      ? 'Đang chờ học hôm nay'
+                      : daysSinceLastStudy !== null
+                      ? `Bị ngắt (${daysSinceLastStudy} ngày trước)`
+                      : 'Chưa có chuỗi ngày học'}
+                  </div>
                 </div>
               </div>
 

@@ -217,3 +217,128 @@ class CertificateService:
         return Certificate.objects.filter(
             certificate_code=certificate_code.strip()
         ).select_related('enrollment__student', 'enrollment__course__teacher').first()
+
+
+class StudyStreakService:
+    """
+    Xử lý nghiệp vụ chuỗi học tập (Daily Study Streak) thực tế:
+    - Thu thập tất cả mốc thời gian học thật: QuizAttempt, LessonProgress, Enrollment, ChatSession.
+    - Quy đổi về ngày theo múi giờ địa phương.
+    - Tính toán chính xác chuỗi ngày học liên tục (Consecutive Days).
+    - Phân loại 4 trạng thái: ACTIVE_TODAY, PENDING_TODAY, BROKEN, NEW.
+    """
+
+    @staticmethod
+    def get_user_streak(student: CustomUser) -> Dict[str, Any]:
+        from datetime import timedelta
+        from django.utils import timezone
+        from apps.assessments.models import QuizAttempt
+        from apps.learning.models import LessonProgress, Enrollment
+        from apps.ai.models import ChatSession
+
+        activity_timestamps = []
+
+        # 1. Các lần làm bài thi trắc nghiệm
+        for a in QuizAttempt.objects.filter(student=student):
+            dt = a.completed_at or a.started_at or a.created_at
+            if dt:
+                activity_timestamps.append(dt)
+
+        # 2. Các tiến độ học bài / xem video
+        for p in LessonProgress.objects.filter(enrollment__student=student):
+            dt = p.completed_at or p.updated_at
+            if dt:
+                activity_timestamps.append(dt)
+
+        # 3. Lần ghi danh hoặc hoàn thành khóa học
+        for e in Enrollment.objects.filter(student=student):
+            dt = e.completed_at or e.updated_at
+            if dt:
+                activity_timestamps.append(dt)
+
+        # 4. Các phiên tương tác hỏi đáp với Gia sư AI
+        for s in ChatSession.objects.filter(student=student):
+            dt = s.updated_at or s.created_at
+            if dt:
+                activity_timestamps.append(dt)
+
+        active_dates_set = set()
+        latest_dt = None
+
+        for dt in activity_timestamps:
+            local_dt = timezone.localtime(dt)
+            active_dates_set.add(local_dt.date())
+            if latest_dt is None or dt > latest_dt:
+                latest_dt = dt
+
+        sorted_dates = sorted(list(active_dates_set))
+        today = timezone.localtime().date()
+        yesterday = today - timedelta(days=1)
+
+        has_studied_today = today in active_dates_set
+
+        # Tính toán chuỗi ngày học liên tục thực tế
+        streak = 0
+        if has_studied_today:
+            curr = today
+            while curr in active_dates_set:
+                streak += 1
+                curr -= timedelta(days=1)
+            status = 'ACTIVE_TODAY'
+        else:
+            if yesterday in active_dates_set:
+                curr = yesterday
+                while curr in active_dates_set:
+                    streak += 1
+                    curr -= timedelta(days=1)
+                status = 'PENDING_TODAY'
+            else:
+                streak = 0
+                status = 'BROKEN' if len(active_dates_set) > 0 else 'NEW'
+
+        days_since_last_study = None
+        last_study_date_str = None
+        last_study_date_display = None
+        last_study_time_display = None
+
+        if latest_dt:
+            local_latest = timezone.localtime(latest_dt)
+            last_date = local_latest.date()
+            days_since_last_study = (today - last_date).days
+            last_study_date_str = last_date.isoformat()
+            last_study_date_display = local_latest.strftime('%d/%m/%Y')
+            last_study_time_display = local_latest.strftime('%H:%M ngày %d/%m/%Y')
+
+        if status == 'ACTIVE_TODAY':
+            badge_text = 'ĐÃ DUY TRÌ THÀNH CÔNG'
+            headline = f'Xuất sắc! Bạn đã duy trì chuỗi {streak} ngày liên tục!'
+            subtext = f'Mục tiêu học tập hôm nay ({today.strftime("%d/%m/%Y")}) đã hoàn thành. Hãy giữ vững phong độ nhé!'
+        elif status == 'PENDING_TODAY':
+            badge_text = 'CÚ HUÝCH DUY TRÌ THÓI QUEN'
+            headline = 'Hôm nay bạn chưa học bài nào đấy nhé!'
+            subtext = f'Hôm qua bạn đã học rất chăm chỉ! Chỉ cần dành 5 phút lướt thẻ từ vựng hoặc làm 1 bài kiểm tra mini ngay hôm nay để chuỗi {streak} ngày không bị gián đoạn!'
+        elif status == 'BROKEN':
+            badge_text = 'CHUỖI ĐÃ BỊ GIÁN ĐOẠN'
+            time_ago_str = f'({days_since_last_study} ngày trước)' if days_since_last_study else ''
+            headline = 'Chuỗi học tập của bạn hiện đang là 0 ngày!'
+            subtext = f'Lần học gần nhất của bạn là {last_study_date_display} {time_ago_str}. Đừng bỏ cuộc nhé! Hãy hoàn thành 1 bài học hoặc 5 phút flashcards ngay hôm nay để khởi động lại chuỗi 1 ngày đầu tiên!'
+        else:
+            badge_text = 'KHỞI ĐẦU HÀNH TRÌNH'
+            headline = 'Bắt đầu chuỗi ngày học đầu tiên của bạn!'
+            subtext = 'Hãy học 1 bài học hoặc làm một bài trắc nghiệm hôm nay để bắt đầu chuỗi ngày học liên tục đầu tiên nhé!'
+
+        return {
+            'streak': streak,
+            'has_studied_today': has_studied_today,
+            'status': status,
+            'badge_text': badge_text,
+            'headline': headline,
+            'subtext': subtext,
+            'last_study_date': last_study_date_str,
+            'last_study_date_display': last_study_date_display,
+            'last_study_time_display': last_study_time_display,
+            'days_since_last_study': days_since_last_study,
+            'total_study_days': len(active_dates_set),
+            'recent_study_dates': [d.isoformat() for d in sorted_dates[-7:]]
+        }
+

@@ -69,6 +69,7 @@ export const learningAPI = {
   completeLesson: (lessonId) => apiClient.post(`learning/lessons/${lessonId}/complete/`),
   getMyCertificates: () => apiClient.get('learning/certificates/'),
   verifyCertificate: (certificateCode) => apiClient.get(`learning/certificates/${certificateCode}/`),
+  getStudyStreak: () => apiClient.get('learning/study-streak/'),
 };
 
 export const assessmentAPI = {

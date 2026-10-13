@@ -12,7 +12,7 @@ from .serializers import (
     CompleteLessonResponseSerializer,
     CertificateDetailSerializer
 )
-from .services import EnrollmentService, ProgressService, CertificateService
+from .services import EnrollmentService, ProgressService, CertificateService, StudyStreakService
 from .schemas import (
     enroll_course_schema,
     my_enrollments_schema,
@@ -212,3 +212,19 @@ class CertificateVerificationAPIView(APIView):
             message="Chứng chỉ hợp lệ!",
             status_code=status.HTTP_200_OK
         )
+
+
+class StudyStreakAPIView(APIView):
+    """
+    API Endpoint lấy dữ liệu chuỗi ngày học liên tục (Daily Study Streak) thực tế.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        streak_data = StudyStreakService.get_user_streak(student=request.user)
+        return success_response(
+            data=streak_data,
+            message="Lấy thông tin chuỗi ngày học thành công!",
+            status_code=status.HTTP_200_OK
+        )
+

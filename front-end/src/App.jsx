@@ -28,6 +28,7 @@ import CourseReviewerDashboardView from './components/CourseReviewerDashboardVie
 import FlashcardStudyView from './components/FlashcardStudyView';
 import TeacherFlashcardManager from './components/TeacherFlashcardManager';
 import AICommunicationView from './components/AICommunicationView';
+import { recordStudyActivity } from './utils/streakCalculator';
 import Footer from './components/Footer';
 import FloatingContactWidget from './components/FloatingContactWidget';
 import { cleanCourseTitle } from './utils/media';
@@ -357,18 +358,9 @@ export default function App() {
     setIsMobileDrawerOpen(false);
   };
 
-  // Ghi nhận phiên học tập tích cực (dành cho Streak Chú Chim Mascot)
-  const handleRecordStudySession = () => {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    try {
-      const lastStudyDate = localStorage.getItem('study_session_date');
-      let streak = parseInt(localStorage.getItem('daily_study_streak') || '1', 10);
-      if (lastStudyDate !== todayStr) {
-        streak += 1;
-        localStorage.setItem('daily_study_streak', String(streak));
-        localStorage.setItem('study_session_date', todayStr);
-      }
-    } catch (e) {}
+  // Ghi nhận phiên học tập tích cực (dành cho Streak Chú Chim Mascot & Hồ sơ học viên)
+  const handleRecordStudySession = (activityType = 'flashcard') => {
+    recordStudyActivity(user?.id || user?.email, activityType);
   };
 
   const handleOpenCourseDetail = (course) => {

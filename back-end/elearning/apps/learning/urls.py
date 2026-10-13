@@ -6,7 +6,8 @@ from .views import (
     TrackLessonProgressAPIView,
     CompleteLessonAPIView,
     MyCertificatesAPIView,
-    CertificateVerificationAPIView
+    CertificateVerificationAPIView,
+    StudyStreakAPIView
 )
 
 app_name = 'learning'
@@ -26,4 +27,7 @@ urlpatterns = [
     # 4. Chứng chỉ (Certificates)
     path('certificates/', MyCertificatesAPIView.as_view(), name='my_certificates'),
     path('certificates/<str:certificate_code>/', CertificateVerificationAPIView.as_view(), name='verify_certificate'),
+
+    # 5. Chuỗi ngày học liên tục thực tế (Daily Study Streak)
+    path('study-streak/', StudyStreakAPIView.as_view(), name='study_streak'),
 ]
