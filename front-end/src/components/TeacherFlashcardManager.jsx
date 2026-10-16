@@ -170,6 +170,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       description: '',
       courseId: '',
       courseTitle: '',
+      accessScope: 'ENROLLED',
+      isPublic: false,
     });
   };
 
@@ -184,6 +186,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       description: deck.description || '',
       courseId: deck.courseId || '',
       courseTitle: deck.courseTitle || '',
+      accessScope: deck.accessScope || (deck.isPublic ? 'PUBLIC' : 'ENROLLED'),
+      isPublic: deck.isPublic != null ? deck.isPublic : false,
     });
   };
 
@@ -193,6 +197,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       alert('Vui lòng nhập tên đề tài từ vựng.');
       return;
     }
+
+    const isPublicDeck = deckModal.accessScope === 'PUBLIC' || Boolean(deckModal.isPublic);
 
     if (deckModal.mode === 'create') {
       const newDeck = {
@@ -209,6 +215,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
         authorRole: 'TEACHER',
         courseId: deckModal.courseId || null,
         courseTitle: deckModal.courseTitle || null,
+        accessScope: deckModal.accessScope || (isPublicDeck ? 'PUBLIC' : 'ENROLLED'),
+        isPublic: isPublicDeck,
         category: 'teacher',
         // Đề tài mới tạo của Giảng viên ở trạng thái Bản nháp, cần thêm từ vựng trước khi gửi thẩm định
         status: 'DRAFT',
@@ -230,6 +238,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
               description: deckModal.description.trim(),
               courseId: deckModal.courseId || null,
               courseTitle: deckModal.courseTitle || null,
+              accessScope: deckModal.accessScope || (isPublicDeck ? 'PUBLIC' : 'ENROLLED'),
+              isPublic: isPublicDeck,
             }
           : d
       );
@@ -822,6 +832,15 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                             ⚠️ Cần sửa
                           </span>
                         )}
+                        {deck.accessScope === 'PUBLIC' || deck.isPublic ? (
+                          <span style={{ fontSize: '0.66rem', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #d1fae5' }} title="Tất cả học viên đều được học">
+                            🌐 Tự do (Public)
+                          </span>
+                        ) : deck.courseTitle ? (
+                          <span style={{ fontSize: '0.66rem', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }} title="Chỉ học viên đã đăng ký khóa học">
+                            🔒 Nội bộ khóa
+                          </span>
+                        ) : null}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1395,6 +1414,47 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Phạm vi tiếp cận học viên (Khóa học độc quyền vs Công khai tự do) */}
+              <div style={{ padding: '12px 14px', borderRadius: '10px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: '800', color: '#1e293b', marginBottom: '8px' }}>
+                  Phạm vi tiếp cận học viên <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '0.84rem', color: '#334155', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="accessScope"
+                      value="ENROLLED"
+                      checked={deckModal.accessScope !== 'PUBLIC'}
+                      onChange={() => setDeckModal({ ...deckModal, accessScope: 'ENROLLED', isPublic: false })}
+                      style={{ marginTop: '3px' }}
+                    />
+                    <div>
+                      <strong style={{ color: '#0f172a' }}>🔒 Chỉ học viên đã đăng ký khóa học</strong>
+                      <div style={{ fontSize: '0.76rem', color: '#64748b' }}>
+                        Chỉ những học viên đã đăng ký hoặc mua khóa học mới có quyền xem & ôn tập bộ thẻ này.
+                      </div>
+                    </div>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '0.84rem', color: '#334155', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="accessScope"
+                      value="PUBLIC"
+                      checked={deckModal.accessScope === 'PUBLIC'}
+                      onChange={() => setDeckModal({ ...deckModal, accessScope: 'PUBLIC', isPublic: true })}
+                      style={{ marginTop: '3px' }}
+                    />
+                    <div>
+                      <strong style={{ color: '#059669' }}>🌐 Tự do / Công khai (Publish)</strong>
+                      <div style={{ fontSize: '0.76rem', color: '#64748b' }}>
+                        Tất cả học viên trên toàn hệ thống đều có thể xem và học bộ thẻ flashcard này.
+                      </div>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

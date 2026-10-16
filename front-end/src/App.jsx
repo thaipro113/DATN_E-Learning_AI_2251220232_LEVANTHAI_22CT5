@@ -776,6 +776,7 @@ export default function App() {
             {currentTab === 'flashcards' && (
               <FlashcardStudyView
                 user={user}
+                myCourses={myCourses}
                 initialDeckId={selectedFlashcardDeckId}
                 onRecordStudySession={handleRecordStudySession}
                 onNavigateToCourse={() => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   getAllDecksWithWords,
+  canUserAccessDeck,
   getStoredCustomDecks,
   saveStoredCustomDecks,
   getStoredCustomWords,
@@ -11,11 +12,12 @@ import {
 
 export default function FlashcardStudyView({
   user,
+  myCourses = [],
   onRecordStudySession,
   initialDeckId = null,
   onNavigateToCourse = null,
 }) {
-    // 1. State danh sách các Chủ đề / Bộ thẻ tự tạo (Lưu vào localStorage)
+  // 1. State danh sách các Chủ đề / Bộ thẻ tự tạo (Lưu vào localStorage)
   const [customDecks, setCustomDecks] = useState(() => getStoredCustomDecks());
   useEffect(() => {
     saveStoredCustomDecks(customDecks);
@@ -27,10 +29,11 @@ export default function FlashcardStudyView({
     saveStoredCustomWords(customWords);
   }, [customWords]);
 
-  // 3. Tổng hợp danh sách tất cả các bộ thẻ (Admin + Giảng viên + Khóa học + Cá nhân)
+  // 3. Tổng hợp danh sách tất cả các bộ thẻ và LỌC QUYỀN TRUY CẬP (Đã đăng ký khóa học hoặc Public)
   const allDecks = useMemo(() => {
-    return getAllDecksWithWords(user, customDecks, customWords);
-  }, [user, customDecks, customWords]);
+    const raw = getAllDecksWithWords(user, customDecks, customWords);
+    return raw.filter((deck) => canUserAccessDeck(deck, user, myCourses));
+  }, [user, customDecks, customWords, myCourses]);
 
   // Bộ lọc danh mục: 'ALL' | 'system' | 'teacher' | 'personal'
   const [deckCategoryFilter, setDeckCategoryFilter] = useState('ALL');
@@ -77,7 +80,7 @@ export default function FlashcardStudyView({
   // State quản lý bộ thẻ & thẻ hiện tại
   const [selectedDeckId, setSelectedDeckId] = useState(() => initialDeckId || 'daily_life');
 
-  // Tự động chuyển đến bộ thẻ ban đầu nếu được truyền từ ngoài (ví dụ từ phòng học)
+  // Tự động chuyển đến bộ thẻ ban đầu nếu được truyền từ ngoài (ví dụ từ phòng học) hoặc reset khi bộ thẻ hiện tại không có quyền truy cập
   useEffect(() => {
     if (initialDeckId && allDecks.some((d) => d.id === initialDeckId)) {
       setSelectedDeckId(initialDeckId);
@@ -85,8 +88,10 @@ export default function FlashcardStudyView({
       if (target?.category) {
         setDeckCategoryFilter(target.category);
       }
+    } else if (allDecks.length > 0 && !allDecks.some((d) => d.id === selectedDeckId)) {
+      setSelectedDeckId(allDecks[0].id);
     }
-  }, [initialDeckId, allDecks]);
+  }, [initialDeckId, allDecks, selectedDeckId]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0); // 1.0x hoặc 0.8x
@@ -737,16 +742,35 @@ export default function FlashcardStudyView({
       {filteredDecks.length === 0 ? (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '40px 20px', textAlign: 'center', border: '1px dashed #cbd5e1', color: '#64748b', marginBottom: '22px' }}>
           <i className="fa-solid fa-folder-open" style={{ fontSize: '2.5rem', color: '#cbd5e1', marginBottom: '12px' }}></i>
-          <h4 style={{ fontSize: '1rem', fontWeight: '800', color: '#1e293b', margin: '0 0 6px 0' }}>Không tìm thấy bộ thẻ nào phù hợp</h4>
-          <p style={{ fontSize: '0.85rem', margin: '0 0 14px 0' }}>Hãy thử chọn danh mục khác hoặc xóa bộ lọc tìm kiếm.</p>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => { setDeckCategoryFilter('ALL'); setTeacherFilter('ALL'); setDeckSearchQuery(''); }}
-            style={{ fontSize: '0.82rem', padding: '6px 14px' }}
-          >
-            Xem tất cả bộ thẻ
-          </button>
+          <h4 style={{ fontSize: '1rem', fontWeight: '800', color: '#1e293b', margin: '0 0 6px 0' }}>
+            {deckCategoryFilter === 'teacher' ? 'Chưa có bộ thẻ từ vựng giảng viên nào được mở khóa' : 'Không tìm thấy bộ thẻ nào phù hợp'}
+          </h4>
+          <p style={{ fontSize: '0.85rem', margin: '0 0 14px 0', maxWidth: '500px', marginLeft: 'auto', marginRight: 'auto' }}>
+            {deckCategoryFilter === 'teacher'
+              ? 'Các bộ thẻ này gắn liền với từng khóa học độc quyền. Chỉ học viên đã đăng ký khóa học (hoặc bộ thẻ được giảng viên chọn tự do/public) mới hiển thị tại đây.'
+              : 'Hãy thử chọn danh mục khác hoặc xóa bộ lọc tìm kiếm.'}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => { setDeckCategoryFilter('ALL'); setTeacherFilter('ALL'); setDeckSearchQuery(''); }}
+              style={{ fontSize: '0.82rem', padding: '6px 14px' }}
+            >
+              Xem tất cả bộ thẻ
+            </button>
+            {deckCategoryFilter === 'teacher' && onNavigateToCourse && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={onNavigateToCourse}
+                style={{ fontSize: '0.82rem', padding: '6px 14px', backgroundColor: '#0284c7' }}
+              >
+                <i className="fa-solid fa-graduation-cap" style={{ marginRight: '6px' }}></i>
+                Khám phá khóa học
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', marginBottom: '22px' }}>
@@ -829,11 +853,20 @@ export default function FlashcardStudyView({
                     {deck.title}
                   </h4>
 
-                  {/* Hàng 3: Khóa học liên kết (Course Badge nếu có) */}
+                  {/* Hàng 3: Khóa học liên kết (Course Badge nếu có) & Huy hiệu quyền truy cập */}
                   {deck.courseTitle && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '6px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#475569', fontWeight: '700', marginBottom: '8px' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '6px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#475569', fontWeight: '700', marginBottom: '8px', flexWrap: 'wrap' }}>
                       <i className="fa-solid fa-graduation-cap" style={{ color: '#0284c7' }}></i>
                       <span>Khóa: {deck.courseTitle}</span>
+                      {deck.accessScope === 'PUBLIC' || deck.isPublic ? (
+                        <span style={{ fontSize: '0.68rem', color: '#059669', backgroundColor: '#ecfdf5', padding: '1px 6px', borderRadius: '4px', marginLeft: '2px', border: '1px solid #d1fae5' }}>
+                          <i className="fa-solid fa-globe"></i> Tự do / Public
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.68rem', color: '#16a34a', backgroundColor: '#f0fdf4', padding: '1px 6px', borderRadius: '4px', marginLeft: '2px', border: '1px solid #bbf7d0' }}>
+                          <i className="fa-solid fa-circle-check"></i> Đã đăng ký
+                        </span>
+                      )}
                     </div>
                   )}
 

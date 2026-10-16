@@ -548,6 +548,8 @@ export const INITIAL_TEACHER_DECKS = [
     courseId: '439cb7ba-2055-4413-a15c-a9720b668cd6',
     courseTitle: 'Khóa học bứt tốc TOEIC 900+',
     category: 'teacher',
+    accessScope: 'ENROLLED',
+    isPublic: false,
     status: 'PUBLISHED',
     isCustomDeck: true,
     created_at: '2026-09-10',
@@ -567,6 +569,8 @@ export const INITIAL_TEACHER_DECKS = [
     courseId: '956681e6-c015-4f26-99af-c954d0e5ffe8',
     courseTitle: 'IELTS Masterclass 7.5+ Toàn Diện 4 Kỹ Năng',
     category: 'teacher',
+    accessScope: 'ENROLLED',
+    isPublic: false,
     status: 'PUBLISHED',
     isCustomDeck: true,
     created_at: '2026-09-12',
@@ -586,6 +590,8 @@ export const INITIAL_TEACHER_DECKS = [
     courseId: 'deeca477-0f3d-4f2b-b1df-d6b24286ef1e',
     courseTitle: 'Chiến Thuật Luyện Thi TOEIC 800+ Bứt Phá Mục Tiêu',
     category: 'teacher',
+    accessScope: 'ENROLLED',
+    isPublic: false,
     status: 'PUBLISHED',
     isCustomDeck: true,
     created_at: '2026-09-15',
@@ -600,6 +606,8 @@ export const INITIAL_TEACHER_DECKS = [
     author: 'Bạn (Học viên)',
     authorRole: 'STUDENT',
     category: 'personal',
+    accessScope: 'PUBLIC',
+    isPublic: true,
     isCustomDeck: true,
     isPersonalDeck: true,
     status: 'PUBLISHED',
@@ -985,6 +993,20 @@ export const getAllDecksWithWords = (forUser = null, customDecksParam = null, cu
         resolvedStatus = 'DRAFT';
       }
 
+
+      const isPublic =
+        override.isPublic != null
+          ? override.isPublic
+          : d.isPublic != null
+          ? d.isPublic
+          : d.accessScope === 'PUBLIC'
+          ? true
+          : !(d.courseId || d.courseTitle);
+      const accessScope =
+        override.accessScope ||
+        d.accessScope ||
+        (isPublic ? 'PUBLIC' : 'ENROLLED');
+
       return {
         ...d,
         author: d.author || 'Giảng viên',
@@ -992,6 +1014,8 @@ export const getAllDecksWithWords = (forUser = null, customDecksParam = null, cu
         authorAvatar: d.authorAvatar || null,
         courseId: d.courseId || null,
         courseTitle: d.courseTitle || null,
+        accessScope,
+        isPublic,
         category: d.category || (d.authorRole === 'ADMIN' ? 'system' : (d.authorRole === 'STUDENT' ? 'personal' : 'teacher')),
         status: resolvedStatus,
         isCustomDeck: true,
@@ -1047,6 +1071,63 @@ export const getAllDecksWithWords = (forUser = null, customDecksParam = null, cu
   // 4. Học viên (STUDENT) hoặc Khách:
   // Chỉ xem các đề tài đã được Phê duyệt xuất bản (PUBLISHED) và có từ vựng
   return all.filter((d) => d.status === 'PUBLISHED' && (d.cards && d.cards.length > 0));
+};
+
+// Kiểm tra quyền học viên được học bộ thẻ (ai đăng ký khóa học mới được thấy/học, trừ khi giảng viên chọn tự do/public)
+export const canUserAccessDeck = (deck, user = null, myCourses = []) => {
+  if (!deck) return false;
+
+  // 1. Quản trị viên (ADMIN) và Thẩm định viên (REVIEWER) luôn có quyền xem toàn bộ
+  if (user?.role === 'ADMIN' || user?.role === 'REVIEWER') return true;
+
+  // 2. Chính Giảng viên tạo ra bộ thẻ này luôn xem được
+  if (user?.role === 'TEACHER') {
+    const isOwner =
+      (user.id && deck.authorId && String(deck.authorId) === String(user.id)) ||
+      (user.full_name && deck.author && deck.author.trim().toLowerCase() === user.full_name.trim().toLowerCase()) ||
+      (user.email && (deck.authorEmail === user.email || deck.authorId === user.email)) ||
+      (user.email === 'teacher@gmail.com' && (deck.author?.includes('Nguyễn Văn An') || deck.authorId === '10f75caa-75ac-44d5-be3c-02e0a0ce05cd')) ||
+      (user.email === 'teacher1@gmail.com' && (deck.author?.includes('Trần Thị Mai') || deck.authorId === '2e8996c9-cda5-453a-b213-629639a38a3f'));
+    if (isOwner) return true;
+  }
+
+  // 3. Sổ tay cá nhân: chỉ hiển thị cho chính chủ nhân
+  if (deck.category === 'personal' || deck.id === 'custom_personal' || deck.authorRole === 'STUDENT') {
+    return true;
+  }
+
+  // 4. Bộ thẻ hệ thống chuẩn CEFR của Admin (không gắn khóa học): Mọi người đều được học
+  if (deck.category === 'system' || deck.authorRole === 'ADMIN' || (!deck.courseId && !deck.courseTitle)) {
+    return true;
+  }
+
+  // 5. Nếu Giảng viên chọn chế độ "Tự do / Công khai" (isPublic === true hoặc accessScope === 'PUBLIC'):
+  if (deck.isPublic === true || deck.accessScope === 'PUBLIC' || deck.is_free === true) {
+    return true;
+  }
+
+  // 6. Nếu bộ thẻ gắn với một khóa học cụ thể:
+  // CHỈ HIỂN THỊ CHO HỌC VIÊN ĐÃ ĐĂNG KÝ KHÓA HỌC ĐÓ!
+  if (deck.courseId || deck.courseTitle) {
+    if (!Array.isArray(myCourses) || myCourses.length === 0) return false;
+
+    const targetCourseId = deck.courseId ? String(deck.courseId).toLowerCase().trim() : null;
+    const targetTitle = deck.courseTitle ? String(deck.courseTitle).toLowerCase().trim() : null;
+
+    return myCourses.some((item) => {
+      const c = item.course || item;
+      const enrolledId = c.id ? String(c.id).toLowerCase().trim() : (item.course_id ? String(item.course_id).toLowerCase().trim() : null);
+      const enrolledSlug = c.slug ? String(c.slug).toLowerCase().trim() : null;
+      const enrolledTitle = c.title ? String(c.title).toLowerCase().trim() : null;
+
+      if (targetCourseId && enrolledId && targetCourseId === enrolledId) return true;
+      if (targetTitle && enrolledTitle && (enrolledTitle.includes(targetTitle) || targetTitle.includes(enrolledTitle))) return true;
+      if (targetTitle && enrolledSlug && enrolledSlug.includes(targetTitle)) return true;
+      return false;
+    });
+  }
+
+  return true;
 };
 
 // Tìm kiếm danh sách bộ thẻ theo khóa học (courseId hoặc slug hoặc tên khóa học)
