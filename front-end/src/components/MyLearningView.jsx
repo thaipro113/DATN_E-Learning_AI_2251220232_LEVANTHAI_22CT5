@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getDecksByCourse, speakWord } from '../utils/flashcardStorage';
 import CertificateModal from './CertificateModal';
 import StudentProgressQuizModal from './StudentProgressQuizModal';
 import CourseQuizTakingModal from './CourseQuizTakingModal';
@@ -6,7 +7,7 @@ import CourseQuizzesOverviewModal from './CourseQuizzesOverviewModal';
 import { learningAPI, courseAPI, assessmentAPI } from '../services/api';
 import { isYouTubeUrl, getYouTubeEmbedUrl, cleanCourseTitle } from '../utils/media';
 
-export default function MyLearningView({ user, currentCourse, onSelectCourseToLearn }) {
+export default function MyLearningView({ user, currentCourse, onSelectCourseToLearn, onNavigateToFlashcards }) {
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(currentCourse || null);
   const [courseDetail, setCourseDetail] = useState(null);
@@ -26,6 +27,32 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
   const [studentAttempts, setStudentAttempts] = useState([]);
   const [takingQuiz, setTakingQuiz] = useState(null);
   const [showCourseQuizzesOverview, setShowCourseQuizzesOverview] = useState(false);
+
+  // Dữ liệu Flashcards gắn theo Khóa học của Giảng viên
+  const courseDecks = useMemo(() => {
+    if (!selectedCourse) return [];
+    return getDecksByCourse(selectedCourse.id || selectedCourse.slug || selectedCourse.title);
+  }, [selectedCourse]);
+
+  const courseFlashcards = useMemo(() => {
+    const list = [];
+    courseDecks.forEach((d) => {
+      if (Array.isArray(d.cards)) {
+        list.push(...d.cards);
+      }
+    });
+    return list;
+  }, [courseDecks]);
+
+  const [activeFlashcardIndex, setActiveFlashcardIndex] = useState(0);
+  const [isFlashcardFlipped, setIsFlashcardFlipped] = useState(false);
+  const [playingWord, setPlayingWord] = useState(null);
+
+  const handlePlayWordAudio = (word) => {
+    setPlayingWord(word);
+    speakWord(word, 1.0);
+    setTimeout(() => setPlayingWord(null), 1500);
+  };
 
   // Tự động ẩn thông báo sau 4 giây
   useEffect(() => {
@@ -735,6 +762,13 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
               <i className="fa-solid fa-clipboard-question"></i>
               <span>Bài tập & Đề thi ({currentLessonQuizzes.length})</span>
             </button>
+            <button
+              className={`tab-pill-btn ${activeTab === 'flashcards' ? 'active' : ''}`}
+              onClick={() => setActiveTab('flashcards')}
+            >
+              <i className="fa-solid fa-layer-group"></i>
+              <span>Từ vựng Flashcards ({courseFlashcards.length})</span>
+            </button>
           </div>
 
           {/* Tab Contents Card */}
@@ -915,6 +949,253 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                     <span>Lưu Ghi Chú</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'flashcards' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', margin: '0 0 4px 0' }}>
+                      <i className="fa-solid fa-layer-group" style={{ color: '#ea580c', marginRight: '8px' }}></i>
+                      TỪ VỰNG FLASHCARDS CỦA KHÓA HỌC
+                    </h4>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
+                      Bộ thẻ từ vựng trọng tâm do Giảng viên biên soạn dành riêng cho khóa học này.
+                    </p>
+                  </div>
+
+                  {courseDecks.length > 0 && onNavigateToFlashcards && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToFlashcards(courseDecks[0]?.id)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#ea580c',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '800',
+                        fontSize: '0.84rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(234, 88, 12, 0.3)',
+                      }}
+                    >
+                      <i className="fa-solid fa-up-right-from-square"></i>
+                      <span>Mở Trong Smart Flashcards</span>
+                    </button>
+                  )}
+                </div>
+
+                {courseFlashcards.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-color)', color: 'var(--text-muted)' }}>
+                    <i className="fa-solid fa-book-open-reader" style={{ fontSize: '2.2rem', color: '#94a3b8', marginBottom: '10px' }}></i>
+                    <h5 style={{ fontSize: '0.98rem', fontWeight: '800', color: 'var(--text-main)', margin: '0 0 6px 0' }}>
+                      Khóa học này hiện chưa gắn bộ thẻ từ vựng riêng
+                    </h5>
+                    <p style={{ fontSize: '0.85rem', margin: '0 0 16px 0' }}>
+                      Bạn có thể mở kho Smart Flashcards để học từ vựng theo các chủ đề chuẩn CEFR A1 - C1 và công sở.
+                    </p>
+                    {onNavigateToFlashcards && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => onNavigateToFlashcards(null)}
+                        style={{ fontSize: '0.84rem', padding: '8px 18px' }}
+                      >
+                        Khám phá kho Flashcards
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    {/* Thông tin giảng viên & bộ thẻ */}
+                    <div style={{ padding: '12px 16px', borderRadius: '10px', backgroundColor: '#fff7ed', border: '1px solid #ffedd5', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: '800', padding: '3px 8px', borderRadius: '6px', backgroundColor: '#ea580c', color: '#ffffff' }}>
+                          <i className="fa-solid fa-chalkboard-user"></i> {courseDecks[0]?.author || 'Giảng viên'}
+                        </span>
+                        <strong style={{ fontSize: '0.9rem', color: '#9a3412' }}>{courseDecks[0]?.title}</strong>
+                      </div>
+                      <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#c2410c' }}>
+                        {courseFlashcards.length} từ vựng then chốt
+                      </span>
+                    </div>
+
+                    {/* Mini Flashcard Interactive Viewer */}
+                    {courseFlashcards[activeFlashcardIndex] && (
+                      <div style={{ maxWidth: '580px', margin: '0 auto 20px auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+                          <span>Thẻ {activeFlashcardIndex + 1} / {courseFlashcards.length}</span>
+                          <span>(Bấm vào thẻ để lật mặt sau)</span>
+                        </div>
+
+                        <div
+                          onClick={() => setIsFlashcardFlipped(!isFlashcardFlipped)}
+                          style={{
+                            minHeight: '200px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: '2px solid #ea580c',
+                            borderRadius: '16px',
+                            padding: '24px 20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 6px 16px rgba(234, 88, 12, 0.12)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          {!isFlashcardFlipped ? (
+                            <>
+                              <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#ea580c', backgroundColor: '#fff7ed', padding: '2px 8px', borderRadius: '4px', marginBottom: '8px' }}>
+                                [{courseFlashcards[activeFlashcardIndex].type || 'Word'}]
+                              </span>
+                              <h3 style={{ fontSize: '1.9rem', fontWeight: '900', color: 'var(--text-main)', margin: '0 0 6px 0' }}>
+                                {courseFlashcards[activeFlashcardIndex].word}
+                              </h3>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.95rem' }}>
+                                <span>{courseFlashcards[activeFlashcardIndex].ipa}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePlayWordAudio(courseFlashcards[activeFlashcardIndex].word);
+                                  }}
+                                  style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '50%',
+                                    border: 'none',
+                                    backgroundColor: playingWord === courseFlashcards[activeFlashcardIndex].word ? '#ea580c' : '#f1f5f9',
+                                    color: playingWord === courseFlashcards[activeFlashcardIndex].word ? '#ffffff' : '#ea580c',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                  title="Nghe phát âm"
+                                >
+                                  <i className="fa-solid fa-volume-high"></i>
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#16a34a', backgroundColor: '#f0fdf4', padding: '2px 8px', borderRadius: '4px', marginBottom: '8px' }}>
+                                Ý NGHĨA & VÍ DỤ
+                              </span>
+                              <h4 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#16a34a', margin: '0 0 8px 0' }}>
+                                {courseFlashcards[activeFlashcardIndex].meaning}
+                              </h4>
+                              {courseFlashcards[activeFlashcardIndex].english_def && (
+                                <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '0 0 8px 0', maxWidth: '440px' }}>
+                                  {courseFlashcards[activeFlashcardIndex].english_def}
+                                </p>
+                              )}
+                              {courseFlashcards[activeFlashcardIndex].example && (
+                                <div style={{ fontSize: '0.84rem', color: 'var(--text-main)', fontStyle: 'italic', backgroundColor: 'var(--bg-subtle)', padding: '8px 12px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}>
+                                  "{courseFlashcards[activeFlashcardIndex].example}"
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        {/* Controls chuyển thẻ */}
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '14px', marginTop: '12px' }}>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => {
+                              setIsFlashcardFlipped(false);
+                              setActiveFlashcardIndex((prev) => (prev > 0 ? prev - 1 : courseFlashcards.length - 1));
+                            }}
+                            style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+                          >
+                            <i className="fa-solid fa-chevron-left" style={{ marginRight: '6px' }}></i>
+                            Thẻ trước
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => {
+                              setIsFlashcardFlipped(false);
+                              setActiveFlashcardIndex((prev) => (prev < courseFlashcards.length - 1 ? prev + 1 : 0));
+                            }}
+                            style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+                          >
+                            Thẻ sau
+                            <i className="fa-solid fa-chevron-right" style={{ marginLeft: '6px' }}></i>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bảng danh sách từ vựng chi tiết */}
+                    <div style={{ marginTop: '20px' }}>
+                      <h5 style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '10px' }}>
+                        Danh Sách Toàn Bộ Từ Vựng Trong Khóa ({courseFlashcards.length})
+                      </h5>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {courseFlashcards.map((item, idx) => (
+                          <div
+                            key={item.id || idx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '10px 14px',
+                              borderRadius: '8px',
+                              backgroundColor: 'var(--bg-surface)',
+                              border: '1px solid var(--border-color)',
+                              flexWrap: 'wrap',
+                              gap: '8px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handlePlayWordAudio(item.word)}
+                                style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  border: 'none',
+                                  backgroundColor: playingWord === item.word ? '#ea580c' : '#f1f5f9',
+                                  color: playingWord === item.word ? '#ffffff' : '#ea580c',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.75rem',
+                                }}
+                              >
+                                <i className="fa-solid fa-volume-high"></i>
+                              </button>
+                              <div>
+                                <span style={{ fontWeight: '800', color: 'var(--text-main)', marginRight: '6px' }}>{item.word}</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', marginRight: '6px' }}>{item.ipa}</span>
+                                <span style={{ fontSize: '0.7rem', fontWeight: '700', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0284c7' }}>
+                                  {item.type}
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '600' }}>
+                              {item.meaning}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

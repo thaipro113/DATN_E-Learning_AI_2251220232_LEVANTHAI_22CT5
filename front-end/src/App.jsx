@@ -28,6 +28,7 @@ import CourseReviewerDashboardView from './components/CourseReviewerDashboardVie
 import FlashcardStudyView from './components/FlashcardStudyView';
 import TeacherFlashcardManager from './components/TeacherFlashcardManager';
 import AICommunicationView from './components/AICommunicationView';
+import ErrorBoundary from './components/ErrorBoundary';
 import { recordStudyActivity } from './utils/streakCalculator';
 import Footer from './components/Footer';
 import FloatingContactWidget from './components/FloatingContactWidget';
@@ -85,6 +86,7 @@ export default function App() {
   const [selectedCourseForDetail, setSelectedCourseForDetail] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isAICoachOpen, setIsAICoachOpen] = useState(false);
+  const [selectedFlashcardDeckId, setSelectedFlashcardDeckId] = useState(null);
 
   // Trạng thái Đăng nhập từ localStorage Token
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -541,6 +543,7 @@ export default function App() {
 
       {/* 2. Main Content Area */}
       <main className={`main-content ${currentTab === 'admin_dashboard' || currentTab === 'reviewer_dashboard' || (user?.role === 'ADMIN' && currentTab === 'dashboard') || (user?.role === 'REVIEWER' && (currentTab === 'dashboard' || currentTab === 'flashcards' || currentTab === 'reviewer_dashboard')) ? 'full-width-admin' : ''}`}>
+        <ErrorBoundary>
         {/* Breadcrumb Bar with Back Button when in Subviews */}
         {currentTab !== 'dashboard' && currentTab !== 'teacher_dashboard' && currentTab !== 'admin_dashboard' && currentTab !== 'reviewer_dashboard' && currentTab !== 'course_detail' && currentTab !== 'login' && currentTab !== 'register' && currentTab !== 'profile' && !(user?.role === 'ADMIN' && currentTab === 'dashboard') && !(user?.role === 'REVIEWER' && (currentTab === 'dashboard' || currentTab === 'flashcards' || currentTab === 'reviewer_dashboard')) && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
@@ -754,6 +757,10 @@ export default function App() {
                 user={user}
                 currentCourse={selectedCourseToLearn}
                 onSelectCourseToLearn={(c) => setSelectedCourseToLearn(c)}
+                onNavigateToFlashcards={(deckId) => {
+                  setSelectedFlashcardDeckId(deckId);
+                  handleSelectTab('flashcards');
+                }}
               />
             )}
 
@@ -769,7 +776,11 @@ export default function App() {
             {currentTab === 'flashcards' && (
               <FlashcardStudyView
                 user={user}
+                initialDeckId={selectedFlashcardDeckId}
                 onRecordStudySession={handleRecordStudySession}
+                onNavigateToCourse={() => {
+                  handleSelectTab('courses');
+                }}
               />
             )}
 
@@ -905,6 +916,7 @@ export default function App() {
             )}
           </>
         )}
+        </ErrorBoundary>
       </main>
 
       {/* Quiz Import Tool Modal for Teachers with CSDL Confirm */}

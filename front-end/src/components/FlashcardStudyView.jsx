@@ -1,639 +1,92 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  getAllDecksWithWords,
+  getStoredCustomDecks,
+  saveStoredCustomDecks,
+  getStoredCustomWords,
+  saveStoredCustomWords,
+  VOCABULARY_DECKS,
+  speakWord,
+} from '../utils/flashcardStorage';
 
-// Dữ liệu từ vựng chất lượng cao phân loại theo 3 chủ đề chuẩn CEFR
-const VOCABULARY_DECKS = [
-  {
-    id: 'daily_life',
-    title: 'Giao Tiếp & Đời Sống Hàng Ngày',
-    level: 'A1 - A2',
-    icon: 'fa-comments',
-    color: '#0284c7',
-    description: '15 từ vựng căn bản giúp bạn tự tin giao tiếp, mô tả thói quen và các hoạt động thường nhật.',
-    cards: [
-      {
-        id: 1,
-        word: 'Accomplish',
-        ipa: '/əˈkɑːm.plɪʃ/',
-        type: 'Verb',
-        meaning: 'Hoàn thành, đạt được (mục tiêu)',
-        english_def: 'To finish something successfully or to achieve something.',
-        example: 'She accomplished her goal of speaking fluent English in 6 months.',
-        example_vi: 'Cô ấy đã đạt được mục tiêu nói tiếng Anh lưu loát trong 6 tháng.',
-        collocation: 'accomplish a mission / goal',
-      },
-      {
-        id: 2,
-        word: 'Punctual',
-        ipa: '/ˈpʌŋk.tʃu.əl/',
-        type: 'Adjective',
-        meaning: 'Đúng giờ, không trễ hẹn',
-        english_def: 'Arriving or doing something at the expected correct time.',
-        example: 'Please be punctual for the morning interview.',
-        example_vi: 'Xin vui lòng đến đúng giờ cho buổi phỏng vấn sáng nay.',
-        collocation: 'punctual attendance / arrival',
-      },
-      {
-        id: 3,
-        word: 'Convenient',
-        ipa: '/kənˈviː.ni.ənt/',
-        type: 'Adjective',
-        meaning: 'Tiện lợi, thuận tiện',
-        english_def: 'Suitable for your purposes and needs and causing the least difficulty.',
-        example: 'Online learning is very convenient for busy students.',
-        example_vi: 'Học trực tuyến rất thuận tiện cho sinh viên bận rộn.',
-        collocation: 'convenient location / time',
-      },
-      {
-        id: 4,
-        word: 'Recommend',
-        ipa: '/ˌrek.əˈmend/',
-        type: 'Verb',
-        meaning: 'Khuyên bảo, giới thiệu, đề xuất',
-        english_def: 'To suggest that someone or something would be good or suitable.',
-        example: 'I highly recommend this English grammar course.',
-        example_vi: 'Tôi nhiệt tình giới thiệu khóa học ngữ pháp tiếng Anh này.',
-        collocation: 'strongly recommend',
-      },
-      {
-        id: 5,
-        word: 'Opportunity',
-        ipa: '/ˌɑː.pɚˈtuː.nə.t̬i/',
-        type: 'Noun',
-        meaning: 'Cơ hội, thời cơ thuận lợi',
-        english_def: 'An occasion or situation that makes it possible to do something.',
-        example: 'This scholarship is a great opportunity for your future career.',
-        example_vi: 'Học bổng này là một cơ hội tuyệt vời cho sự nghiệp tương lai của bạn.',
-        collocation: 'seize / miss an opportunity',
-      },
-      {
-        id: 6,
-        word: 'Leisure',
-        ipa: '/ˈliː.ʒɚ/',
-        type: 'Noun',
-        meaning: 'Thời gian rảnh rỗi, giải trí',
-        english_def: 'The time when you are not working or doing other duties.',
-        example: 'What do you usually do in your leisure time?',
-        example_vi: 'Bạn thường làm gì vào thời gian rảnh rỗi của mình?',
-        collocation: 'leisure activities / interests',
-      },
-      {
-        id: 7,
-        word: 'Colleague',
-        ipa: '/ˈkɑː.liːɡ/',
-        type: 'Noun',
-        meaning: 'Đồng nghiệp, bạn cùng cơ quan',
-        english_def: 'One of a group of people who work together.',
-        example: 'He gets along very well with all of his colleagues.',
-        example_vi: 'Anh ấy rất hòa thuận với tất cả các đồng nghiệp của mình.',
-        collocation: 'work colleague / trusted colleague',
-      },
-      {
-        id: 8,
-        word: 'Delicious',
-        ipa: '/dɪˈlɪʃ.əs/',
-        type: 'Adjective',
-        meaning: 'Thơm ngon, ngon miệng',
-        english_def: 'Having a very pleasant taste or smell.',
-        example: 'The traditional Vietnamese pho was absolutely delicious.',
-        example_vi: 'Món phở truyền thống Việt Nam thực sự rất ngon.',
-        collocation: 'delicious meal / flavor',
-      },
-      {
-        id: 9,
-        word: 'Habit',
-        ipa: '/ˈhæb.ɪt/',
-        type: 'Noun',
-        meaning: 'Thói quen, tập quán',
-        english_def: 'Something that you do often and regularly, sometimes without knowing.',
-        example: 'Reading books every night is a healthy study habit.',
-        example_vi: 'Đọc sách mỗi tối là một thói quen học tập lành mạnh.',
-        collocation: 'form / break a habit',
-      },
-      {
-        id: 10,
-        word: 'Schedule',
-        ipa: '/ˈskedʒ.uːl/',
-        type: 'Noun / Verb',
-        meaning: 'Lịch trình, thời khóa biểu; lên lịch',
-        english_def: 'A list of planned activities or things to be done showing times.',
-        example: 'The final exam is scheduled for next Monday morning.',
-        example_vi: 'Kỳ thi cuối kỳ đã được lên lịch vào sáng thứ Hai tuần tới.',
-        collocation: 'busy schedule / ahead of schedule',
-      },
-      {
-        id: 11,
-        word: 'Celebrate',
-        ipa: '/ˈsel.ə.breɪt/',
-        type: 'Verb',
-        meaning: 'Ăn mừng, kỷ niệm, tán dương',
-        english_def: 'To take part in special enjoyable activities for an event.',
-        example: 'We celebrated our graduation with family and close friends.',
-        example_vi: 'Chúng tôi đã ăn mừng lễ tốt nghiệp cùng gia đình và bạn bè thân thiết.',
-        collocation: 'celebrate success / an anniversary',
-      },
-      {
-        id: 12,
-        word: 'Journey',
-        ipa: '/ˈdʒɝː.ni/',
-        type: 'Noun',
-        meaning: 'Hành trình, chuyến đi dài',
-        english_def: 'The act of travelling from one place to another, especially in a vehicle.',
-        example: 'Learning a new foreign language is a lifelong journey.',
-        example_vi: 'Học một ngoại ngữ mới là một hành trình dài suốt đời.',
-        collocation: 'safe journey / learning journey',
-      },
-      {
-        id: 13,
-        word: 'Hesitate',
-        ipa: '/ˈhez.ə.teɪt/',
-        type: 'Verb',
-        meaning: 'Do dự, ngập ngừng, lưỡng lự',
-        english_def: 'To pause before you do or say something, often because you are uncertain.',
-        example: 'Do not hesitate to ask questions if you do not understand the lesson.',
-        example_vi: 'Đừng ngần ngại đặt câu hỏi nếu bạn không hiểu bài giảng.',
-        collocation: 'do not hesitate to do sth',
-      },
-      {
-        id: 14,
-        word: 'Enthusiastic',
-        ipa: '/ɪnˌθuː.ziˈæs.tɪk/',
-        type: 'Adjective',
-        meaning: 'Nhiệt tình, hào hứng, say mê',
-        english_def: 'Showing energetic interest and excitement in something.',
-        example: 'The students are very enthusiastic about practicing English with AI.',
-        example_vi: 'Các học viên rất hào hứng với việc luyện tập tiếng Anh cùng AI.',
-        collocation: 'enthusiastic support / response',
-      },
-      {
-        id: 15,
-        word: 'Maintain',
-        ipa: '/meɪnˈteɪn/',
-        type: 'Verb',
-        meaning: 'Duy trì, giữ gìn, bảo tồn',
-        english_def: 'To continue to have; to keep in existence, or not allow to become less.',
-        example: 'You must practice every single day to maintain your speaking skills.',
-        example_vi: 'Bạn phải luyện tập mỗi ngày để duy trì kỹ năng nói của mình.',
-        collocation: 'maintain a streak / standard',
-      },
-    ],
-  },
-  {
-    id: 'business_work',
-    title: 'Tiếng Anh Công Sở & Đàm Phán',
-    level: 'B1 - B2',
-    icon: 'fa-briefcase',
-    color: '#7c3aed',
-    description: '15 từ vựng chuyên nghiệp dùng trong công việc, họp hành, báo cáo và thương thảo kinh doanh.',
-    cards: [
-      {
-        id: 101,
-        word: 'Negotiate',
-        ipa: '/nəˈɡoʊ.ʃi.eɪt/',
-        type: 'Verb',
-        meaning: 'Đàm phán, thương lượng',
-        english_def: 'To have formal discussions with someone in order to reach an agreement.',
-        example: 'The manager successfully negotiated a multi-million dollar contract.',
-        example_vi: 'Người quản lý đã đàm phán thành công một hợp đồng trị giá hàng triệu đô la.',
-        collocation: 'negotiate terms / a contract',
-      },
-      {
-        id: 102,
-        word: 'Collaborate',
-        ipa: '/kəˈlæb.ə.reɪt/',
-        type: 'Verb',
-        meaning: 'Hợp tác, phối hợp làm việc',
-        english_def: 'To work with another person or group in order to achieve something.',
-        example: 'Two departments need to collaborate closely on this new project.',
-        example_vi: 'Hai phòng ban cần hợp tác chặt chẽ trong dự án mới này.',
-        collocation: 'collaborate with / on',
-      },
-      {
-        id: 103,
-        word: 'Deadline',
-        ipa: '/ˈded.laɪn/',
-        type: 'Noun',
-        meaning: 'Hạn chót, thời hạn hoàn thành',
-        english_def: 'A time or day by which something must be done.',
-        example: 'We are working overtime to meet the strict project deadline.',
-        example_vi: 'Chúng tôi đang làm thêm giờ để kịp hạn chót nghiêm ngặt của dự án.',
-        collocation: 'meet / miss a deadline',
-      },
-      {
-        id: 104,
-        word: 'Objective',
-        ipa: '/əbˈdʒek.tɪv/',
-        type: 'Noun',
-        meaning: 'Mục tiêu, mục đích định hướng',
-        english_def: 'Something that you plan to do or achieve.',
-        example: 'Our primary objective this quarter is increasing user satisfaction.',
-        example_vi: 'Mục tiêu hàng đầu của chúng tôi trong quý này là gia tăng sự hài lòng của người dùng.',
-        collocation: 'achieve / set an objective',
-      },
-      {
-        id: 105,
-        word: 'Strategy',
-        ipa: '/ˈstræt̬.ə.dʒi/',
-        type: 'Noun',
-        meaning: 'Chiến lược, kế hoạch hành động',
-        english_def: 'A detailed plan for achieving success in situations such as business or war.',
-        example: 'The company launched an effective digital marketing strategy.',
-        example_vi: 'Công ty đã triển khai một chiến lược tiếp thị số rất hiệu quả.',
-        collocation: 'marketing / business strategy',
-      },
-      {
-        id: 106,
-        word: 'Proposal',
-        ipa: '/prəˈpoʊ.zəl/',
-        type: 'Noun',
-        meaning: 'Bản đề xuất, tờ trình',
-        english_def: 'A formal suggestion, plan, or offer for people to consider.',
-        example: 'The board of directors approved our software proposal unanimously.',
-        example_vi: 'Hội đồng quản trị đã nhất trí thông qua bản đề xuất phần mềm của chúng tôi.',
-        collocation: 'submit / approve a proposal',
-      },
-      {
-        id: 107,
-        word: 'Productivity',
-        ipa: '/ˌproʊ.dʌkˈtɪv.ə.t̬i/',
-        type: 'Noun',
-        meaning: 'Năng suất, hiệu suất làm việc',
-        english_def: 'The rate at which a person, company, or country does useful work.',
-        example: 'Flexible working hours have greatly improved team productivity.',
-        example_vi: 'Giờ làm việc linh hoạt đã cải thiện đáng kể năng suất của cả đội ngũ.',
-        collocation: 'boost / increase productivity',
-      },
-      {
-        id: 108,
-        word: 'Budget',
-        ipa: '/ˈbʌdʒ.ɪt/',
-        type: 'Noun',
-        meaning: 'Ngân sách, quỹ tài chính',
-        english_def: 'A plan to show how much money a person or organization will earn and spend.',
-        example: 'We must keep all project expenses strictly within the approved budget.',
-        example_vi: 'Chúng ta phải giữ mọi chi phí dự án nghiêm ngặt trong ngân sách đã duyệt.',
-        collocation: 'allocated budget / on a tight budget',
-      },
-      {
-        id: 109,
-        word: 'Revenue',
-        ipa: '/ˈrev.ə.nuː/',
-        type: 'Noun',
-        meaning: 'Doanh thu, tiền thu được từ kinh doanh',
-        english_def: 'The money that a government or company receives regularly.',
-        example: 'Annual recurring revenue increased by 25 percent compared to last year.',
-        example_vi: 'Doanh thu định kỳ hàng năm đã tăng 25% so với năm ngoái.',
-        collocation: 'generate / increase revenue',
-      },
-      {
-        id: 110,
-        word: 'Perspective',
-        ipa: '/pɚˈspek.tɪv/',
-        type: 'Noun',
-        meaning: 'Góc nhìn, quan điểm, tầm nhìn',
-        english_def: 'A particular way of considering something.',
-        example: 'Try to see the problem from the customer’s perspective.',
-        example_vi: 'Hãy thử nhìn nhận vấn đề từ góc nhìn của khách hàng.',
-        collocation: 'from a perspective / broad perspective',
-      },
-      {
-        id: 111,
-        word: 'Client',
-        ipa: '/ˈklaɪ.ənt/',
-        type: 'Noun',
-        meaning: 'Khách hàng (sử dụng dịch vụ)',
-        english_def: 'A person or organization that uses a service or buys goods.',
-        example: 'Building long-term trust with clients is our core philosophy.',
-        example_vi: 'Xây dựng sự tin cậy lâu dài với khách hàng là triết lý cốt lõi của chúng tôi.',
-        collocation: 'potential client / satisfy a client',
-      },
-      {
-        id: 112,
-        word: 'Priority',
-        ipa: '/praɪˈɔːr.ə.t̬i/',
-        type: 'Noun',
-        meaning: 'Ưu tiên, quyền ưu tiên',
-        english_def: 'Something that is very important and must be dealt with before other things.',
-        example: 'Customer security and data privacy are our top priorities.',
-        example_vi: 'Bảo mật và quyền riêng tư của khách hàng là ưu tiên hàng đầu của chúng tôi.',
-        collocation: 'top priority / high priority',
-      },
-      {
-        id: 113,
-        word: 'Feedback',
-        ipa: '/ˈfiːd.bæk/',
-        type: 'Noun',
-        meaning: 'Ý kiến phản hồi, nhận xét',
-        english_def: 'Information or statements of opinion about something you have done.',
-        example: 'We appreciate constructive feedback to make our website even better.',
-        example_vi: 'Chúng tôi trân trọng các phản hồi mang tính xây dựng để giúp website hoàn thiện hơn.',
-        collocation: 'constructive / positive feedback',
-      },
-      {
-        id: 114,
-        word: 'Feasible',
-        ipa: '/ˈfiː.zə.bəl/',
-        type: 'Adjective',
-        meaning: 'Khả thi, có thể thực hiện được',
-        english_def: 'Able to be made, done, or achieved, or is reasonable.',
-        example: 'Is it economically feasible to implement this AI feature this month?',
-        example_vi: 'Liệu có khả thi về mặt kinh tế khi triển khai tính năng AI này ngay trong tháng?',
-        collocation: 'economically / technically feasible',
-      },
-      {
-        id: 115,
-        word: 'Implement',
-        ipa: '/ˈɪm.plə.ment/',
-        type: 'Verb',
-        meaning: 'Triển khai, thực thi (kế hoạch, chính sách)',
-        english_def: 'To start using a plan, system, or law.',
-        example: 'The team successfully implemented the new authentication system.',
-        example_vi: 'Đội ngũ đã triển khai thành công hệ thống xác thực mới.',
-        collocation: 'implement a solution / policy',
-      },
-    ],
-  },
-  {
-    id: 'academic_ielts',
-    title: 'Học Thuật IELTS & TOEIC Nâng Cao',
-    level: 'B2 - C1',
-    icon: 'fa-graduation-cap',
-    color: '#059669',
-    description: '15 từ vựng học thuật học thức, xuất hiện thường xuyên trong các bài thi IELTS Reading/Writing và TOEIC.',
-    cards: [
-      {
-        id: 201,
-        word: 'Substantiate',
-        ipa: '/səbˈstæn.ʃi.eɪt/',
-        type: 'Verb',
-        meaning: 'Chứng minh, dẫn chứng xác thực',
-        english_def: 'To show something to be true, or to support a statement with evidence.',
-        example: 'You must substantiate your arguments with verified empirical data.',
-        example_vi: 'Bạn phải chứng minh luận điểm của mình bằng dữ liệu thực nghiệm đã kiểm chứng.',
-        collocation: 'substantiate a claim / hypothesis',
-      },
-      {
-        id: 202,
-        word: 'Coherent',
-        ipa: '/koʊˈhɪr.ənt/',
-        type: 'Adjective',
-        meaning: 'Mạch lạc, chặt chẽ, dễ hiểu',
-        english_def: 'Clear and carefully considered, and each part connects or follows in a natural way.',
-        example: 'The candidate wrote a coherent and well-structured IELTS Task 2 essay.',
-        example_vi: 'Thí sinh đã viết một bài luận IELTS Task 2 rất mạch lạc và chặt chẽ.',
-        collocation: 'coherent argument / paragraph',
-      },
-      {
-        id: 203,
-        word: 'Discrepancy',
-        ipa: '/dɪˈskrep.ən.si/',
-        type: 'Noun',
-        meaning: 'Sự khác biệt, điểm sai lệch, bất nhất',
-        english_def: 'A difference between two things that should be the same.',
-        example: 'There was a slight discrepancy between the two financial reports.',
-        example_vi: 'Có một sự sai lệch nhỏ giữa hai bản báo cáo tài chính.',
-        collocation: 'discrepancy between / notice a discrepancy',
-      },
-      {
-        id: 204,
-        word: 'Empirical',
-        ipa: '/emˈpɪr.ɪ.kəl/',
-        type: 'Adjective',
-        meaning: 'Dựa trên thực nghiệm, kinh nghiệm thực tế',
-        english_def: 'Based on what is experienced or seen rather than on theory.',
-        example: 'There is strong empirical evidence supporting this teaching methodology.',
-        example_vi: 'Có bằng chứng thực nghiệm mạnh mẽ ủng hộ phương pháp giảng dạy này.',
-        collocation: 'empirical evidence / study',
-      },
-      {
-        id: 205,
-        word: 'Paradigm',
-        ipa: '/ˈper.ə.daɪm/',
-        type: 'Noun',
-        meaning: 'Mô thức, mẫu hình, hệ hình mẫu',
-        english_def: 'A model of something, or a very clear and typical example of something.',
-        example: 'Generative AI represents a new paradigm in modern educational technology.',
-        example_vi: 'AI tạo sinh đại diện cho một mô thức mới trong công nghệ giáo dục hiện đại.',
-        collocation: 'paradigm shift / shift in paradigm',
-      },
-      {
-        id: 206,
-        word: 'Inevitable',
-        ipa: '/ɪnˈev.ə.t̬ə.bəl/',
-        type: 'Adjective',
-        meaning: 'Không thể tránh khỏi, tất yếu',
-        english_def: 'Certain to happen and unable to be avoided or prevented.',
-        example: 'Mistakes are an inevitable part of the language learning process.',
-        example_vi: 'Sai lầm là một phần tất yếu trong quá trình học ngoại ngữ.',
-        collocation: 'inevitable consequence / outcome',
-      },
-      {
-        id: 207,
-        word: 'Comprehensive',
-        ipa: '/ˌkɑːm.prəˈhen.sɪv/',
-        type: 'Adjective',
-        meaning: 'Toàn diện, bao quát mọi khía cạnh',
-        english_def: 'Complete and including everything that is necessary.',
-        example: 'The university offers a comprehensive curriculum for computer science.',
-        example_vi: 'Trường đại học cung cấp một chương trình giảng dạy toàn diện cho ngành CNTT.',
-        collocation: 'comprehensive overview / guide',
-      },
-      {
-        id: 208,
-        word: 'Synthesize',
-        ipa: '/ˈsɪn.θə.saɪz/',
-        type: 'Verb',
-        meaning: 'Tổng hợp (thông tin từ nhiều nguồn)',
-        english_def: 'To combine different ideas, styles, or systems into a whole.',
-        example: 'Students need to synthesize information from multiple academic papers.',
-        example_vi: 'Sinh viên cần tổng hợp thông tin từ nhiều bài báo học thuật khác nhau.',
-        collocation: 'synthesize information / findings',
-      },
-      {
-        id: 209,
-        word: 'Articulate',
-        ipa: '/ɑːrˈtɪk.jə.lət/',
-        type: 'Adjective / Verb',
-        meaning: 'Diễn đạt lưu loát, rõ ràng; phát âm rành rọt',
-        english_def: 'Able to express thoughts and arguments clearly and effectively.',
-        example: 'She is an articulate speaker who can explain complex ideas simply.',
-        example_vi: 'Cô ấy là một diễn giả lưu loát, có thể giải thích những ý tưởng phức tạp một cách đơn giản.',
-        collocation: 'articulate speaker / thoughts',
-      },
-      {
-        id: 210,
-        word: 'Resilient',
-        ipa: '/rɪˈzɪl.jənt/',
-        type: 'Adjective',
-        meaning: 'Kiên cường, có khả năng phục hồi nhanh',
-        english_def: 'Able to be happy, successful, etc. again after something difficult.',
-        example: 'Resilient learners do not give up when facing difficult grammar tests.',
-        example_vi: 'Những người học kiên cường không bỏ cuộc khi đối mặt với bài thi ngữ pháp khó.',
-        collocation: 'resilient mindset / attitude',
-      },
-      {
-        id: 211,
-        word: 'Ambiguous',
-        ipa: '/æmˈbɪɡ.ju.əs/',
-        type: 'Adjective',
-        meaning: 'Mơ hồ, nước đôi, đa nghĩa',
-        english_def: 'Having or expressing more than one possible meaning, sometimes intentionally.',
-        example: 'Avoid using ambiguous language in official thesis reports.',
-        example_vi: 'Tránh dùng ngôn từ mơ hồ, đa nghĩa trong các bản báo cáo khóa luận chính thức.',
-        collocation: 'ambiguous statement / meaning',
-      },
-      {
-        id: 212,
-        word: 'Criterion',
-        ipa: '/kraɪˈtɪr.i.ən/',
-        type: 'Noun',
-        meaning: 'Tiêu chuẩn, tiêu chí đánh giá',
-        english_def: 'A standard by which you judge, decide, or deal with something.',
-        example: 'Pronunciation accuracy is a key criterion in speaking assessments.',
-        example_vi: 'Độ chính xác phát âm là một tiêu chí then chốt trong đánh giá kỹ năng nói.',
-        collocation: 'meet the criteria / selection criterion',
-      },
-      {
-        id: 213,
-        word: 'Nuance',
-        ipa: '/ˈnuː.ɑːns/',
-        type: 'Noun',
-        meaning: 'Sắc thái tinh tế, khác biệt nhỏ',
-        english_def: 'A very slight difference in appearance, meaning, sound, etc.',
-        example: 'Understanding cultural nuances helps you communicate like a native.',
-        example_vi: 'Hiểu được những sắc thái văn hóa tinh tế giúp bạn giao tiếp như người bản xứ.',
-        collocation: 'subtle nuance / cultural nuance',
-      },
-      {
-        id: 214,
-        word: 'Simultaneous',
-        ipa: '/ˌsaɪ.məlˈteɪ.ni.əs/',
-        type: 'Adjective',
-        meaning: 'Đồng thời, xảy ra cùng một lúc',
-        english_def: 'Happening or being done at exactly the same time.',
-        example: 'There was simultaneous translation available for all international delegates.',
-        example_vi: 'Có phiên dịch đồng thời dành cho tất cả các đại biểu quốc tế.',
-        collocation: 'simultaneous interpretation / release',
-      },
-      {
-        id: 215,
-        word: 'Advocate',
-        ipa: '/ˈæd.və.keɪt/',
-        type: 'Verb / Noun',
-        meaning: 'Ủng hộ, tán thành; người chủ trương',
-        english_def: 'To publicly support or suggest an idea, development, or way of doing.',
-        example: 'Many educators strongly advocate incorporating AI tutors into homework practice.',
-        example_vi: 'Nhiều nhà giáo dục nhiệt tình ủng hộ việc đưa gia sư AI vào luyện tập bài về nhà.',
-        collocation: 'advocate for / strong advocate',
-      },
-    ],
-  },
-];
-
-export default function FlashcardStudyView({ user, onRecordStudySession }) {
-  // 1. State danh sách các Chủ đề / Bộ thẻ tự tạo (Lưu vào localStorage)
-  const [customDecks, setCustomDecks] = useState(() => {
-    try {
-      const saved = localStorage.getItem('elearning_custom_decks');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return [
-      {
-        id: 'custom_personal',
-        title: 'Sổ Tay Từ Vựng Tự Tạo',
-        level: 'Cá nhân hóa',
-        icon: 'fa-book-bookmark',
-        color: '#8b5cf6',
-        description: 'Chủ đề từ vựng linh hoạt do bạn hoặc giảng viên tự thêm để ôn tập theo nhu cầu.',
-        isCustomDeck: true,
-      },
-    ];
-  });
-
-  // Tự động đồng bộ các chủ đề tự tạo vào localStorage
+export default function FlashcardStudyView({
+  user,
+  onRecordStudySession,
+  initialDeckId = null,
+  onNavigateToCourse = null,
+}) {
+    // 1. State danh sách các Chủ đề / Bộ thẻ tự tạo (Lưu vào localStorage)
+  const [customDecks, setCustomDecks] = useState(() => getStoredCustomDecks());
   useEffect(() => {
-    try {
-      localStorage.setItem('elearning_custom_decks', JSON.stringify(customDecks));
-    } catch (e) {
-      console.error(e);
-    }
+    saveStoredCustomDecks(customDecks);
   }, [customDecks]);
 
   // 2. State từ vựng tự tạo (gắn theo từng deckId, lưu vào localStorage)
-  const [customWords, setCustomWords] = useState(() => {
-    try {
-      const saved = localStorage.getItem('elearning_custom_flashcards');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    // Mặc định cung cấp 2 từ mẫu trong Sổ tay cá nhân
-    return [
-      {
-        id: 'custom_1',
-        deckId: 'custom_personal',
-        isCustom: true,
-        word: 'Serendipity',
-        ipa: '/ˌser.ənˈdɪp.ə.t̬i/',
-        type: 'Noun',
-        meaning: 'Sự tình cờ may mắn phát hiện ra những điều tốt đẹp',
-        english_def: 'The occurrence of events by chance in a happy or beneficial way.',
-        example: 'Finding this comprehensive e-learning platform was pure serendipity.',
-        example_vi: 'Tìm thấy nền tảng học trực tuyến toàn diện này đúng là một sự may mắn tình cờ.',
-        collocation: 'pure serendipity / pleasant serendipity',
-      },
-      {
-        id: 'custom_2',
-        deckId: 'custom_personal',
-        isCustom: true,
-        word: 'Perseverance',
-        ipa: '/ˌpɝː.səˈvɪr.əns/',
-        type: 'Noun',
-        meaning: 'Sự kiên trì, bền bỉ vượt khó khăn',
-        english_def: 'Persistence in doing something despite difficulty or delay in achieving success.',
-        example: 'Through dedication and perseverance, she mastered fluent English.',
-        example_vi: 'Bằng sự tận tâm và kiên trì, cô ấy đã thành thạo tiếng Anh trôi chảy.',
-        collocation: 'show perseverance / great perseverance',
-      },
-    ];
-  });
-
-  // Tự động đồng bộ từ vựng tự tạo vào LocalStorage
+  const [customWords, setCustomWords] = useState(() => getStoredCustomWords());
   useEffect(() => {
-    try {
-      localStorage.setItem('elearning_custom_flashcards', JSON.stringify(customWords));
-    } catch (e) {
-      console.error(e);
-    }
+    saveStoredCustomWords(customWords);
   }, [customWords]);
 
-  // 3. Tổng hợp danh sách các Chủ đề / Bộ thẻ được phép học (CHỈ những bộ đã được Phê duyệt PUBLISHED hoặc bộ hệ thống)
-  // Các đề tài PENDING (chờ duyệt) hoặc REJECTED (bị từ chối) của Giảng viên TUYỆT ĐỐI KHÔNG hiển thị cho học viên
-  const allDecks = [
-    // 3 bộ gốc: lấy từ mặc định cộng thêm các từ mới được thêm vào đúng bộ đó
-    ...VOCABULARY_DECKS.map((d) => ({
-      ...d,
-      cards: [
-        ...d.cards,
-        ...customWords.filter((w) => w.deckId === d.id),
-      ],
-    })),
-    // Các bộ do Giáo viên tạo đã qua phản biện và phê duyệt xuất bản (PUBLISHED)
-    ...customDecks
-      .filter((d) => d.status === 'PUBLISHED' || (!d.status && d.id === 'custom_personal'))
-      .map((d) => ({
-        ...d,
-        cards: customWords.filter((w) => w.deckId === d.id),
-      })),
-  ];
+  // 3. Tổng hợp danh sách tất cả các bộ thẻ (Admin + Giảng viên + Khóa học + Cá nhân)
+  const allDecks = useMemo(() => {
+    return getAllDecksWithWords(user, customDecks, customWords);
+  }, [user, customDecks, customWords]);
+
+  // Bộ lọc danh mục: 'ALL' | 'system' | 'teacher' | 'personal'
+  const [deckCategoryFilter, setDeckCategoryFilter] = useState('ALL');
+  // Lọc theo Giảng viên cụ thể
+  const [teacherFilter, setTeacherFilter] = useState('ALL');
+  // Ô tìm kiếm bộ thẻ
+  const [deckSearchQuery, setDeckSearchQuery] = useState('');
+
+  // Danh sách các giảng viên có bộ thẻ
+  const availableTeachers = useMemo(() => {
+    const set = new Set();
+    allDecks.forEach((d) => {
+      if (d.authorRole === 'TEACHER' && d.author) {
+        set.add(d.author);
+      }
+    });
+    return Array.from(set);
+  }, [allDecks]);
+
+  // Danh sách bộ thẻ sau khi lọc
+  const filteredDecks = useMemo(() => {
+    return allDecks.filter((deck) => {
+      // 1. Lọc theo danh mục
+      if (deckCategoryFilter === 'system' && deck.category !== 'system' && deck.authorRole !== 'ADMIN') return false;
+      if (deckCategoryFilter === 'teacher' && deck.category !== 'teacher' && deck.authorRole !== 'TEACHER') return false;
+      if (deckCategoryFilter === 'personal' && deck.category !== 'personal' && deck.id !== 'custom_personal' && deck.authorRole !== 'STUDENT') return false;
+
+      // 2. Lọc theo Giảng viên
+      if (teacherFilter !== 'ALL' && deck.author !== teacherFilter) return false;
+
+      // 3. Tìm kiếm từ khóa
+      if (deckSearchQuery.trim()) {
+        const q = deckSearchQuery.toLowerCase().trim();
+        const matchTitle = deck.title.toLowerCase().includes(q);
+        const matchDesc = deck.description?.toLowerCase().includes(q);
+        const matchAuthor = deck.author?.toLowerCase().includes(q);
+        const matchCourse = deck.courseTitle?.toLowerCase().includes(q);
+        if (!matchTitle && !matchDesc && !matchAuthor && !matchCourse) return false;
+      }
+      return true;
+    });
+  }, [allDecks, deckCategoryFilter, teacherFilter, deckSearchQuery]);
 
   // State quản lý bộ thẻ & thẻ hiện tại
-  const [selectedDeckId, setSelectedDeckId] = useState('daily_life');
+  const [selectedDeckId, setSelectedDeckId] = useState(() => initialDeckId || 'daily_life');
+
+  // Tự động chuyển đến bộ thẻ ban đầu nếu được truyền từ ngoài (ví dụ từ phòng học)
+  useEffect(() => {
+    if (initialDeckId && allDecks.some((d) => d.id === initialDeckId)) {
+      setSelectedDeckId(initialDeckId);
+      const target = allDecks.find((d) => d.id === initialDeckId);
+      if (target?.category) {
+        setDeckCategoryFilter(target.category);
+      }
+    }
+  }, [initialDeckId, allDecks]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0); // 1.0x hoặc 0.8x
@@ -1109,76 +562,302 @@ export default function FlashcardStudyView({ user, onRecordStudySession }) {
         </div>
       </div>
 
-      {/* Tabs chọn Chủ đề / Bộ thẻ (bao gồm các bộ CEFR & các bộ tự tạo của Giáo viên/Admin) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '22px' }}>
-        {allDecks.map((deck) => {
-          const isSelected = selectedDeckId === deck.id;
-          const totalInDeck = deck.cards?.length || 0;
-          const masteredInDeck = (deck.cards || []).filter((c) => masteredWordIds.includes(c.id)).length;
-          const percent = totalInDeck > 0 ? Math.round((masteredInDeck / totalInDeck) * 100) : 0;
+      {/* Thanh Điều Hướng Danh Mục & Bộ Lọc Tác Giả (Admin / Giảng Viên / Khóa Học / Cá Nhân) */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '18px',
+          padding: '12px 16px',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+        }}
+      >
+        {/* Pills chuyển danh mục */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => { setDeckCategoryFilter('ALL'); setTeacherFilter('ALL'); }}
+            style={{
+              padding: '7px 14px',
+              borderRadius: '20px',
+              border: 'none',
+              backgroundColor: deckCategoryFilter === 'ALL' ? '#0284c7' : '#f1f5f9',
+              color: deckCategoryFilter === 'ALL' ? '#ffffff' : '#475569',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span>Tất Cả Bộ Thẻ ({allDecks.length})</span>
+          </button>
 
-          return (
-            <div
-              key={deck.id}
-              onClick={() => setSelectedDeckId(deck.id)}
+          <button
+            type="button"
+            onClick={() => { setDeckCategoryFilter('system'); setTeacherFilter('ALL'); }}
+            style={{
+              padding: '7px 14px',
+              borderRadius: '20px',
+              border: 'none',
+              backgroundColor: deckCategoryFilter === 'system' ? '#0284c7' : '#f1f5f9',
+              color: deckCategoryFilter === 'system' ? '#ffffff' : '#475569',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <i className="fa-solid fa-shield-halved" style={{ color: deckCategoryFilter === 'system' ? '#ffffff' : '#0284c7' }}></i>
+            <span>Chuẩn Hệ Thống CEFR ({allDecks.filter((d) => d.category === 'system' || d.authorRole === 'ADMIN').length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setDeckCategoryFilter('teacher'); }}
+            style={{
+              padding: '7px 14px',
+              borderRadius: '20px',
+              border: 'none',
+              backgroundColor: deckCategoryFilter === 'teacher' ? '#ea580c' : '#f1f5f9',
+              color: deckCategoryFilter === 'teacher' ? '#ffffff' : '#475569',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <i className="fa-solid fa-chalkboard-user" style={{ color: deckCategoryFilter === 'teacher' ? '#ffffff' : '#ea580c' }}></i>
+            <span>Từ Vựng Giảng Viên & Khóa Học ({allDecks.filter((d) => d.category === 'teacher' || d.authorRole === 'TEACHER').length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setDeckCategoryFilter('personal'); setTeacherFilter('ALL'); }}
+            style={{
+              padding: '7px 14px',
+              borderRadius: '20px',
+              border: 'none',
+              backgroundColor: deckCategoryFilter === 'personal' ? '#8b5cf6' : '#f1f5f9',
+              color: deckCategoryFilter === 'personal' ? '#ffffff' : '#475569',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <i className="fa-solid fa-book-bookmark" style={{ color: deckCategoryFilter === 'personal' ? '#ffffff' : '#8b5cf6' }}></i>
+            <span>Sổ Tay Cá Nhân ({allDecks.filter((d) => d.category === 'personal' || d.id === 'custom_personal' || d.authorRole === 'STUDENT').length})</span>
+          </button>
+        </div>
+
+        {/* Cụm lọc chi tiết bên phải */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Dropdown lọc theo giảng viên nếu có giảng viên */}
+          {availableTeachers.length > 0 && (
+            <select
+              value={teacherFilter}
+              onChange={(e) => {
+                setTeacherFilter(e.target.value);
+                if (e.target.value !== 'ALL') setDeckCategoryFilter('teacher');
+              }}
               style={{
+                height: '34px',
+                padding: '0 10px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
                 backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '16px 18px',
-                border: isSelected ? `2px solid ${deck.color}` : '1px solid #e2e8f0',
-                boxShadow: isSelected ? `0 4px 16px -2px ${deck.color}25` : '0 2px 4px rgba(0,0,0,0.02)',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                color: '#334155',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                position: 'relative',
+                outline: 'none',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: deck.color, backgroundColor: `${deck.color}15`, padding: '2px 8px', borderRadius: '6px' }}>
-                  {deck.level}
-                </span>
+              <option value="ALL">Tất cả giảng viên</option>
+              {availableTeachers.map((teachName, idx) => (
+                <option key={idx} value={teachName}>
+                  {teachName}
+                </option>
+              ))}
+            </select>
+          )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>
-                    {masteredInDeck}/{totalInDeck} từ ({percent}%)
-                  </span>
+          {/* Ô tìm kiếm bộ thẻ */}
+          <div style={{ position: 'relative', width: '220px' }}>
+            <i
+              className="fa-solid fa-magnifying-glass"
+              style={{
+                position: 'absolute',
+                left: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: '0.75rem',
+                color: '#94a3b8',
+              }}
+            ></i>
+            <input
+              type="text"
+              placeholder="Tìm bộ thẻ, khóa học..."
+              value={deckSearchQuery}
+              onChange={(e) => setDeckSearchQuery(e.target.value)}
+              style={{
+                height: '34px',
+                width: '100%',
+                padding: '0 10px 0 28px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.8rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
-                  {deck.isCustomDeck && (
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteDeck(deck.id, deck.title, e)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                        padding: '2px 4px',
-                        fontSize: '0.8rem',
-                        transition: 'color 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
-                      title="Xóa chủ đề tự tạo này"
-                    >
-                      <i className="fa-solid fa-trash-can"></i>
-                    </button>
+      {/* Tabs chọn Chủ đề / Bộ thẻ (bao gồm các bộ CEFR & các bộ Giảng viên/Khóa học) */}
+      {filteredDecks.length === 0 ? (
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '40px 20px', textAlign: 'center', border: '1px dashed #cbd5e1', color: '#64748b', marginBottom: '22px' }}>
+          <i className="fa-solid fa-folder-open" style={{ fontSize: '2.5rem', color: '#cbd5e1', marginBottom: '12px' }}></i>
+          <h4 style={{ fontSize: '1rem', fontWeight: '800', color: '#1e293b', margin: '0 0 6px 0' }}>Không tìm thấy bộ thẻ nào phù hợp</h4>
+          <p style={{ fontSize: '0.85rem', margin: '0 0 14px 0' }}>Hãy thử chọn danh mục khác hoặc xóa bộ lọc tìm kiếm.</p>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => { setDeckCategoryFilter('ALL'); setTeacherFilter('ALL'); setDeckSearchQuery(''); }}
+            style={{ fontSize: '0.82rem', padding: '6px 14px' }}
+          >
+            Xem tất cả bộ thẻ
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', marginBottom: '22px' }}>
+          {filteredDecks.map((deck) => {
+            const isSelected = selectedDeckId === deck.id;
+            const totalInDeck = deck.cards?.length || 0;
+            const masteredInDeck = (deck.cards || []).filter((c) => masteredWordIds.includes(c.id)).length;
+            const percent = totalInDeck > 0 ? Math.round((masteredInDeck / totalInDeck) * 100) : 0;
+
+            return (
+              <div
+                key={deck.id}
+                onClick={() => setSelectedDeckId(deck.id)}
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '16px',
+                  padding: '16px 18px',
+                  border: isSelected ? `2px solid ${deck.color}` : '1px solid #e2e8f0',
+                  boxShadow: isSelected ? `0 6px 20px -2px ${deck.color}30` : '0 2px 4px rgba(0,0,0,0.02)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div>
+                  {/* Hàng 1: Trình độ + Badge nhận diện Tác giả */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.74rem', fontWeight: '800', color: deck.color, backgroundColor: `${deck.color}15`, padding: '2px 8px', borderRadius: '6px' }}>
+                        {deck.level}
+                      </span>
+                      {deck.authorRole === 'ADMIN' ? (
+                        <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#0284c7', backgroundColor: '#e0f2fe', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <i className="fa-solid fa-shield-halved"></i> Hệ thống
+                        </span>
+                      ) : deck.authorRole === 'TEACHER' ? (
+                        <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#ea580c', backgroundColor: '#fff7ed', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #ffedd5' }}>
+                          <i className="fa-solid fa-chalkboard-user"></i> {deck.author}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#8b5cf6', backgroundColor: '#f3e8ff', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <i className="fa-solid fa-user-pen"></i> Cá nhân
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>
+                        {masteredInDeck}/{totalInDeck} từ
+                      </span>
+
+                      {deck.isCustomDeck && (deck.authorRole === 'STUDENT' || deck.id === 'custom_personal') && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteDeck(deck.id, deck.title, e)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#94a3b8',
+                            cursor: 'pointer',
+                            padding: '2px 4px',
+                            fontSize: '0.8rem',
+                            transition: 'color 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+                          title="Xóa chủ đề tự tạo này"
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Hàng 2: Tiêu đề bộ thẻ */}
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: '800', color: '#0f172a', lineHeight: '1.3' }}>
+                    {deck.title}
+                  </h4>
+
+                  {/* Hàng 3: Khóa học liên kết (Course Badge nếu có) */}
+                  {deck.courseTitle && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '6px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#475569', fontWeight: '700', marginBottom: '8px' }}>
+                      <i className="fa-solid fa-graduation-cap" style={{ color: '#0284c7' }}></i>
+                      <span>Khóa: {deck.courseTitle}</span>
+                    </div>
                   )}
+
+                  {/* Hàng 4: Mô tả */}
+                  <p style={{ margin: '0 0 12px 0', fontSize: '0.78rem', color: '#64748b', lineHeight: '1.4' }}>
+                    {deck.description}
+                  </p>
+                </div>
+
+                {/* Hàng 5: Thanh tiến độ ghi nhớ */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', marginBottom: '3px', fontWeight: '700' }}>
+                    <span>Tiến độ ghi nhớ</span>
+                    <span>{percent}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '5px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${percent}%`, height: '100%', backgroundColor: deck.color, borderRadius: '4px', transition: 'width 0.3s' }}></div>
+                  </div>
                 </div>
               </div>
-
-              <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: '800', color: '#0f172a' }}>
-                {deck.title}
-              </h4>
-              <p style={{ margin: '0 0 10px 0', fontSize: '0.78rem', color: '#64748b', lineHeight: '1.4' }}>
-                {deck.description}
-              </p>
-              {/* Progress bar */}
-              <div style={{ width: '100%', height: '5px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: `${percent}%`, height: '100%', backgroundColor: deck.color, borderRadius: '4px', transition: 'width 0.3s' }}></div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* =========================================================================
           CHẾ ĐỘ 1: HỌC THẺ TƯƠNG TÁC (FLASHCARD STUDY MODE)

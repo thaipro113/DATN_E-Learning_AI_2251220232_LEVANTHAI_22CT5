@@ -532,26 +532,296 @@ export const DEFAULT_VOCABULARY_DECKS = [
 
 export const VOCABULARY_DECKS = DEFAULT_VOCABULARY_DECKS;
 
+export const INITIAL_TEACHER_DECKS = [
+  {
+    id: 'deck_teacher_toeic_an',
+    title: 'Từ Vựng Trọng Tâm TOEIC 900+ (Part 5 - 7)',
+    level: 'B2 - C1',
+    icon: 'fa-graduation-cap',
+    color: '#ea580c',
+    description: 'Bộ thẻ từ vựng nâng cao chuyên sâu bẫy từ loại, liên từ và thuật ngữ thương mại do Thầy Nguyễn Văn An biên soạn.',
+    author: 'Thầy Nguyễn Văn An',
+    authorId: '10f75caa-75ac-44d5-be3c-02e0a0ce05cd',
+    authorEmail: 'teacher@gmail.com',
+    authorRole: 'TEACHER',
+    authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    courseId: '439cb7ba-2055-4413-a15c-a9720b668cd6',
+    courseTitle: 'Khóa học bứt tốc TOEIC 900+',
+    category: 'teacher',
+    status: 'PUBLISHED',
+    isCustomDeck: true,
+    created_at: '2026-09-10',
+  },
+  {
+    id: 'deck_teacher_ielts_an',
+    title: 'IELTS Academic High-Scoring Collocations',
+    level: 'B2 - C1',
+    icon: 'fa-award',
+    color: '#4f46e5',
+    description: 'Tổng hợp các cụm từ đắt giá (Collocations & Idioms) Band 7.5+ cho Writing Task 2 và Speaking do Thầy Nguyễn Văn An biên soạn.',
+    author: 'Thầy Nguyễn Văn An',
+    authorId: '10f75caa-75ac-44d5-be3c-02e0a0ce05cd',
+    authorEmail: 'teacher@gmail.com',
+    authorRole: 'TEACHER',
+    authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    courseId: '956681e6-c015-4f26-99af-c954d0e5ffe8',
+    courseTitle: 'IELTS Masterclass 7.5+ Toàn Diện 4 Kỹ Năng',
+    category: 'teacher',
+    status: 'PUBLISHED',
+    isCustomDeck: true,
+    created_at: '2026-09-12',
+  },
+  {
+    id: 'deck_teacher_toeic_mai',
+    title: 'Từ Vựng Thực Chiến TOEIC 800+ Bứt Phá',
+    level: 'B1 - B2',
+    icon: 'fa-briefcase',
+    color: '#059669',
+    description: 'Các chủ đề Hợp đồng (Contracts), Marketing, Nhân sự và Tài chính xuất hiện với tần suất 90% do Cô Trần Thị Mai biên soạn.',
+    author: 'Cô Trần Thị Mai',
+    authorId: '2e8996c9-cda5-453a-b213-629639a38a3f',
+    authorEmail: 'teacher1@gmail.com',
+    authorRole: 'TEACHER',
+    authorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
+    courseId: 'deeca477-0f3d-4f2b-b1df-d6b24286ef1e',
+    courseTitle: 'Chiến Thuật Luyện Thi TOEIC 800+ Bứt Phá Mục Tiêu',
+    category: 'teacher',
+    status: 'PUBLISHED',
+    isCustomDeck: true,
+    created_at: '2026-09-15',
+  },
+  {
+    id: 'custom_personal',
+    title: 'Sổ Tay Từ Vựng Cá Nhân Của Bạn',
+    level: 'Tất cả cấp độ',
+    icon: 'fa-book-bookmark',
+    color: '#8b5cf6',
+    description: 'Kho từ vựng riêng của bạn, tự do lưu các từ bạn muốn ghi nhớ hoặc thêm từ bài giảng.',
+    author: 'Bạn (Học viên)',
+    authorRole: 'STUDENT',
+    category: 'personal',
+    isCustomDeck: true,
+    isPersonalDeck: true,
+    status: 'PUBLISHED',
+    created_at: '2026-09-01',
+  },
+];
+
+export const INITIAL_TEACHER_WORDS = [
+  // Deck TOEIC 900+ (Thầy An)
+  {
+    id: 'tw_toeic_1',
+    deckId: 'deck_teacher_toeic_an',
+    isCustom: true,
+    word: 'Remuneration',
+    ipa: '/rɪˌmjuː.nəˈreɪ.ʃən/',
+    type: 'Noun',
+    meaning: 'Tiền thù lao, tiền trả công (lương, thưởng)',
+    english_def: 'Payment for work or services that have been performed.',
+    example: 'The executive remuneration package includes competitive bonuses and health insurance.',
+    example_vi: 'Gói thù lao dành cho cấp quản lý bao gồm tiền thưởng cạnh tranh và bảo hiểm y tế.',
+    collocation: 'generous remuneration / remuneration package',
+  },
+  {
+    id: 'tw_toeic_2',
+    deckId: 'deck_teacher_toeic_an',
+    isCustom: true,
+    word: 'Stringent',
+    ipa: '/ˈstrɪn.dʒənt/',
+    type: 'Adjective',
+    meaning: 'Nghiêm ngặt, chặt chẽ (về quy định, tiêu chuẩn)',
+    english_def: 'Having a very severe effect, or being extremely limiting, or strictly controlled.',
+    example: 'The company must adhere to stringent quality control standards before product launch.',
+    example_vi: 'Công ty phải tuân thủ các tiêu chuẩn kiểm soát chất lượng nghiêm ngặt trước khi ra mắt sản phẩm.',
+    collocation: 'stringent regulations / stringent standards',
+  },
+  {
+    id: 'tw_toeic_3',
+    deckId: 'deck_teacher_toeic_an',
+    isCustom: true,
+    word: 'Discrepancy',
+    ipa: '/dɪˈskrep.ən.si/',
+    type: 'Noun',
+    meaning: 'Sự khác biệt, sai lệch (giữa các số liệu, tài liệu đối chiếu)',
+    english_def: 'A difference between two things that should be the same.',
+    example: 'The auditor discovered a significant discrepancy between the ledger and bank statement.',
+    example_vi: 'Kiểm toán viên phát hiện sự sai lệch đáng kể giữa sổ cái và sao kê ngân hàng.',
+    collocation: 'noticeable discrepancy / discrepancy between',
+  },
+  {
+    id: 'tw_toeic_4',
+    deckId: 'deck_teacher_toeic_an',
+    isCustom: true,
+    word: 'Consortium',
+    ipa: '/kənˈsɔːr.ti.əm/',
+    type: 'Noun',
+    meaning: 'Tập đoàn, hiệp hội liên doanh kinh tế',
+    english_def: 'An organization of several businesses or banks joining together as a group for a project.',
+    example: 'An international consortium won the bid to construct the high-speed rail line.',
+    example_vi: 'Một liên doanh quốc tế đã thắng thầu xây dựng tuyến đường sắt cao tốc.',
+    collocation: 'banking consortium / international consortium',
+  },
+  {
+    id: 'tw_toeic_5',
+    deckId: 'deck_teacher_toeic_an',
+    isCustom: true,
+    word: 'Preliminary',
+    ipa: '/prɪˈlɪm.ə.ner.i/',
+    type: 'Adjective',
+    meaning: 'Sơ bộ, mở đầu, chuẩn bị',
+    english_def: 'Coming before a more important action or event, especially introducing or preparing for it.',
+    example: 'After a preliminary investigation, the board approved the merger proposal.',
+    example_vi: 'Sau cuộc điều tra sơ bộ, hội đồng quản trị đã phê duyệt đề xuất sáp nhập.',
+    collocation: 'preliminary findings / preliminary discussion',
+  },
+
+  // Deck IELTS 7.5+ (Thầy An)
+  {
+    id: 'tw_ielts_1',
+    deckId: 'deck_teacher_ielts_an',
+    isCustom: true,
+    word: 'Ubiquitous',
+    ipa: '/juːˈbɪk.wə.t̬əs/',
+    type: 'Adjective',
+    meaning: 'Có mặt ở khắp nơi, cực kỳ phổ biến',
+    english_def: 'Present, appearing, or found everywhere at the same time.',
+    example: 'Smartphones have become ubiquitous in almost every modern classroom.',
+    example_vi: 'Điện thoại thông minh đã trở nên hiện diện ở khắp mọi nơi trong hầu hết lớp học hiện đại.',
+    collocation: 'ubiquitous presence / ubiquitous technology',
+  },
+  {
+    id: 'tw_ielts_2',
+    deckId: 'deck_teacher_ielts_an',
+    isCustom: true,
+    word: 'Detrimental',
+    ipa: '/ˌdet.rəˈmen.t̬əl/',
+    type: 'Adjective',
+    meaning: 'Có hại, gây tổn hại lớn',
+    english_def: 'Causing harm or damage; injurious.',
+    example: 'Sedentary lifestyles have a deeply detrimental effect on long-term cognitive health.',
+    example_vi: 'Lối sống ít vận động gây ảnh hưởng cực kỳ tai hại đến sức khỏe nhận thức lâu dài.',
+    collocation: 'detrimental impact / detrimental effect',
+  },
+  {
+    id: 'tw_ielts_3',
+    deckId: 'deck_teacher_ielts_an',
+    isCustom: true,
+    word: 'Exacerbate',
+    ipa: '/ɪɡˈzæs.ɚ.beɪt/',
+    type: 'Verb',
+    meaning: 'Làm trầm trọng thêm (vấn đề, căn bệnh, mâu thuẫn)',
+    english_def: 'To make something that is already bad even worse.',
+    example: 'Rapid urbanization continues to exacerbate air pollution in metropolitan areas.',
+    example_vi: 'Quá trình đô thị hóa nhanh chóng tiếp tục làm trầm trọng thêm ô nhiễm không khí tại các đô thị lớn.',
+    collocation: 'exacerbate the problem / exacerbate tensions',
+  },
+  {
+    id: 'tw_ielts_4',
+    deckId: 'deck_teacher_ielts_an',
+    isCustom: true,
+    word: 'Plausible',
+    ipa: '/ˈplɑː.zə.bəl/',
+    type: 'Adjective',
+    meaning: 'Hợp lý, đáng tin cậy, có cơ sở',
+    english_def: 'Seeming likely to be true, or able to be believed.',
+    example: 'Scientists provided a plausible explanation for the sudden climatic fluctuations.',
+    example_vi: 'Các nhà khoa học đã đưa ra một lời giải thích rất có cơ sở cho những biến động khí hậu đột ngột.',
+    collocation: 'plausible explanation / plausible scenario',
+  },
+
+  // Deck TOEIC 800+ (Cô Mai)
+  {
+    id: 'tw_mai_1',
+    deckId: 'deck_teacher_toeic_mai',
+    isCustom: true,
+    word: 'Procurement',
+    ipa: '/prəˈkjʊr.mənt/',
+    type: 'Noun',
+    meaning: 'Sự thu mua, mua sắm vật tư trang thiết bị',
+    english_def: 'The process of getting supplies or services for business operations.',
+    example: 'The procurement manager negotiated a 15% discount for bulk orders.',
+    example_vi: 'Trưởng phòng thu mua đã đàm phán thành công mức chiết khấu 15% cho đơn hàng số lượng lớn.',
+    collocation: 'procurement department / government procurement',
+  },
+  {
+    id: 'tw_mai_2',
+    deckId: 'deck_teacher_toeic_mai',
+    isCustom: true,
+    word: 'Feasibility',
+    ipa: '/ˌfiː.zəˈbɪl.ə.t̬i/',
+    type: 'Noun',
+    meaning: 'Tính khả thi, khả năng thực hiện thành công',
+    english_def: 'The possibility that can be made, done, or achieved, or is reasonable.',
+    example: 'The engineering team completed a comprehensive feasibility study for the project.',
+    example_vi: 'Đội ngũ kỹ thuật đã hoàn thành một nghiên cứu khả thi toàn diện cho dự án.',
+    collocation: 'feasibility study / economic feasibility',
+  },
+  {
+    id: 'tw_mai_3',
+    deckId: 'deck_teacher_toeic_mai',
+    isCustom: true,
+    word: 'Reimbursement',
+    ipa: '/ˌriː.ɪmˈbɝːs.mənt/',
+    type: 'Noun',
+    meaning: 'Sự hoàn trả, thanh toán bù đắp (chi phí công tác, y tế)',
+    english_def: 'The act of paying back money to someone who has spent it for work purposes.',
+    example: 'Please submit your receipts promptly for travel expense reimbursement.',
+    example_vi: 'Vui lòng nộp các hóa đơn biên lai sớm để được hoàn trả chi phí công tác.',
+    collocation: 'expense reimbursement / claim reimbursement',
+  },
+
+  // Personal default words
+  {
+    id: 'custom_1',
+    deckId: 'custom_personal',
+    isCustom: true,
+    word: 'Serendipity',
+    ipa: '/ˌser.ənˈdɪp.ə.t̬i/',
+    type: 'Noun',
+    meaning: 'Sự tình cờ may mắn phát hiện ra những điều tốt đẹp',
+    english_def: 'The occurrence of events by chance in a happy or beneficial way.',
+    example: 'Finding this comprehensive e-learning platform was pure serendipity.',
+    example_vi: 'Tìm thấy nền tảng học trực tuyến toàn diện này đúng là một sự may mắn tình cờ.',
+    collocation: 'pure serendipity / pleasant serendipity',
+  },
+  {
+    id: 'custom_2',
+    deckId: 'custom_personal',
+    isCustom: true,
+    word: 'Perseverance',
+    ipa: '/ˌpɝː.səˈvɪr.əns/',
+    type: 'Noun',
+    meaning: 'Sự kiên trì, bền bỉ vượt khó khăn',
+    english_def: 'Persistence in doing something despite difficulty or delay in achieving success.',
+    example: 'Through dedication and perseverance, she mastered fluent English.',
+    example_vi: 'Bằng sự tận tâm và kiên trì, cô ấy đã thành thạo tiếng Anh trôi chảy.',
+    collocation: 'show perseverance / great perseverance',
+  },
+];
+
 export const getStoredCustomDecks = () => {
   try {
     const saved = localStorage.getItem('elearning_custom_decks');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Tự động bổ sung các bộ thẻ Giảng viên mẫu nếu chưa tồn tại
+      const existingIds = new Set(parsed.map((d) => d.id));
+      let modified = false;
+      INITIAL_TEACHER_DECKS.forEach((d) => {
+        if (!existingIds.has(d.id)) {
+          parsed.push(d);
+          modified = true;
+        }
+      });
+      if (modified) {
+        localStorage.setItem('elearning_custom_decks', JSON.stringify(parsed));
+      }
+      return parsed;
+    }
   } catch (e) {
     console.error('Error loading custom decks:', e);
   }
-  return [
-    {
-      id: 'custom_personal',
-      title: 'Sổ Tay Từ Vựng Chuyên Đề',
-      level: 'B1 - B2',
-      icon: 'fa-book-bookmark',
-      color: '#8b5cf6',
-      description: 'Chủ đề từ vựng linh hoạt do giảng viên và quản trị viên biên soạn.',
-      author: 'Giảng viên',
-      isCustomDeck: true,
-      created_at: '2026-09-01',
-    },
-  ];
+  return [...INITIAL_TEACHER_DECKS];
 };
 
 export const saveStoredCustomDecks = (decks) => {
@@ -565,38 +835,26 @@ export const saveStoredCustomDecks = (decks) => {
 export const getStoredCustomWords = () => {
   try {
     const saved = localStorage.getItem('elearning_custom_flashcards');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Tự động bổ sung các từ vựng mẫu của Giảng viên nếu chưa có
+      const existingIds = new Set(parsed.map((w) => w.id));
+      let modified = false;
+      INITIAL_TEACHER_WORDS.forEach((w) => {
+        if (!existingIds.has(w.id)) {
+          parsed.push(w);
+          modified = true;
+        }
+      });
+      if (modified) {
+        localStorage.setItem('elearning_custom_flashcards', JSON.stringify(parsed));
+      }
+      return parsed;
+    }
   } catch (e) {
     console.error('Error loading custom words:', e);
   }
-  return [
-    {
-      id: 'custom_1',
-      deckId: 'custom_personal',
-      isCustom: true,
-      word: 'Serendipity',
-      ipa: '/ˌser.ənˈdɪp.ə.t̬i/',
-      type: 'Noun',
-      meaning: 'Sự tình cờ may mắn phát hiện ra những điều tốt đẹp',
-      english_def: 'The occurrence of events by chance in a happy or beneficial way.',
-      example: 'Finding this comprehensive e-learning platform was pure serendipity.',
-      example_vi: 'Tìm thấy nền tảng học trực tuyến toàn diện này đúng là một sự may mắn tình cờ.',
-      collocation: 'pure serendipity / pleasant serendipity',
-    },
-    {
-      id: 'custom_2',
-      deckId: 'custom_personal',
-      isCustom: true,
-      word: 'Perseverance',
-      ipa: '/ˌpɝː.səˈvɪr.əns/',
-      type: 'Noun',
-      meaning: 'Sự kiên trì, bền bỉ vượt khó khăn',
-      english_def: 'Persistence in doing something despite difficulty or delay in achieving success.',
-      example: 'Through dedication and perseverance, she mastered fluent English.',
-      example_vi: 'Bằng sự tận tâm và kiên trì, cô ấy đã thành thạo tiếng Anh trôi chảy.',
-      collocation: 'show perseverance / great perseverance',
-    },
-  ];
+  return [...INITIAL_TEACHER_WORDS];
 };
 
 export const saveStoredCustomWords = (words) => {
@@ -699,6 +957,7 @@ export const getAllDecksWithWords = (forUser = null, customDecksParam = null, cu
         ...d,
         author: 'Admin',
         authorRole: 'ADMIN',
+        category: 'system',
         status: override.status || 'PUBLISHED',
         isCustomDeck: true,
         is_resubmitted: override.is_resubmitted || false,
@@ -730,6 +989,10 @@ export const getAllDecksWithWords = (forUser = null, customDecksParam = null, cu
         ...d,
         author: d.author || 'Giảng viên',
         authorRole: d.authorRole || 'TEACHER',
+        authorAvatar: d.authorAvatar || null,
+        courseId: d.courseId || null,
+        courseTitle: d.courseTitle || null,
+        category: d.category || (d.authorRole === 'ADMIN' ? 'system' : (d.authorRole === 'STUDENT' ? 'personal' : 'teacher')),
         status: resolvedStatus,
         isCustomDeck: true,
         is_resubmitted: override.is_resubmitted != null ? override.is_resubmitted : (d.is_resubmitted || false),
@@ -763,14 +1026,20 @@ export const getAllDecksWithWords = (forUser = null, customDecksParam = null, cu
   }
 
   // 3. Giảng viên (TEACHER):
-  // Ai tạo ra thì người đó hiển thị: Giảng viên CHỈ thấy các đề tài do chính mình tạo (kể cả bản nháp DRAFT)
-  // Tuyệt đối KHÔNG hiển thị đề tài của Admin hay giảng viên khác trong màn hình biên soạn của giảng viên
+  // Giảng viên xem các đề tài do mình tạo hoặc biên soạn (kể cả bản nháp DRAFT)
+  // Tuyệt đối KHÔNG hiển thị đề tài của Admin hệ thống trong màn hình quản lý flashcard của giảng viên
   if (forUser.role === 'TEACHER') {
     return all.filter((d) => {
+      // Loại trừ đề tài hệ thống của Admin
+      if (d.authorRole === 'ADMIN' || d.category === 'system') return false;
+
       const isOwner =
         (forUser.id && d.authorId && String(d.authorId) === String(forUser.id)) ||
-        (forUser.full_name && d.author === forUser.full_name) ||
-        (forUser.email && d.authorEmail === forUser.email);
+        (forUser.full_name && d.author && d.author.trim().toLowerCase() === forUser.full_name.trim().toLowerCase()) ||
+        (forUser.email && (d.authorEmail === forUser.email || d.authorId === forUser.email)) ||
+        (forUser.email === 'teacher@gmail.com' && (d.author?.includes('Nguyễn Văn An') || d.authorId === '10f75caa-75ac-44d5-be3c-02e0a0ce05cd')) ||
+        (forUser.email === 'teacher1@gmail.com' && (d.author?.includes('Trần Thị Mai') || d.authorId === '2e8996c9-cda5-453a-b213-629639a38a3f')) ||
+        (d.authorRole === 'TEACHER' && (d.authorId === forUser.id || d.author === (forUser.full_name || 'Giảng viên')));
       return isOwner;
     });
   }
@@ -778,6 +1047,20 @@ export const getAllDecksWithWords = (forUser = null, customDecksParam = null, cu
   // 4. Học viên (STUDENT) hoặc Khách:
   // Chỉ xem các đề tài đã được Phê duyệt xuất bản (PUBLISHED) và có từ vựng
   return all.filter((d) => d.status === 'PUBLISHED' && (d.cards && d.cards.length > 0));
+};
+
+// Tìm kiếm danh sách bộ thẻ theo khóa học (courseId hoặc slug hoặc tên khóa học)
+export const getDecksByCourse = (courseIdentifier) => {
+  if (!courseIdentifier) return [];
+  const allDecks = getAllDecksWithWords();
+  const identLower = String(courseIdentifier).toLowerCase().trim();
+  return allDecks.filter((d) => {
+    if (!d.courseId && !d.courseTitle) return false;
+    return (
+      (d.courseId && String(d.courseId).toLowerCase() === identLower) ||
+      (d.courseTitle && d.courseTitle.toLowerCase().includes(identLower))
+    );
+  });
 };
 
 // Cập nhật trạng thái duyệt đề tài flashcard (Dành cho Reviewer / Admin)

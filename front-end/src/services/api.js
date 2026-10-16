@@ -40,6 +40,7 @@ export const courseAPI = {
   getCourses: (params) => apiClient.get('courses/', { params }),
   getCourseDetail: (identifier) => apiClient.get(`courses/${identifier}/`),
   getTeachingCourses: () => apiClient.get('courses/teaching/'),
+  getTeacherCourses: () => apiClient.get('courses/teaching/'),
   createCourse: (data) => apiClient.post('courses/', data),
   updateCourse: (identifier, data) => apiClient.patch(`courses/${identifier}/`, data),
   deleteCourse: (identifier) => apiClient.delete(`courses/${identifier}/`),

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { courseAPI } from '../services/api';
 import {
   DEFAULT_VOCABULARY_DECKS,
   getStoredCustomDecks,
@@ -14,16 +15,37 @@ import {
 export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
   const [customDecks, setCustomDecks] = useState(() => getStoredCustomDecks());
   const [customWords, setCustomWords] = useState(() => getStoredCustomWords());
-  const [selectedDeckId, setSelectedDeckId] = useState(() => {
-    const stored = getStoredCustomDecks();
-    return stored[0]?.id || null;
-  });
+  const [selectedDeckId, setSelectedDeckId] = useState(null);
   const [wordSearch, setWordSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [isPreviewStudentMode, setIsPreviewStudentMode] = useState(false);
   const [previewCardIndex, setPreviewCardIndex] = useState(0);
   const [isPreviewFlipped, setIsPreviewFlipped] = useState(false);
   const [playingWord, setPlayingWord] = useState(null);
+
+  // Danh sách khóa học của Giảng viên để liên kết
+  const [teacherCourses, setTeacherCourses] = useState([]);
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCourses = async () => {
+      try {
+        const fetcher = courseAPI.getTeachingCourses || courseAPI.getTeacherCourses || courseAPI.getCourses;
+        if (typeof fetcher === 'function') {
+          const res = await fetcher();
+          const list = res?.data?.results || res?.data?.data?.results || res?.data?.data || res?.data || [];
+          if (isMounted && Array.isArray(list)) {
+            setTeacherCourses(list);
+          }
+        }
+      } catch (err) {
+        console.warn('TeacherFlashcardManager - Lỗi tải danh sách khóa học giảng viên:', err);
+      }
+    };
+    fetchCourses();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Modal Đề tài
   const [deckModal, setDeckModal] = useState({
@@ -34,6 +56,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     level: 'B1 - B2',
     color: '#0284c7',
     description: '',
+    courseId: '',
+    courseTitle: '',
   });
 
   // Modal Từ vựng
@@ -73,8 +97,19 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     return getAllDecksWithWords(user, customDecks, customWords);
   }, [customDecks, customWords, user]);
 
+  // Đồng bộ selectedDeckId khi allDecks thay đổi
+  useEffect(() => {
+    if (allDecks.length > 0) {
+      if (!selectedDeckId || !allDecks.some((d) => d.id === selectedDeckId)) {
+        setSelectedDeckId(allDecks[0].id);
+      }
+    } else {
+      setSelectedDeckId(null);
+    }
+  }, [allDecks, selectedDeckId]);
+
   const currentDeck = useMemo(() => {
-    if (!allDecks.length) return null;
+    if (!allDecks || allDecks.length === 0) return null;
     return allDecks.find((d) => d.id === selectedDeckId) || allDecks[0] || null;
   }, [allDecks, selectedDeckId]);
 
@@ -133,6 +168,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       level: 'B1 - B2',
       color: '#0284c7',
       description: '',
+      courseId: '',
+      courseTitle: '',
     });
   };
 
@@ -145,6 +182,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       level: deck.level,
       color: deck.color || '#0284c7',
       description: deck.description || '',
+      courseId: deck.courseId || '',
+      courseTitle: deck.courseTitle || '',
     });
   };
 
@@ -166,7 +205,11 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
         isCustomDeck: true,
         author: user?.full_name || 'Giảng viên',
         authorId: user?.id || user?.email || 'teacher',
+        authorEmail: user?.email || '',
         authorRole: 'TEACHER',
+        courseId: deckModal.courseId || null,
+        courseTitle: deckModal.courseTitle || null,
+        category: 'teacher',
         // Đề tài mới tạo của Giảng viên ở trạng thái Bản nháp, cần thêm từ vựng trước khi gửi thẩm định
         status: 'DRAFT',
         created_at: new Date().toISOString().split('T')[0],
@@ -185,6 +228,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
               level: deckModal.level,
               color: deckModal.color,
               description: deckModal.description.trim(),
+              courseId: deckModal.courseId || null,
+              courseTitle: deckModal.courseTitle || null,
             }
           : d
       );
@@ -752,6 +797,11 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                           {deck.author || 'Admin'}
                         </span>
 
+                        {deck.courseTitle && (
+                          <span style={{ fontSize: '0.68rem', fontWeight: '800', padding: '1px 7px', borderRadius: '4px', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <i className="fa-solid fa-graduation-cap"></i> Khóa: {deck.courseTitle}
+                          </span>
+                        )}
                         {deck.status === 'DRAFT' && (
                           <span style={{ fontSize: '0.66rem', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}>
                             📝 Bản nháp
@@ -820,7 +870,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
         </div>
 
           {/* 2. BẢNG TỪ VỰNG CỦA ĐỀ TÀI ĐANG CHỌN (GỌN GÀNG, RÕ RÀNG) */}
-          {currentDeck && (
+          {currentDeck ? (
             <div
               style={{
                 backgroundColor: '#ffffff',
@@ -1218,6 +1268,61 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                 </table>
               </div>
             </div>
+          ) : (
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                border: '1px dashed #cbd5e1',
+                padding: '48px 24px',
+                textAlign: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+              }}
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: '#f0f9ff',
+                  color: '#0284c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.8rem',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <i className="fa-solid fa-layer-group"></i>
+              </div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>
+                Chưa Có Đề Tài Nào Được Chọn
+              </h3>
+              <p style={{ color: '#64748b', fontSize: '0.88rem', maxWidth: '440px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+                Tạo bộ thẻ từ vựng đầu tiên hoặc chọn một đề tài từ danh sách bên trái để biên soạn danh sách từ vựng.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenCreateDeck}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontWeight: '700',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+                }}
+              >
+                <i className="fa-solid fa-plus"></i>
+                <span>Tạo Đề Tài Mới Ngay</span>
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -1264,6 +1369,32 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                   onChange={(e) => setDeckModal({ ...deckModal, title: e.target.value })}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: '700', color: '#334155', marginBottom: '5px' }}>
+                  Khóa học liên kết (Tùy chọn - Giúp học viên trong khóa ôn tập trực tiếp)
+                </label>
+                <select
+                  value={deckModal.courseId || ''}
+                  onChange={(e) => {
+                    const cid = e.target.value;
+                    const found = teacherCourses.find((c) => String(c.id) === String(cid));
+                    setDeckModal({
+                      ...deckModal,
+                      courseId: cid,
+                      courseTitle: found ? found.title : '',
+                    });
+                  }}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                >
+                  <option value="">-- Chủ đề từ vựng tự do (Không gắn khóa học) --</option>
+                  {teacherCourses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
