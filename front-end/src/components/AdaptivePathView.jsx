@@ -49,93 +49,111 @@ export default function AdaptivePathView({
     setCurrentPage(1);
   }, [filterTopic, searchQuery]);
 
-  const fetchMistakes = async () => {
-    setIsLoading(true);
-    try {
-      const res = await recommendationAPI.getStudentMistakes();
-      const data = res.data?.data || res.data || {};
-      const rawMistakes = data.mistakes || [];
+  // Hàm chuẩn hóa dữ liệu lỗi sai toàn diện, đảm bảo gom nhóm đúng Canonical Topics & đếm chuẩn xác 100%
+  const normalizeMistakesData = (rawMistakes = [], rawTopics = [], metadata = {}) => {
+    const groupedByQuestion = {};
+    (rawMistakes || []).forEach((m) => {
+      const key = m.question_id || m.question_content?.trim() || m.id;
+      const cTopic = m.canonical_topic || getCanonicalTopic(m.topic);
+      if (!groupedByQuestion[key]) {
+        groupedByQuestion[key] = {
+          ...m,
+          id: m.id || m.mistake_id,
+          mistake_id: m.id || m.mistake_id,
+          all_ids: m.all_ids || [m.id || m.mistake_id],
+          repeat_count: m.repeat_count || 1,
+          question_content: m.question_content || m.question_text || '',
+          student_selected: m.student_selected || m.student_choice || '',
+          correct_answer: m.correct_answer || m.correct_choice || '',
+          attempt_date: m.attempt_date || m.attempted_at || '',
+          topic: m.topic,
+          canonical_topic: cTopic,
+        };
+      } else {
+        const cur = groupedByQuestion[key];
+        const mId = m.id || m.mistake_id;
+        if (mId && !cur.all_ids.includes(mId)) {
+          cur.all_ids.push(mId);
+        }
+        cur.repeat_count += (m.repeat_count || 1);
+        if (m.attempt_date && (!cur.attempt_date || m.attempt_date > cur.attempt_date)) {
+          cur.attempt_date = m.attempt_date;
+          cur.quiz_title = m.quiz_title || cur.quiz_title;
+          cur.student_selected = m.student_selected || m.student_choice || cur.student_selected;
+        }
+      }
+    });
+    const normalizedMistakes = Object.values(groupedByQuestion);
 
-      // Gom nhóm các câu hỏi trùng lặp (nếu học viên làm sai câu này nhiều lần qua các bài thi)
-      const groupedByQuestion = {};
-      rawMistakes.forEach((m) => {
-        const key = m.question_id || m.question_content?.trim() || m.id;
-        const cTopic = m.canonical_topic || getCanonicalTopic(m.topic);
-        if (!groupedByQuestion[key]) {
-          groupedByQuestion[key] = {
-            ...m,
-            id: m.id || m.mistake_id,
-            mistake_id: m.id || m.mistake_id,
-            all_ids: m.all_ids || [m.id || m.mistake_id],
-            repeat_count: m.repeat_count || 1,
-            question_content: m.question_content || m.question_text || '',
-            student_selected: m.student_selected || m.student_choice || '',
-            correct_answer: m.correct_answer || m.correct_choice || '',
-            attempt_date: m.attempt_date || m.attempted_at || '',
-            topic: m.topic,
-            canonical_topic: cTopic,
-          };
-        } else {
-          const cur = groupedByQuestion[key];
-          const mId = m.id || m.mistake_id;
-          if (mId && !cur.all_ids.includes(mId)) {
-            cur.all_ids.push(mId);
-          }
-          cur.repeat_count += (m.repeat_count || 1);
-          // Ưu tiên mốc thời gian làm bài mới nhất
-          if (m.attempt_date && (!cur.attempt_date || m.attempt_date > cur.attempt_date)) {
-            cur.attempt_date = m.attempt_date;
-            cur.quiz_title = m.quiz_title || cur.quiz_title;
-            cur.student_selected = m.student_selected || m.student_choice || cur.student_selected;
-          }
+    // Gom nhóm các chủ đề Canonical và tính số câu sai chính xác dựa trên danh sách câu hỏi
+    const topicsMap = {};
+    (rawTopics || []).forEach((t) => {
+      const cTopic = t.canonical_topic || getCanonicalTopic(t.topic);
+      if (!topicsMap[cTopic]) {
+        topicsMap[cTopic] = {
+          topic: cTopic,
+          canonical_topic: cTopic,
+          count: 0,
+          sub_topics: new Set(),
+          raw_topics: new Set(),
+          all_mistake_ids: [],
+          sample_reason: t.sample_reason || '',
+          difficulty: t.difficulty || 'B1',
+        };
+      }
+      const entry = topicsMap[cTopic];
+      entry.raw_topics.add(t.topic);
+      if (t.raw_topics && Array.isArray(t.raw_topics)) {
+        t.raw_topics.forEach((rt) => entry.raw_topics.add(rt));
+      }
+      if (t.sub_topics) {
+        if (Array.isArray(t.sub_topics)) {
+          t.sub_topics.forEach((st) => entry.sub_topics.add(st));
+        } else if (typeof t.sub_topics === 'string') {
+          t.sub_topics.split(',').forEach((st) => entry.sub_topics.add(st.trim()));
         }
-      });
-      const normalizedMistakes = Object.values(groupedByQuestion);
+      }
+      if (t.sub_topic) {
+        t.sub_topic.split(',').forEach((st) => entry.sub_topics.add(st.trim()));
+      }
+      if (!entry.sample_reason && t.sample_reason) {
+        entry.sample_reason = t.sample_reason;
+      }
+    });
 
-      const rawTopics = data.weak_topics_summary || data.weak_topics || [];
+    normalizedMistakes.forEach((m) => {
+      const cTopic = m.canonical_topic || getCanonicalTopic(m.topic);
+      if (!topicsMap[cTopic]) {
+        topicsMap[cTopic] = {
+          topic: cTopic,
+          canonical_topic: cTopic,
+          count: 0,
+          sub_topics: new Set(),
+          raw_topics: new Set(),
+          all_mistake_ids: [],
+          sample_reason: m.reason || m.explanation || '',
+          difficulty: m.difficulty || 'B1',
+        };
+      }
+      const entry = topicsMap[cTopic];
+      entry.count += 1;
+      entry.raw_topics.add(m.topic);
+      if (Array.isArray(m.all_ids)) {
+        entry.all_mistake_ids.push(...m.all_ids);
+      } else if (m.id) {
+        entry.all_mistake_ids.push(m.id);
+      }
+      if (m.sub_topic) {
+        entry.sub_topics.add(m.sub_topic);
+      }
+      if (!entry.sample_reason && (m.reason || m.explanation)) {
+        entry.sample_reason = m.reason || m.explanation;
+      }
+    });
 
-      // Gom nhóm các chủ đề có cùng dạng vào 1 chủ đề chuẩn (Canonical Topic)
-      const consolidatedTopicsMap = {};
-      rawTopics.forEach((t) => {
-        const cTopic = t.canonical_topic || getCanonicalTopic(t.topic);
-        if (!consolidatedTopicsMap[cTopic]) {
-          consolidatedTopicsMap[cTopic] = {
-            ...t,
-            topic: cTopic,
-            canonical_topic: cTopic,
-            count: 0,
-            sub_topics: new Set(),
-            raw_topics: new Set(),
-            all_mistake_ids: [],
-            sample_reason: t.sample_reason || '',
-            difficulty: t.difficulty || 'B1',
-          };
-        }
-        const entry = consolidatedTopicsMap[cTopic];
-        entry.count += (t.count || 0);
-        entry.raw_topics.add(t.topic);
-        if (t.raw_topics && Array.isArray(t.raw_topics)) {
-          t.raw_topics.forEach((rt) => entry.raw_topics.add(rt));
-        }
-        if (Array.isArray(t.all_mistake_ids)) {
-          entry.all_mistake_ids.push(...t.all_mistake_ids);
-        }
-        if (t.sub_topics) {
-          if (Array.isArray(t.sub_topics)) {
-            t.sub_topics.forEach((st) => entry.sub_topics.add(st));
-          } else if (typeof t.sub_topics === 'string') {
-            t.sub_topics.split(',').forEach((st) => entry.sub_topics.add(st.trim()));
-          }
-        }
-        if (t.sub_topic) {
-          t.sub_topic.split(',').forEach((st) => entry.sub_topics.add(st.trim()));
-        }
-        if (!entry.sample_reason && t.sample_reason) {
-          entry.sample_reason = t.sample_reason;
-        }
-      });
-
-      const normalizedTopics = Object.values(consolidatedTopicsMap).map((t) => {
+    const normalizedTopics = Object.values(topicsMap)
+      .filter((t) => t.count > 0)
+      .map((t) => {
         const subList = Array.from(t.sub_topics).filter(Boolean);
         return {
           ...t,
@@ -143,26 +161,57 @@ export default function AdaptivePathView({
           sub_topic: subList.slice(0, 3).join(', '),
           raw_topics: Array.from(t.raw_topics),
         };
-      }).sort((a, b) => b.count - a.count);
+      })
+      .sort((a, b) => b.count - a.count);
 
-      setMistakeData({
-        has_enrolled_courses: data.has_enrolled_courses || (myCourses && myCourses.length > 0),
-        has_quiz_attempts: data.has_quiz_attempts || (myAttempts && myAttempts.length > 0),
-        total_mistakes: normalizedMistakes.length,
-        weak_topics: normalizedTopics,
-        mistakes: normalizedMistakes,
+    return {
+      has_enrolled_courses: Boolean(metadata.has_enrolled_courses || (myCourses && myCourses.length > 0)),
+      has_quiz_attempts: Boolean(metadata.has_quiz_attempts || (myAttempts && myAttempts.length > 0)),
+      total_mistakes: normalizedMistakes.length,
+      weak_topics: normalizedTopics,
+      mistakes: normalizedMistakes,
+    };
+  };
+
+  const fetchMistakes = async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    try {
+      const res = await recommendationAPI.getStudentMistakes();
+      const data = res.data?.data || res.data || {};
+      const normalized = normalizeMistakesData(
+        data.mistakes || [],
+        data.weak_topics_summary || data.weak_topics || [],
+        {
+          has_enrolled_courses: data.has_enrolled_courses || (myCourses && myCourses.length > 0),
+          has_quiz_attempts: data.has_quiz_attempts || (myAttempts && myAttempts.length > 0),
+        }
+      );
+
+      setMistakeData(normalized);
+
+      // Nếu bộ lọc chủ đề hiện tại không còn câu hỏi nào, tự động đưa về ALL
+      setFilterTopic((prevFilter) => {
+        if (prevFilter === 'ALL') return 'ALL';
+        const hasMatching = normalized.mistakes.some(
+          (m) => m.canonical_topic === prevFilter || m.topic === prevFilter
+        );
+        return hasMatching ? prevFilter : 'ALL';
       });
-      // Mặc định chọn tất cả các câu sai để tiện luyện tập
-      setSelectedMistakeIds(new Set(normalizedMistakes.map((m) => m.id)));
+
+      // Điều chỉnh phân trang không bị vượt quá số trang hiện tại
+      setCurrentPage((prevPage) => {
+        const totalP = Math.ceil(normalized.mistakes.length / itemsPerPage) || 1;
+        return Math.min(prevPage, totalP);
+      });
     } catch (err) {
       console.warn('Lỗi khi tải dữ liệu phân tích lỗi sai:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchMistakes();
+    fetchMistakes(false);
   }, []);
 
   // Đánh dấu đã hoàn thành / xóa 1 câu hỏi sai đơn lẻ
@@ -170,51 +219,56 @@ export default function AdaptivePathView({
     const mistakeId = typeof mistake === 'object' ? mistake.id : mistake;
     const allIds = (typeof mistake === 'object' && Array.isArray(mistake.all_ids)) ? mistake.all_ids : [mistakeId];
     if (!mistakeId || isResolving) return;
+
     setIsResolving(true);
     try {
+      const idSet = new Set([mistakeId, ...allIds]);
+
+      // 1. Cập nhật lạc quan (Optimistic update) ngay lập tức trên UI với thuật toán chuẩn hóa
+      const remainingMistakes = (mistakeData.mistakes || []).filter(
+        (item) => !idSet.has(item.id) && !idSet.has(item.mistake_id)
+      );
+
+      const nextData = normalizeMistakesData(remainingMistakes, mistakeData.weak_topics, mistakeData);
+      setMistakeData(nextData);
+
+      setSelectedMistakeIds((prev) => {
+        const next = new Set(prev);
+        idSet.forEach((id) => next.delete(id));
+        return next;
+      });
+
+      // Nếu chủ đề đang xem vừa hết sạch câu sai, tự động quay về xem tất cả
+      if (filterTopic !== 'ALL') {
+        const stillHasTopic = remainingMistakes.some(
+          (m) => (m.canonical_topic || getCanonicalTopic(m.topic)) === filterTopic || m.topic === filterTopic
+        );
+        if (!stillHasTopic) {
+          setFilterTopic('ALL');
+        }
+      }
+
+      setCurrentPage((prevPage) => {
+        const newTotal = Math.ceil(remainingMistakes.length / itemsPerPage) || 1;
+        return Math.min(prevPage, newTotal);
+      });
+
+      // 2. Gửi request lưu vào database backend
       if (allIds.length > 1) {
         await recommendationAPI.resolveBatchMistakes(allIds);
       } else {
         await recommendationAPI.resolveMistake(mistakeId);
       }
 
-      setMistakeData((prev) => {
-        const remainingMistakes = (prev.mistakes || []).filter(
-          (item) => item.id !== mistakeId && item.mistake_id !== mistakeId && !allIds.includes(item.id)
-        );
-        const topicsMap = {};
-        remainingMistakes.forEach((item) => {
-          if (!topicsMap[item.topic]) {
-            topicsMap[item.topic] = {
-              topic: item.topic,
-              sub_topic: item.sub_topic,
-              count: 0,
-              difficulty: item.difficulty,
-              skill: item.skill,
-              sample_reason: item.reason,
-            };
-          }
-          topicsMap[item.topic].count += 1;
-        });
-        const updatedTopics = Object.values(topicsMap).sort((a, b) => b.count - a.count);
+      // 3. Tự động đồng bộ ngầm với backend (silent refresh) để đảm bảo dữ liệu 100% khớp máy chủ
+      await fetchMistakes(true);
 
-        return {
-          ...prev,
-          total_mistakes: remainingMistakes.length,
-          mistakes: remainingMistakes,
-          weak_topics: updatedTopics,
-        };
-      });
-
-      setSelectedMistakeIds((prev) => {
-        const next = new Set(prev);
-        next.delete(mistakeId);
-        allIds.forEach((id) => next.delete(id));
-        return next;
-      });
+      // Kích hoạt cập nhật chuỗi học tập nếu có
+      window.dispatchEvent(new CustomEvent('study_activity_recorded'));
     } catch (err) {
       console.warn('Lỗi khi đánh dấu hoàn thành câu hỏi:', err);
       alert('Không thể cập nhật trạng thái câu hỏi. Vui lòng thử lại!');
+      await fetchMistakes(true);
     } finally {
       setIsResolving(false);
     }
@@ -239,42 +293,41 @@ export default function AdaptivePathView({
     if (!window.confirm(`Bạn có chắc muốn đánh dấu đã hoàn thành và xóa ${targetMistakes.length} câu hỏi sai đã chọn?`)) {
       return;
     }
+
     setIsResolving(true);
     try {
-      await recommendationAPI.resolveBatchMistakes(uniqueIds);
+      const idSet = new Set(uniqueIds);
+      selectedMistakeIds.forEach((id) => idSet.add(id));
 
-      setMistakeData((prev) => {
-        const remainingMistakes = (prev.mistakes || []).filter(
-          (item) => !selectedMistakeIds.has(item.id) && !selectedMistakeIds.has(item.mistake_id) && !uniqueIds.includes(item.id)
+      const remainingMistakes = (mistakeData.mistakes || []).filter(
+        (item) => !idSet.has(item.id) && !idSet.has(item.mistake_id)
+      );
+
+      const nextData = normalizeMistakesData(remainingMistakes, mistakeData.weak_topics, mistakeData);
+      setMistakeData(nextData);
+      setSelectedMistakeIds(new Set());
+
+      if (filterTopic !== 'ALL') {
+        const stillHasTopic = remainingMistakes.some(
+          (m) => (m.canonical_topic || getCanonicalTopic(m.topic)) === filterTopic || m.topic === filterTopic
         );
-        const topicsMap = {};
-        remainingMistakes.forEach((item) => {
-          if (!topicsMap[item.topic]) {
-            topicsMap[item.topic] = {
-              topic: item.topic,
-              sub_topic: item.sub_topic,
-              count: 0,
-              difficulty: item.difficulty,
-              skill: item.skill,
-              sample_reason: item.reason,
-            };
-          }
-          topicsMap[item.topic].count += 1;
-        });
-        const updatedTopics = Object.values(topicsMap).sort((a, b) => b.count - a.count);
+        if (!stillHasTopic) {
+          setFilterTopic('ALL');
+        }
+      }
 
-        return {
-          ...prev,
-          total_mistakes: remainingMistakes.length,
-          mistakes: remainingMistakes,
-          weak_topics: updatedTopics,
-        };
+      setCurrentPage((prevPage) => {
+        const newTotal = Math.ceil(remainingMistakes.length / itemsPerPage) || 1;
+        return Math.min(prevPage, newTotal);
       });
 
-      setSelectedMistakeIds(new Set());
+      await recommendationAPI.resolveBatchMistakes(uniqueIds);
+      await fetchMistakes(true);
+      window.dispatchEvent(new CustomEvent('study_activity_recorded'));
     } catch (err) {
       console.warn('Lỗi khi xóa danh sách câu hỏi sai:', err);
       alert('Không thể cập nhật danh sách câu hỏi. Vui lòng thử lại!');
+      await fetchMistakes(true);
     } finally {
       setIsResolving(false);
     }
@@ -416,23 +469,12 @@ export default function AdaptivePathView({
 
     setIsResolving(true);
     try {
-      await recommendationAPI.resolveBatchMistakes(uniqueIds);
-
-      setMistakeData((prev) => {
-        const remainingMistakes = (prev.mistakes || []).filter(
-          (m) => (m.canonical_topic || getCanonicalTopic(m.topic)) !== canonical && m.topic !== canonical
-        );
-        const remainingTopics = (prev.weak_topics || []).filter(
-          (t) => (t.canonical_topic || getCanonicalTopic(t.topic)) !== canonical && t.topic !== canonical
-        );
-
-        return {
-          ...prev,
-          total_mistakes: remainingMistakes.length,
-          mistakes: remainingMistakes,
-          weak_topics: remainingTopics,
-        };
-      });
+      // 1. Cập nhật giao diện lạc quan với normalizeMistakesData
+      const remainingMistakes = (mistakeData.mistakes || []).filter(
+        (m) => (m.canonical_topic || getCanonicalTopic(m.topic)) !== canonical && m.topic !== canonical
+      );
+      const nextData = normalizeMistakesData(remainingMistakes, mistakeData.weak_topics, mistakeData);
+      setMistakeData(nextData);
 
       setSelectedMistakeIds((prev) => {
         const next = new Set(prev);
@@ -450,10 +492,18 @@ export default function AdaptivePathView({
         return next;
       });
 
-      alert(`Tuyệt vời! Đã hoàn thành luyện tập chủ đề "${formatTopicBilingual(canonical)}".`);
+      // 2. Gửi request backend
+      await recommendationAPI.resolveBatchMistakes(uniqueIds);
+
+      // 3. Tự động đồng bộ ngầm
+      await fetchMistakes(true);
+
+      // 4. Kích hoạt sự kiện học tập
+      window.dispatchEvent(new CustomEvent('study_activity_recorded'));
     } catch (err) {
       console.warn('Lỗi khi đánh dấu hoàn thành chủ đề:', err);
       alert('Không thể cập nhật trạng thái chủ đề. Vui lòng thử lại!');
+      await fetchMistakes(true);
     } finally {
       setIsResolving(false);
     }
@@ -481,50 +531,37 @@ export default function AdaptivePathView({
     }));
 
     if (mistakeIdToResolve) {
-      // 1. Gửi request backend để đánh dấu đã khắc phục câu hỏi sai
-      try {
-        await recommendationAPI.resolveMistake(mistakeIdToResolve);
-      } catch (err) {
-        console.warn('Lỗi khi gọi resolveMistake:', err);
-      }
+      // 1. Cập nhật lạc quan
+      const remainingMistakes = (mistakeData.mistakes || []).filter(
+        (item) => item.id !== mistakeIdToResolve && item.mistake_id !== mistakeIdToResolve
+      );
+      const nextData = normalizeMistakesData(remainingMistakes, mistakeData.weak_topics, mistakeData);
+      setMistakeData(nextData);
 
-      // 2. Xóa ngay câu hỏi đó khỏi danh sách giao diện
-      setMistakeData((prev) => {
-        const remainingMistakes = (prev.mistakes || []).filter((item) => item.id !== mistakeIdToResolve);
-        // Tái lập danh sách weak_topics dựa trên các câu còn lại
-        const topicsMap = {};
-        remainingMistakes.forEach((item) => {
-          const cTopic = item.canonical_topic || getCanonicalTopic(item.topic);
-          if (!topicsMap[cTopic]) {
-            topicsMap[cTopic] = {
-              topic: cTopic,
-              canonical_topic: cTopic,
-              sub_topic: item.sub_topic,
-              count: 0,
-              difficulty: item.difficulty,
-              skill: item.skill,
-              sample_reason: item.reason,
-              latest_mistake_at: item.attempt_date,
-            };
-          }
-          topicsMap[cTopic].count += 1;
-        });
-        const updatedTopics = Object.values(topicsMap).sort((a, b) => b.count - a.count);
-
-        return {
-          ...prev,
-          total_mistakes: remainingMistakes.length,
-          mistakes: remainingMistakes,
-          weak_topics: updatedTopics,
-        };
-      });
-
-      // Bỏ chọn khỏi selectedMistakeIds nếu có
       setSelectedMistakeIds((prev) => {
         const next = new Set(prev);
         next.delete(mistakeIdToResolve);
         return next;
       });
+
+      if (filterTopic !== 'ALL') {
+        const stillHasTopic = remainingMistakes.some(
+          (m) => (m.canonical_topic || getCanonicalTopic(m.topic)) === filterTopic || m.topic === filterTopic
+        );
+        if (!stillHasTopic) {
+          setFilterTopic('ALL');
+        }
+      }
+
+      // 2. Gửi request backend để đánh dấu đã khắc phục câu hỏi sai
+      try {
+        await recommendationAPI.resolveMistake(mistakeIdToResolve);
+        await fetchMistakes(true);
+        window.dispatchEvent(new CustomEvent('study_activity_recorded'));
+      } catch (err) {
+        console.warn('Lỗi khi gọi resolveMistake:', err);
+        await fetchMistakes(true);
+      }
     }
   };
 
@@ -635,8 +672,30 @@ export default function AdaptivePathView({
         </button>
       </div>
 
-      {/* 2. TRƯỜNG HỢP 1: HỌC VIÊN CHƯA ĐĂNG KÝ KHÓA HỌC NÀO */}
-      {!hasEnrolledCourses ? (
+      {/* 2. TRƯỜNG HỢP ĐANG TẢI DỮ LIỆU BAN ĐẦU */}
+      {isLoading && (!mistakeData.mistakes || mistakeData.mistakes.length === 0) ? (
+        <div
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '60px 32px',
+            textAlign: 'center',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <i
+            className="fa-solid fa-spinner fa-spin"
+            style={{ fontSize: '2.4rem', color: '#0284c7', marginBottom: '16px' }}
+          ></i>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
+            Đang Phân Tích Lỗi Sai & Lộ Trình Ôn Tập AI...
+          </h3>
+          <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', margin: 0 }}>
+            Hệ thống đang truy xuất lịch sử làm bài trắc nghiệm và bóc tách các chủ đề cần củng cố.
+          </p>
+        </div>
+      ) : !hasEnrolledCourses ? (
         <div
           style={{
             backgroundColor: 'var(--bg-surface)',
@@ -1116,14 +1175,15 @@ export default function AdaptivePathView({
 
           {/* C. Bộ lọc và danh sách chi tiết các câu hỏi làm sai */}
           <div id="mistakes-list-section">
+            {/* Tiêu đề mục danh sách */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginBottom: '16px',
+                marginBottom: '12px',
                 flexWrap: 'wrap',
-                gap: '12px',
+                gap: '8px',
               }}
             >
               <h3
@@ -1141,19 +1201,66 @@ export default function AdaptivePathView({
                 <span>DANH SÁCH CHI TIẾT TỪNG CÂU HỎI LÀM SAI ({filteredMistakes.length})</span>
               </h3>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {filterTopic !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setFilterTopic('ALL')}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: '#0284c7',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: 0,
+                  }}
+                >
+                  <i className="fa-solid fa-rotate-left"></i>
+                  <span>Xem tất cả ({totalMistakes} câu)</span>
+                </button>
+              )}
+            </div>
+
+            {/* Thanh công cụ tìm kiếm, lọc và thao tác hàng loạt - Luôn thẳng hàng */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+                marginBottom: '16px',
+                backgroundColor: 'var(--bg-surface)',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-color)',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              {/* Nhóm trái: Lọc chủ đề & Ô tìm kiếm */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 360px', minWidth: '260px' }}>
                 {/* Lọc theo chủ đề */}
                 <select
                   value={filterTopic}
                   onChange={(e) => setFilterTopic(e.target.value)}
                   style={{
-                    padding: '7px 12px',
+                    height: '36px',
+                    padding: '0 10px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-surface)',
+                    backgroundColor: 'var(--bg-subtle)',
                     color: 'var(--text-main)',
                     fontSize: '0.82rem',
                     fontWeight: '700',
+                    maxWidth: '220px',
+                    width: '100%',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    textOverflow: 'ellipsis',
+                    boxSizing: 'border-box',
                   }}
                 >
                   <option value="ALL">Tất cả chủ đề ({totalMistakes})</option>
@@ -1168,28 +1275,49 @@ export default function AdaptivePathView({
                 </select>
 
                 {/* Ô tìm kiếm câu hỏi */}
-                <input
-                  type="text"
-                  placeholder="Tìm câu hỏi, chủ đề (VD: thì hiện tại tiếp diễn)..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    padding: '7px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'var(--bg-surface)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.82rem',
-                    width: '280px',
-                  }}
-                />
+                <div style={{ position: 'relative', flex: '1 1 180px', maxWidth: '300px' }}>
+                  <i
+                    className="fa-solid fa-magnifying-glass"
+                    style={{
+                      position: 'absolute',
+                      left: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: '0.75rem',
+                      color: 'var(--text-muted)',
+                      pointerEvents: 'none',
+                    }}
+                  ></i>
+                  <input
+                    type="text"
+                    placeholder="Tìm câu hỏi, chủ đề..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      height: '36px',
+                      padding: '0 10px 0 28px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-subtle)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.82rem',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
 
+              {/* Nhóm phải: Nút chọn tất cả + Luyện tập + Xóa đã chọn */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 {/* Nút chọn tất cả */}
                 <button
                   type="button"
                   onClick={handleToggleSelectAll}
                   style={{
-                    padding: '7px 12px',
+                    height: '36px',
+                    padding: '0 12px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-color)',
                     backgroundColor: 'var(--bg-subtle)',
@@ -1197,22 +1325,59 @@ export default function AdaptivePathView({
                     fontSize: '0.82rem',
                     fontWeight: '700',
                     cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap',
+                    boxSizing: 'border-box',
                   }}
                 >
-                  {selectedMistakeIds.size === filteredMistakes.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  <i className={`fa-regular ${selectedMistakeIds.size === filteredMistakes.length && filteredMistakes.length > 0 ? 'fa-square-check' : 'fa-square'}`}></i>
+                  <span>{selectedMistakeIds.size === filteredMistakes.length && filteredMistakes.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}</span>
                 </button>
 
-                {/* Nút đánh dấu đã hoàn thành các câu đã chọn */}
+                {/* Nút luyện tập các câu đã chọn (màu cam đặc trưng AI) */}
+                {selectedMistakeIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={handlePracticeSelected}
+                    style={{
+                      height: '36px',
+                      padding: '0 12px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      backgroundColor: '#ea580c',
+                      color: '#ffffff',
+                      fontSize: '0.82rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(234, 88, 12, 0.3)',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap',
+                      boxSizing: 'border-box',
+                    }}
+                    title="Luyện tập các câu hỏi sai đã chọn cùng AI"
+                  >
+                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Luyện {selectedMistakeIds.size} câu</span>
+                  </button>
+                )}
+
+                {/* Nút xóa các câu đã chọn (màu đỏ phân biệt với nút luyện tập) */}
                 {selectedMistakeIds.size > 0 && (
                   <button
                     type="button"
                     onClick={handleResolveSelectedMistakes}
                     disabled={isResolving}
                     style={{
-                      padding: '7px 14px',
+                      height: '36px',
+                      padding: '0 12px',
                       borderRadius: '6px',
                       border: 'none',
-                      backgroundColor: '#10b981',
+                      backgroundColor: '#dc2626',
                       color: '#ffffff',
                       fontSize: '0.82rem',
                       fontWeight: '800',
@@ -1220,12 +1385,14 @@ export default function AdaptivePathView({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
-                      boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                      boxShadow: '0 2px 8px rgba(220, 38, 38, 0.3)',
                       transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap',
+                      boxSizing: 'border-box',
                     }}
-                    title="Đánh dấu đã hiểu và xóa các câu hỏi đã chọn khỏi danh sách lỗi sai"
+                    title="Xóa các câu hỏi sai đã chọn khỏi danh sách lỗi sai"
                   >
-                    <i className="fa-solid fa-check-double"></i>
+                    <i className="fa-solid fa-trash-can"></i>
                     <span>Xóa {selectedMistakeIds.size} câu đã chọn</span>
                   </button>
                 )}
@@ -1233,8 +1400,44 @@ export default function AdaptivePathView({
             </div>
 
             {/* Danh sách từng câu hỏi */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {paginatedMistakes.map((m, idx) => {
+            {filteredMistakes.length === 0 ? (
+              <div
+                style={{
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px dashed var(--border-color)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <i className="fa-solid fa-circle-check" style={{ fontSize: '2.5rem', color: '#10b981', marginBottom: '12px' }}></i>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px' }}>
+                  {filterTopic !== 'ALL'
+                    ? `Không còn câu hỏi sai nào trong chủ đề "${formatTopicBilingual(filterTopic)}"`
+                    : 'Không tìm thấy câu hỏi sai nào phù hợp'}
+                </h4>
+                <p style={{ fontSize: '0.9rem', margin: '0 0 16px 0' }}>
+                  {filterTopic !== 'ALL'
+                    ? 'Bạn đã hoàn thành tốt các câu hỏi của chủ đề này! Hãy chuyển về xem toàn bộ hoặc chọn chủ đề khác.'
+                    : 'Hãy làm thêm các bài kiểm tra trắc nghiệm để AI tiếp tục theo dõi tiến độ học tập.'}
+                </p>
+                {filterTopic !== 'ALL' && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setFilterTopic('ALL')}
+                    style={{ fontSize: '0.85rem', padding: '7px 16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <i className="fa-solid fa-arrow-left"></i>
+                    <span>Xem Tất Cả Câu Sai</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {paginatedMistakes.map((m, idx) => {
                 const isSelected = selectedMistakeIds.has(m.id);
                 const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
                 return (
@@ -1457,13 +1660,17 @@ export default function AdaptivePathView({
             </div>
 
             {/* Phân trang danh sách câu hỏi làm sai */}
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredMistakes.length}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-            />
+            {filteredMistakes.length > itemsPerPage && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredMistakes.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </>
+        )}
           </div>
         </div>
       )}

@@ -1,0 +1,129 @@
+@startuml so_do_usecase_tong_quan
+!theme vibrant
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 13
+skinparam roundCorner 14
+skinparam shadowing true
+skinparam linetype ortho
+
+title HỆ THỐNG E-LEARNING HỌC TIẾNG ANH TÍCH HỢP AI\n<size:13><b>SƠ ĐỒ USE CASE TỔNG QUAN HỆ THỐNG (UML 2.5 OVERVIEW USE CASE DIAGRAM)</b></size>
+
+' ========================================================
+' ĐỊNH NGHĨA CÁC TÁC NHÂN (ACTORS)
+' ========================================================
+left to right direction
+
+actor "Khách vãng lai\n(Guest)" as Guest #64748B
+actor "Học viên\n(Student)" as Student #0284C7
+actor "Người dùng đã xác thực\n(Authenticated User)" as User #1E40AF
+actor "Giảng viên\n(Teacher)" as Teacher #D97706
+actor "Thẩm định viên\n(Reviewer)" as Reviewer #E11D48
+actor "Quản trị viên\n(Admin)" as Admin #7C3AED
+actor "Dịch vụ Ngoài\n<<System>>\nGoogle Gemini LLM" as GeminiAI #9333EA
+
+' Kế thừa Actor (Generalization)
+Guest <|-- Student
+User <|-- Student
+User <|-- Teacher
+User <|-- Reviewer
+User <|-- Admin
+
+' ========================================================
+' BIÊN GIỚI HỆ THỐNG (SYSTEM BOUNDARY)
+' ========================================================
+rectangle "HỆ THỐNG E-LEARNING HỌC TIẾNG ANH TÍCH HỢP AI" as SystemBoundary {
+
+    ' PHÂN HỆ 1: TÀI KHOẢN & PHÂN QUYỀN
+    package "Phân hệ 1: Tài khoản & Phân quyền (RBAC)" as PkgAuth #EFF6FF {
+        usecase "UC01: Đăng ký & Đăng nhập\n(JWT Authentication)" as UC01 #DBEAFE
+        usecase "UC02: Quản lý hồ sơ cá nhân\n(Profile & Security)" as UC02 #DBEAFE
+    }
+
+    ' PHÂN HỆ 2: HỌC TẬP, THI & TỪ VỰNG
+    package "Phân hệ 2: Học tập & Đánh giá (Student LMS)" as PkgLearning #F0FDF4 {
+        usecase "UC03: Tìm kiếm & Xem khóa học\n(Catalog & Preview)" as UC03 #DCFCE7
+        usecase "UC04: Ghi danh khóa học\n(Enrollment & Active)" as UC04 #DCFCE7
+        usecase "UC05: Học bài & Theo dõi tiến độ\n(Video & Progress)" as UC05 #DCFCE7
+        usecase "UC06: Làm bài kiểm tra (Quiz)\n(Auto Grading & Review)" as UC06 #DCFCE7
+        usecase "UC09: Học từ vựng Flashcard\n(Spaced Repetition & Audio)" as UC09 #DCFCE7
+    }
+
+    ' PHÂN HỆ 3: TRÍ TUỆ NHÂN TẠO (AI CORE)
+    package "Phân hệ 3: Trí tuệ Nhân tạo (AI Core Service)" as PkgAI #FAF5FF {
+        usecase "UC07: Trợ giảng ảo (AI Tutor)\n(Giải thích ngữ pháp & Câu sai)" as UC07 #F3E8FF
+        usecase "UC08: Đánh giá năng lực & Lộ trình AI\n(Diagnostic & Adaptive CEFR)" as UC08 #F3E8FF
+        usecase "UC11: Sinh câu hỏi tự động (AI Quiz)\n(LLM JSON Schema Generator)" as UC11 #F3E8FF
+    }
+
+    ' PHÂN HỆ 4: GIẢNG DẠY & BIÊN SOẠN (TEACHER)
+    package "Phân hệ 4: Giảng dạy & Biên soạn (Teacher Studio)" as PkgTeacher #FFFBEB {
+        usecase "UC10: Soạn thảo giáo trình khóa học\n(Curriculum Studio)" as UC10 #FEF3C7
+        usecase "UC12: Import ngân hàng câu hỏi\n(Batch Import Word/Excel)" as UC12 #FEF3C7
+        usecase "UC13: Soạn thảo & Quản lý Flashcard\n(Decks & Vocabulary Words)" as UC13 #FEF3C7
+    }
+
+    ' PHÂN HỆ 5: THẨM ĐỊNH & QUẢN TRỊ
+    package "Phân hệ 5: Thẩm định hai chiều & Quản trị" as PkgReviewAdmin #FFF1F2 {
+        usecase "UC14: Thẩm định & Phản biện khóa học\n(Reviewer Studio: Approve/Reject)" as UC14 #FFE4E6
+        usecase "UC15: Thẩm định bộ từ vựng Flashcard\n(Quality Control & Publish)" as UC15 #FFE4E6
+        usecase "UC16: Quản trị người dùng & Thống kê\n(User Management & Analytics)" as UC16 #FFE4E6
+    }
+}
+
+' ========================================================
+' QUAN HỆ TƯƠNG TÁC (ACTOR ASSOCIATIONS)
+' ========================================================
+Guest --> UC01
+Guest --> UC03
+
+User --> UC01
+User --> UC02
+
+Student --> UC04
+Student --> UC05
+Student --> UC06
+Student --> UC07
+Student --> UC08
+Student --> UC09
+
+Teacher --> UC10
+Teacher --> UC11
+Teacher --> UC12
+Teacher --> UC13
+
+Reviewer --> UC14
+Reviewer --> UC15
+
+Admin --> UC16
+
+' Hệ thống ngoài AI
+GeminiAI --> UC07
+GeminiAI --> UC08
+GeminiAI --> UC11
+
+' ========================================================
+' QUAN HỆ INCLUDE & EXTEND GIỮA CÁC USE CASE
+' ========================================================
+UC04 .> UC05 : <<include>>
+UC08 .> UC06 : <<include>>
+UC06 .> UC07 : <<extend>>
+UC11 .> UC10 : <<extend>>
+UC12 .> UC10 : <<extend>>
+UC10 .> UC14 : <<include>>
+UC13 .> UC15 : <<include>>
+
+note right of UC07
+  Khi học viên làm sai câu hỏi trong Quiz,
+  hệ thống kích hoạt AI Tutor giải thích
+  căn nguyên ngữ pháp và cách sửa lỗi.
+end note
+
+note bottom of UC10
+  Khóa học sau khi soạn thảo xong
+  bắt buộc chuyển trạng thái Pending
+  để Reviewer phản biện duyệt 2 chiều.
+end note
+
+@enduml
