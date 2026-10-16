@@ -54,6 +54,45 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
     setTimeout(() => setPlayingWord(null), 1500);
   };
 
+  // Thông tin Giảng viên phụ trách khóa học (Avatar & Tên hiển thị)
+  const courseTeacher = useMemo(() => {
+    const rawTeacher = courseDetail?.teacher || selectedCourse?.teacher || null;
+    let name = rawTeacher?.full_name || rawTeacher?.name || courseDetail?.teacher_name || selectedCourse?.teacher_name || '';
+
+    const titleLower = (courseDetail?.title || selectedCourse?.title || '').toLowerCase();
+    if (!name || name === 'TL-English Mentor') {
+      if (titleLower.includes('toeic 800') || titleLower.includes('trần thị mai')) {
+        name = 'Cô Trần Thị Mai';
+      } else if (titleLower.includes('toeic 900') || titleLower.includes('ielts 7.5') || titleLower.includes('nguyễn văn an')) {
+        name = 'Thầy Nguyễn Văn An';
+      } else if (rawTeacher?.email === 'teacher1@gmail.com') {
+        name = 'Cô Trần Thị Mai';
+      } else if (rawTeacher?.email === 'teacher@gmail.com') {
+        name = 'Thầy Nguyễn Văn An';
+      } else {
+        name = rawTeacher?.full_name || 'TL-English Mentor';
+      }
+    }
+
+    let avatar = rawTeacher?.avatar_url || rawTeacher?.avatar || null;
+    if (!avatar) {
+      if (name.includes('Trần Thị Mai')) {
+        avatar = 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150';
+      } else if (name.includes('Nguyễn Văn An')) {
+        avatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+      } else {
+        avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0284c7&color=fff&bold=true`;
+      }
+    }
+
+    return {
+      name,
+      avatar,
+      email: rawTeacher?.email || '',
+      role: 'Giảng viên phụ trách',
+    };
+  }, [courseDetail, selectedCourse]);
+
   // Tự động ẩn thông báo sau 4 giây
   useEffect(() => {
     if (toastMsg) {
@@ -545,6 +584,46 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Avatar & Tên Giảng viên phụ trách */}
+          {courseTeacher && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '9px',
+                padding: '4px 14px 4px 6px',
+                borderRadius: '30px',
+                backgroundColor: 'var(--bg-subtle)',
+                border: '1px solid var(--border-color)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+              }}
+              title={`Giảng viên phụ trách: ${courseTeacher.name}`}
+            >
+              <img
+                src={courseTeacher.avatar}
+                alt={courseTeacher.name}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid #0284c7',
+                }}
+                onError={(e) => {
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(courseTeacher.name)}&background=0284c7&color=fff&bold=true`;
+                }}
+              />
+              <div style={{ lineHeight: 1.2 }}>
+                <span style={{ fontSize: '0.64rem', fontWeight: '700', color: '#0284c7', display: 'block', textTransform: 'uppercase' }}>
+                  Giảng viên
+                </span>
+                <span style={{ fontSize: '0.86rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {courseTeacher.name}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Nút Xem Danh Sách Toàn Bộ Đề Thi Của Khóa Học */}
           <button
             className="btn-primary"
@@ -1138,62 +1217,6 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                       </div>
                     )}
 
-                    {/* Bảng danh sách từ vựng chi tiết */}
-                    <div style={{ marginTop: '20px' }}>
-                      <h5 style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '10px' }}>
-                        Danh Sách Toàn Bộ Từ Vựng Trong Khóa ({courseFlashcards.length})
-                      </h5>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {courseFlashcards.map((item, idx) => (
-                          <div
-                            key={item.id || idx}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '10px 14px',
-                              borderRadius: '8px',
-                              backgroundColor: 'var(--bg-surface)',
-                              border: '1px solid var(--border-color)',
-                              flexWrap: 'wrap',
-                              gap: '8px',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <button
-                                type="button"
-                                onClick={() => handlePlayWordAudio(item.word)}
-                                style={{
-                                  width: '28px',
-                                  height: '28px',
-                                  borderRadius: '50%',
-                                  border: 'none',
-                                  backgroundColor: playingWord === item.word ? '#ea580c' : '#f1f5f9',
-                                  color: playingWord === item.word ? '#ffffff' : '#ea580c',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '0.75rem',
-                                }}
-                              >
-                                <i className="fa-solid fa-volume-high"></i>
-                              </button>
-                              <div>
-                                <span style={{ fontWeight: '800', color: 'var(--text-main)', marginRight: '6px' }}>{item.word}</span>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', marginRight: '6px' }}>{item.ipa}</span>
-                                <span style={{ fontSize: '0.7rem', fontWeight: '700', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0284c7' }}>
-                                  {item.type}
-                                </span>
-                              </div>
-                            </div>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '600' }}>
-                              {item.meaning}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1349,6 +1372,43 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                 {completedLessonIds.length}/{allLessons.length} bài ({progressPercent}%)
               </span>
             </div>
+
+            {/* Giảng viên phụ trách khóa học */}
+            {courseTeacher && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginTop: '12px',
+                  paddingTop: '10px',
+                  borderTop: '1px dashed var(--border-color)',
+                }}
+              >
+                <img
+                  src={courseTeacher.avatar}
+                  alt={courseTeacher.name}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '2px solid #0284c7',
+                  }}
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(courseTeacher.name)}&background=0284c7&color=fff&bold=true`;
+                  }}
+                />
+                <div style={{ minWidth: 0, flex: 1, lineHeight: 1.25 }}>
+                  <span style={{ fontSize: '0.66rem', fontWeight: '700', color: '#0284c7', textTransform: 'uppercase', display: 'block' }}>
+                    Giảng viên phụ trách
+                  </span>
+                  <span style={{ fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                    {courseTeacher.name}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '580px', overflowY: 'auto' }}>

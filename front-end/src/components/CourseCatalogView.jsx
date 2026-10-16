@@ -20,7 +20,32 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
 
   // Phân chia danh sách khóa học: Đã đăng ký & Chưa đăng ký
   const registeredCourses = useMemo(() => {
-    return courses.filter((c) => isCourseEnrolled(c, myCourses));
+    if (!Array.isArray(myCourses) || myCourses.length === 0) return [];
+
+    const enrolledMap = new Map();
+    myCourses.forEach((item) => {
+      const cObj = item.course || item;
+      const cId = cObj.id || item.course_id;
+      if (cId) {
+        const matched = courses.find(
+          (c) => String(c.id).toLowerCase() === String(cId).toLowerCase() || (c.slug && c.slug === cObj.slug)
+        );
+        enrolledMap.set(String(cId).toLowerCase(), {
+          ...(matched || cObj),
+          progress_percent: item.progress_percent != null ? item.progress_percent : (matched?.progress_percent ?? 0),
+          enrollment: item,
+        });
+      }
+    });
+
+    courses.forEach((c) => {
+      const key = String(c.id).toLowerCase();
+      if (!enrolledMap.has(key) && isCourseEnrolled(c, myCourses)) {
+        enrolledMap.set(key, c);
+      }
+    });
+
+    return Array.from(enrolledMap.values());
   }, [courses, myCourses]);
 
   const unregisteredCourses = useMemo(() => {

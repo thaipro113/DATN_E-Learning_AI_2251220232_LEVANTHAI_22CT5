@@ -185,7 +185,7 @@ export default function App() {
         recommendationAPI.getMyLearningPath(),
         recommendationAPI.getSkillGaps(),
         recommendationAPI.getRecommendedCourses(),
-        courseAPI.getCourses(),
+        courseAPI.getCourses({ page_size: 100 }),
         learningAPI.getMyCourses(),
         assessmentAPI.getMyAttempts(),
         recommendationAPI.getStudentMistakes(),
