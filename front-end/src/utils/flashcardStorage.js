@@ -548,8 +548,8 @@ export const INITIAL_TEACHER_DECKS = [
     courseId: '439cb7ba-2055-4413-a15c-a9720b668cd6',
     courseTitle: 'Khóa học bứt tốc TOEIC 900+',
     category: 'teacher',
-    accessScope: 'ENROLLED',
-    isPublic: false,
+    accessScope: 'PUBLIC',
+    isPublic: true,
     status: 'PUBLISHED',
     isCustomDeck: true,
     created_at: '2026-09-10',
@@ -569,8 +569,8 @@ export const INITIAL_TEACHER_DECKS = [
     courseId: '956681e6-c015-4f26-99af-c954d0e5ffe8',
     courseTitle: 'IELTS Masterclass 7.5+ Toàn Diện 4 Kỹ Năng',
     category: 'teacher',
-    accessScope: 'ENROLLED',
-    isPublic: false,
+    accessScope: 'PUBLIC',
+    isPublic: true,
     status: 'PUBLISHED',
     isCustomDeck: true,
     created_at: '2026-09-12',
@@ -590,8 +590,8 @@ export const INITIAL_TEACHER_DECKS = [
     courseId: 'deeca477-0f3d-4f2b-b1df-d6b24286ef1e',
     courseTitle: 'Chiến Thuật Luyện Thi TOEIC 800+ Bứt Phá Mục Tiêu',
     category: 'teacher',
-    accessScope: 'ENROLLED',
-    isPublic: false,
+    accessScope: 'PUBLIC',
+    isPublic: true,
     status: 'PUBLISHED',
     isCustomDeck: true,
     created_at: '2026-09-15',
@@ -812,12 +812,15 @@ export const getStoredCustomDecks = () => {
     const saved = localStorage.getItem('elearning_custom_decks');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Tự động bổ sung các bộ thẻ Giảng viên mẫu nếu chưa tồn tại
-      const existingIds = new Set(parsed.map((d) => d.id));
+      // Tự động bổ sung hoặc đồng bộ các bộ thẻ Giảng viên mẫu
       let modified = false;
       INITIAL_TEACHER_DECKS.forEach((d) => {
-        if (!existingIds.has(d.id)) {
+        const foundIndex = parsed.findIndex((item) => item.id === d.id);
+        if (foundIndex === -1) {
           parsed.push(d);
+          modified = true;
+        } else if (!parsed[foundIndex].isPublic || parsed[foundIndex].accessScope !== 'PUBLIC') {
+          parsed[foundIndex] = { ...parsed[foundIndex], ...d, isPublic: true, accessScope: 'PUBLIC' };
           modified = true;
         }
       });

@@ -150,9 +150,25 @@ export default function FlashcardStudyView({
   const [quizScore, setQuizScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
 
+  // Chế độ lọc học: 'ALL' (toàn bộ thẻ trong bộ) | 'REVIEW_ONLY' (chỉ các từ cần ôn lại)
+  const [studyFilterMode, setStudyFilterMode] = useState('ALL');
+
   // Lấy bộ thẻ đang chọn
   const currentDeck = allDecks.find((d) => d.id === selectedDeckId) || allDecks[0];
-  const cards = currentDeck.cards || [];
+  const allDeckCards = currentDeck ? (currentDeck.cards || []) : [];
+
+  // Thống kê số lượng theo trạng thái ghi nhớ trong bộ thẻ
+  const deckMasteredCount = allDeckCards.filter((c) => masteredWordIds.includes(c.id)).length;
+  const deckReviewCount = allDeckCards.filter((c) => reviewWordIds.includes(c.id)).length;
+
+  // Lọc thẻ theo chế độ học (Tất cả hoặc Chỉ từ cần ôn lại)
+  const cards = useMemo(() => {
+    if (studyFilterMode === 'REVIEW_ONLY') {
+      return allDeckCards.filter((c) => reviewWordIds.includes(c.id));
+    }
+    return allDeckCards;
+  }, [allDeckCards, studyFilterMode, reviewWordIds]);
+
   const currentCard = cards.length > 0 ? (cards[currentCardIndex] || cards[0]) : null;
 
   // Lưu tiến độ vào LocalStorage
@@ -168,9 +184,10 @@ export default function FlashcardStudyView({
     setCurrentCardIndex(0);
     setIsFlipped(false);
     setIsQuizMode(false);
+    setStudyFilterMode('ALL');
   }, [selectedDeckId]);
 
-  // Đảm bảo currentCardIndex hợp lệ khi danh sách thẻ thay đổi (ví dụ sau khi xóa thẻ)
+  // Đảm bảo currentCardIndex hợp lệ khi danh sách thẻ thay đổi (ví dụ khi thẻ được chuyển trạng thái hoặc xóa)
   useEffect(() => {
     if (cards.length > 0 && currentCardIndex >= cards.length) {
       setCurrentCardIndex(Math.max(0, cards.length - 1));
@@ -182,7 +199,7 @@ export default function FlashcardStudyView({
     if (autoPronounce && currentCard && currentCard.word) {
       handlePronounce(currentCard.word);
     }
-  }, [currentCardIndex, autoPronounce, selectedDeckId]);
+  }, [currentCardIndex, autoPronounce, selectedDeckId, studyFilterMode]);
 
   // Hủy âm thanh khi unmount
   useEffect(() => {
@@ -224,15 +241,22 @@ export default function FlashcardStudyView({
     if (!currentCard) return;
     if (!masteredWordIds.includes(currentCard.id)) {
       setMasteredWordIds((prev) => [...prev, currentCard.id]);
-      setReviewWordIds((prev) => prev.filter((id) => id !== currentCard.id));
     }
+    setReviewWordIds((prev) => prev.filter((id) => id !== currentCard.id));
 
     // Ghi nhận phiên học cho Streak
     if (onRecordStudySession) {
       onRecordStudySession();
     }
 
-    handleNextCard();
+    if (studyFilterMode === 'REVIEW_ONLY') {
+      setIsFlipped(false);
+      if (currentCardIndex >= cards.length - 1) {
+        setCurrentCardIndex(Math.max(0, cards.length - 2));
+      }
+    } else {
+      handleNextCard();
+    }
   };
 
   // 4. Đánh dấu "Cần ôn lại"
@@ -432,8 +456,7 @@ export default function FlashcardStudyView({
   };
 
   // Thống kê tiến độ bộ thẻ hiện tại
-  const deckCardsCount = cards.length;
-  const deckMasteredCount = cards.filter((c) => masteredWordIds.includes(c.id)).length;
+  const deckCardsCount = allDeckCards.length;
   const progressPercent = deckCardsCount > 0 ? Math.round((deckMasteredCount / deckCardsCount) * 100) : 0;
   const isCurrentMastered = currentCard ? masteredWordIds.includes(currentCard.id) : false;
   const isCurrentReview = currentCard ? reviewWordIds.includes(currentCard.id) : false;
@@ -896,7 +919,7 @@ export default function FlashcardStudyView({
           CHẾ ĐỘ 1: HỌC THẺ TƯƠNG TÁC (FLASHCARD STUDY MODE)
          ========================================================================= */}
       {!isQuizMode ? (
-        cards.length === 0 ? (
+        allDeckCards.length === 0 ? (
           <div
             style={{
               backgroundColor: '#ffffff',
@@ -964,8 +987,258 @@ export default function FlashcardStudyView({
               <span>+ Thêm từ vựng đầu tiên</span>
             </button>
           </div>
+        ) : cards.length === 0 && studyFilterMode === 'REVIEW_ONLY' ? (
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              padding: '48px 24px',
+              textAlign: 'center',
+              border: '1px solid #e2e8f0',
+              marginBottom: '24px',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)',
+              maxWidth: '620px',
+              margin: '0 auto 24px auto',
+            }}
+          >
+            <div
+              style={{
+                width: '72px',
+                height: '72px',
+                borderRadius: '50%',
+                backgroundColor: '#ecfdf5',
+                color: '#059669',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2.4rem',
+                margin: '0 auto 16px auto',
+                border: '2px solid #a7f3d0',
+              }}
+            >
+              <i className="fa-solid fa-circle-check"></i>
+            </div>
+            <h3 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', margin: '0 0 8px 0' }}>
+              Không còn từ nào cần ôn lại!
+            </h3>
+            <p style={{ color: '#64748b', fontSize: '0.92rem', margin: '0 0 22px 0', lineHeight: '1.6' }}>
+              Tuyệt vời! Bạn đã thuộc hết các từ vựng trong danh sách cần ôn của bộ thẻ <strong>"{currentDeck.title}"</strong>.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setStudyFilterMode('ALL');
+                setCurrentCardIndex(0);
+                setIsFlipped(false);
+              }}
+              style={{
+                padding: '11px 24px',
+                borderRadius: '12px',
+                backgroundColor: '#0284c7',
+                border: 'none',
+                color: '#ffffff',
+                fontSize: '0.9rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
+              }}
+            >
+              <i className="fa-solid fa-layer-group"></i>
+              <span>Quay lại học toàn bộ ({allDeckCards.length} từ)</span>
+            </button>
+          </div>
         ) : (
         <div>
+          {/* 1. THANH TRẠNG THÁI TIẾN ĐỘ & CHẾ ĐỘ ÔN LẠI TRỰC QUAN */}
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: '12px 18px',
+              border: '1px solid #e2e8f0',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+            }}
+          >
+            {/* Nhóm nút lọc theo trạng thái từ vựng */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#64748b', marginRight: '4px' }}>
+                Tiến độ:
+              </span>
+
+              {/* Nút: Tất cả từ vựng */}
+              <button
+                type="button"
+                onClick={() => {
+                  setStudyFilterMode('ALL');
+                  setCurrentCardIndex(0);
+                  setIsFlipped(false);
+                }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  border: studyFilterMode === 'ALL' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                  backgroundColor: studyFilterMode === 'ALL' ? '#f0f9ff' : '#ffffff',
+                  color: studyFilterMode === 'ALL' ? '#0284c7' : '#475569',
+                  fontSize: '0.82rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <i className="fa-solid fa-layer-group"></i>
+                <span>Tất cả ({allDeckCards.length})</span>
+              </button>
+
+              {/* Nút: Cần ôn lại (Nổi bật, có icon đồng hồ và số lượng) */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (deckReviewCount === 0) {
+                    alert('Bộ thẻ này hiện chưa có từ nào được đánh dấu "Cần ôn lại". Bạn có thể bấm nút "Cần ôn lại" khi lật thẻ để thêm vào danh sách ôn!');
+                    return;
+                  }
+                  setStudyFilterMode(studyFilterMode === 'REVIEW_ONLY' ? 'ALL' : 'REVIEW_ONLY');
+                  setCurrentCardIndex(0);
+                  setIsFlipped(false);
+                }}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  border: studyFilterMode === 'REVIEW_ONLY' ? '2px solid #ea580c' : (deckReviewCount > 0 ? '1.5px solid #fdba74' : '1px solid #e2e8f0'),
+                  backgroundColor: studyFilterMode === 'REVIEW_ONLY' ? '#ea580c' : (deckReviewCount > 0 ? '#fff7ed' : '#f8fafc'),
+                  color: studyFilterMode === 'REVIEW_ONLY' ? '#ffffff' : (deckReviewCount > 0 ? '#c2410c' : '#94a3b8'),
+                  fontSize: '0.82rem',
+                  fontWeight: '800',
+                  cursor: deckReviewCount > 0 ? 'pointer' : 'default',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: studyFilterMode === 'REVIEW_ONLY' ? '0 4px 12px rgba(234, 88, 12, 0.3)' : (deckReviewCount > 0 ? '0 2px 6px rgba(234, 88, 12, 0.12)' : 'none'),
+                  transition: 'all 0.15s ease',
+                }}
+                title="Lọc và chỉ học các từ cần ôn lại"
+              >
+                <i className="fa-solid fa-clock-rotate-left"></i>
+                <span>Cần ôn lại ({deckReviewCount})</span>
+                {studyFilterMode === 'REVIEW_ONLY' && (
+                  <span style={{ fontSize: '0.68rem', backgroundColor: 'rgba(255,255,255,0.3)', padding: '1px 6px', borderRadius: '10px', marginLeft: '2px' }}>
+                    Đang lọc
+                  </span>
+                )}
+              </button>
+
+              {/* Badge: Đã thuộc */}
+              <span
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  backgroundColor: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  color: '#16a34a',
+                  fontSize: '0.82rem',
+                  fontWeight: '800',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <i className="fa-solid fa-circle-check"></i>
+                <span>Đã thuộc ({deckMasteredCount})</span>
+              </span>
+            </div>
+
+            {/* Nút hành động nhanh: "Ôn lại các từ cần ôn" nếu chưa ở chế độ ôn lại */}
+            {deckReviewCount > 0 && studyFilterMode !== 'REVIEW_ONLY' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setStudyFilterMode('REVIEW_ONLY');
+                  setCurrentCardIndex(0);
+                  setIsFlipped(false);
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: '#fff7ed',
+                  border: '1.5px solid #ea580c',
+                  color: '#ea580c',
+                  fontWeight: '800',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <i className="fa-solid fa-rotate-right"></i>
+                <span>Ôn ngay {deckReviewCount} từ cần ôn lại</span>
+              </button>
+            ) : studyFilterMode === 'REVIEW_ONLY' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setStudyFilterMode('ALL');
+                  setCurrentCardIndex(0);
+                  setIsFlipped(false);
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  fontWeight: '800',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <i className="fa-solid fa-xmark"></i>
+                <span>Thoát chế độ ôn lại</span>
+              </button>
+            ) : null}
+          </div>
+
+          {/* Banner nhắc nhở khi đang bật chế độ ôn từ khó */}
+          {studyFilterMode === 'REVIEW_ONLY' && (
+            <div
+              style={{
+                backgroundColor: '#fff7ed',
+                border: '1px solid #ffedd5',
+                borderRadius: '12px',
+                padding: '10px 16px',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
+                fontSize: '0.84rem',
+                color: '#9a3412',
+                fontWeight: '700',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-bullseye" style={{ color: '#ea580c', fontSize: '1rem' }}></i>
+                <span>Đang trong chế độ ôn tập: Chỉ hiển thị các từ vựng bạn đã đánh dấu "Cần ôn lại" ({cards.length} từ). Bấm "✓ Đã thuộc từ này" khi đã nhớ để loại khỏi danh sách!</span>
+              </div>
+            </div>
+          )}
           {/* Thanh công cụ hỗ trợ phát âm & điều khiển */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -979,12 +1252,12 @@ export default function FlashcardStudyView({
               )}
               {isCurrentReview && (
                 <span style={{ fontSize: '0.72rem', backgroundColor: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>
-                  ⏳ Cần ôn lại
+                  Cần ôn lại
                 </span>
               )}
               {currentCard?.isCustom && (
                 <span style={{ fontSize: '0.72rem', backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>
-                  ★ Tự tạo
+                  Tự tạo
                 </span>
               )}
             </div>
@@ -1113,29 +1386,6 @@ export default function FlashcardStudyView({
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {currentCard?.isCustom && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteCustomCard(currentCard.id, e)}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '8px',
-                          backgroundColor: '#fee2e2',
-                          color: '#dc2626',
-                          border: '1px solid #fca5a5',
-                          fontSize: '0.75rem',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                        }}
-                        title="Xóa từ vựng này khỏi sổ tay cá nhân"
-                      >
-                        <i className="fa-solid fa-trash-can"></i>
-                        <span>Xóa từ này</span>
-                      </button>
-                    )}
                     <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
                       Nhấp vào thẻ để lật mặt sau
                     </span>
@@ -1220,29 +1470,6 @@ export default function FlashcardStudyView({
                     ĐỊNH NGHĨA & NGỮ CẢNH
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {currentCard?.isCustom && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteCustomCard(currentCard.id, e)}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '8px',
-                          backgroundColor: '#fee2e2',
-                          color: '#dc2626',
-                          border: '1px solid #fca5a5',
-                          fontSize: '0.75rem',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                        }}
-                        title="Xóa từ vựng này khỏi sổ tay cá nhân"
-                      >
-                        <i className="fa-solid fa-trash-can"></i>
-                        <span>Xóa</span>
-                      </button>
-                    )}
                     <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
                       Mặt sau thẻ
                     </span>
@@ -1366,33 +1593,37 @@ export default function FlashcardStudyView({
             {/* 2 Nút Đánh dấu ghi nhớ */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
+                type="button"
                 onClick={handleMarkReview}
                 style={{
-                  padding: '10px 20px',
+                  padding: '10px 22px',
                   borderRadius: '12px',
-                  backgroundColor: isCurrentReview ? '#dc2626' : '#fee2e2',
-                  border: '1px solid #fca5a5',
-                  color: isCurrentReview ? '#ffffff' : '#b91c1c',
+                  backgroundColor: isCurrentReview ? '#ea580c' : '#fff7ed',
+                  border: isCurrentReview ? '2px solid #c2410c' : '1.5px solid #fdba74',
+                  color: isCurrentReview ? '#ffffff' : '#c2410c',
                   fontSize: '0.88rem',
                   fontWeight: '800',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  transition: 'all 0.2s',
+                  boxShadow: isCurrentReview ? '0 4px 12px rgba(234, 88, 12, 0.3)' : 'none',
+                  transition: 'all 0.2s ease',
                 }}
+                title="Đánh dấu từ này để đưa vào danh sách cần ôn tập lại"
               >
                 <i className="fa-solid fa-clock-rotate-left"></i>
-                <span>Cần ôn lại</span>
+                <span>{isCurrentReview ? 'Đang cần ôn lại' : 'Cần ôn lại'}</span>
               </button>
 
               <button
+                type="button"
                 onClick={handleMarkMastered}
                 style={{
                   padding: '10px 24px',
                   borderRadius: '12px',
                   backgroundColor: isCurrentMastered ? '#047857' : '#059669',
-                  border: 'none',
+                  border: isCurrentMastered ? '2px solid #064e3b' : 'none',
                   color: '#ffffff',
                   fontSize: '0.88rem',
                   fontWeight: '800',
@@ -1401,11 +1632,12 @@ export default function FlashcardStudyView({
                   alignItems: 'center',
                   gap: '8px',
                   boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)',
-                  transition: 'all 0.2s',
+                  transition: 'all 0.2s ease',
                 }}
+                title="Đánh dấu đã thuộc từ này (loại khỏi danh sách cần ôn)"
               >
                 <i className="fa-solid fa-check"></i>
-                <span>Đã thuộc từ này</span>
+                <span>{isCurrentMastered ? '✓ Đã thuộc từ này' : 'Đã thuộc từ này'}</span>
               </button>
             </div>
 
