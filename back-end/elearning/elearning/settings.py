@@ -45,6 +45,7 @@ LOCAL_APPS = [
     'apps.ai.apps.AIConfig',
     'apps.recommendations.apps.RecommendationsConfig',
     'apps.quiz_import.apps.QuizImportConfig',
+    'apps.flashcards.apps.FlashcardsConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

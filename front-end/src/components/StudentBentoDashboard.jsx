@@ -288,8 +288,8 @@ export default function StudentBentoDashboard({
                 {streakStatus === 'ACTIVE_TODAY'
                   ? 'Ôn Flashcards từ vựng'
                   : streakDays === 0
-                  ? '🚀 Bắt đầu chuỗi: Học Flashcards 5 phút'
-                  : '📚 Học Flashcards để giữ chuỗi'}
+                  ? 'Bắt đầu chuỗi: Học Flashcards 5 phút'
+                  : 'Học Flashcards để giữ chuỗi'}
               </span>
             </button>
 

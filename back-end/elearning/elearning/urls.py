@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/v1/ai/', include('apps.ai.urls')),
     path('api/v1/recommendations/', include('apps.recommendations.urls')),
     path('api/v1/quiz-import/', include('apps.quiz_import.urls')),
+    path('api/v1/flashcards/', include('apps.flashcards.urls')),
 ]
 
 if settings.DEBUG:

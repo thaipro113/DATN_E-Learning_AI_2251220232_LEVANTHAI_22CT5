@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { courseAPI } from '../services/api';
+import { courseAPI, flashcardAPI } from '../services/api';
 import {
   DEFAULT_VOCABULARY_DECKS,
   getStoredCustomDecks,
@@ -10,6 +10,9 @@ import {
   submitDeckForReview,
   resubmitDeckForReview,
   speakWord,
+  getDeckOverrides,
+  saveDeckOverrides,
+  syncFlashcardsFromDatabase,
 } from '../utils/flashcardStorage';
 
 export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
@@ -176,6 +179,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
   };
 
   const handleOpenEditDeck = (deck) => {
+    const isPub = deck.accessScope === 'PUBLIC' || (deck.isPublic === true && deck.accessScope !== 'ENROLLED');
     setDeckModal({
       isOpen: true,
       mode: 'edit',
@@ -186,8 +190,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       description: deck.description || '',
       courseId: deck.courseId || '',
       courseTitle: deck.courseTitle || '',
-      accessScope: deck.accessScope || (deck.isPublic ? 'PUBLIC' : 'ENROLLED'),
-      isPublic: deck.isPublic != null ? deck.isPublic : false,
+      accessScope: isPub ? 'PUBLIC' : 'ENROLLED',
+      isPublic: isPub,
     });
   };
 
@@ -198,7 +202,8 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       return;
     }
 
-    const isPublicDeck = deckModal.accessScope === 'PUBLIC' || Boolean(deckModal.isPublic);
+    const isPublicDeck = deckModal.accessScope === 'PUBLIC';
+    const resolvedAccessScope = isPublicDeck ? 'PUBLIC' : 'ENROLLED';
 
     if (deckModal.mode === 'create') {
       const newDeck = {
@@ -215,7 +220,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
         authorRole: 'TEACHER',
         courseId: deckModal.courseId || null,
         courseTitle: deckModal.courseTitle || null,
-        accessScope: deckModal.accessScope || (isPublicDeck ? 'PUBLIC' : 'ENROLLED'),
+        accessScope: resolvedAccessScope,
         isPublic: isPublicDeck,
         category: 'teacher',
         // Đề tài mới tạo của Giảng viên ở trạng thái Bản nháp, cần thêm từ vựng trước khi gửi thẩm định
@@ -227,6 +232,23 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       setCustomDecks(updatedDecks);
       setSelectedDeckId(newDeck.id);
       showToast('Đã tạo đề tài mới dạng bản nháp. Hãy thêm từ vựng trước khi gửi thẩm định!');
+
+      // Lưu chính thức vào database backend
+      try {
+        flashcardAPI.createDeck({
+          code: newDeck.id,
+          title: newDeck.title,
+          description: newDeck.description,
+          level: newDeck.level,
+          color: newDeck.color,
+          category: 'TEACHER',
+          courseId: newDeck.courseId,
+          courseTitle: newDeck.courseTitle,
+          accessScope: newDeck.accessScope,
+          isPublic: newDeck.isPublic,
+          status: 'DRAFT',
+        }).catch(err => console.warn('Lỗi lưu deck vào DB:', err));
+      } catch (err) {}
     } else {
       const updatedDecks = customDecks.map((d) =>
         d.id === deckModal.id
@@ -238,14 +260,42 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
               description: deckModal.description.trim(),
               courseId: deckModal.courseId || null,
               courseTitle: deckModal.courseTitle || null,
-              accessScope: deckModal.accessScope || (isPublicDeck ? 'PUBLIC' : 'ENROLLED'),
+              accessScope: resolvedAccessScope,
               isPublic: isPublicDeck,
             }
           : d
       );
       saveStoredCustomDecks(updatedDecks);
       setCustomDecks(updatedDecks);
+
+      // Đồng bộ vào deckOverrides nếu deck này từng được ghi đè
+      try {
+        const overrides = getDeckOverrides();
+        if (overrides[deckModal.id]) {
+          overrides[deckModal.id] = {
+            ...overrides[deckModal.id],
+            accessScope: resolvedAccessScope,
+            isPublic: isPublicDeck,
+          };
+          saveDeckOverrides(overrides);
+        }
+      } catch {}
+
       showToast('Đã cập nhật đề tài thành công!');
+
+      // Cập nhật chính thức vào database backend
+      try {
+        flashcardAPI.updateDeck(deckModal.id, {
+          title: deckModal.title.trim(),
+          level: deckModal.level,
+          color: deckModal.color,
+          description: deckModal.description.trim(),
+          courseId: deckModal.courseId || null,
+          courseTitle: deckModal.courseTitle || null,
+          accessScope: resolvedAccessScope,
+          isPublic: isPublicDeck,
+        }).catch(err => console.warn('Lỗi cập nhật deck vào DB:', err));
+      } catch (err) {}
     }
     setDeckModal({ ...deckModal, isOpen: false });
   };
@@ -265,6 +315,10 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       setSelectedDeckId(updatedDecks[0]?.id || null);
     }
     showToast('Đã xóa đề tài thành công!');
+
+    try {
+      flashcardAPI.deleteDeck(deckId).catch(err => console.warn('Lỗi xóa deck trong DB:', err));
+    } catch (err) {}
   };
 
   // Thêm / Sửa từ vựng
@@ -349,6 +403,22 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       setCustomWords(updatedWords);
       setSelectedDeckId(targetDeckId);
       showToast(`Đã thêm từ vựng "${newCard.word}" thành công!`);
+
+      // Lưu từ vựng vào DB backend
+      try {
+        flashcardAPI.createCard({
+          deck_id: targetDeck.dbId || targetDeck.id,
+          code: newCard.id,
+          word: newCard.word,
+          ipa: newCard.ipa,
+          part_of_speech: newCard.type,
+          meaning: newCard.meaning,
+          english_def: newCard.english_def,
+          example: newCard.example,
+          example_vi: newCard.example_vi,
+          collocation: newCard.collocation,
+        }).catch(err => console.warn('Lỗi lưu từ vựng vào DB:', err));
+      } catch (err) {}
     } else {
       const exists = customWords.some((w) => w.id === wordModal.id);
       let updatedWords;
@@ -390,6 +460,20 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
       saveStoredCustomWords(updatedWords);
       setCustomWords(updatedWords);
       showToast(`Đã cập nhật từ vựng "${wordModal.word}" thành công!`);
+
+      // Cập nhật từ vựng vào DB backend
+      try {
+        flashcardAPI.updateCard(wordModal.id, {
+          word: wordModal.word.trim(),
+          ipa: wordModal.ipa.trim(),
+          part_of_speech: wordModal.type,
+          meaning: wordModal.meaning.trim(),
+          english_def: wordModal.english_def.trim(),
+          example: wordModal.example.trim(),
+          example_vi: wordModal.example_vi.trim(),
+          collocation: wordModal.collocation.trim(),
+        }).catch(err => console.warn('Lỗi cập nhật từ vựng vào DB:', err));
+      } catch (err) {}
     }
     setWordModal({ ...wordModal, isOpen: false });
   };
@@ -402,6 +486,10 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
     saveStoredCustomWords(updatedWords);
     setCustomWords(updatedWords);
     showToast(`Đã xóa từ vựng "${wordText}" thành công!`);
+
+    try {
+      flashcardAPI.deleteCard(wordId).catch(err => console.warn('Lỗi xóa từ vựng trong DB:', err));
+    } catch (err) {}
   };
 
   // Preview Cards navigation
@@ -1428,7 +1516,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                       name="accessScope"
                       value="ENROLLED"
                       checked={deckModal.accessScope !== 'PUBLIC'}
-                      onChange={() => setDeckModal({ ...deckModal, accessScope: 'ENROLLED', isPublic: false })}
+                      onChange={() => setDeckModal((prev) => ({ ...prev, accessScope: 'ENROLLED', isPublic: false }))}
                       style={{ marginTop: '3px' }}
                     />
                     <div>
@@ -1444,7 +1532,7 @@ export default function TeacherFlashcardManager({ user, onBackToDashboard }) {
                       name="accessScope"
                       value="PUBLIC"
                       checked={deckModal.accessScope === 'PUBLIC'}
-                      onChange={() => setDeckModal({ ...deckModal, accessScope: 'PUBLIC', isPublic: true })}
+                      onChange={() => setDeckModal((prev) => ({ ...prev, accessScope: 'PUBLIC', isPublic: true }))}
                       style={{ marginTop: '3px' }}
                     />
                     <div>

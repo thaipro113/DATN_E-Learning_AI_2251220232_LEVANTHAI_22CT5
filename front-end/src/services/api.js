@@ -155,3 +155,23 @@ export const quizImportAPI = {
   confirmImport: (batchId, quizId, customQuestions) =>
     apiClient.post(`quiz-import/batches/${batchId}/confirm/`, { quiz_id: quizId, questions: customQuestions }),
 };
+
+export const flashcardAPI = {
+  getDecks: (params = {}) => apiClient.get('flashcards/decks/', { params }),
+  getDeckDetail: (idOrCode) => apiClient.get(`flashcards/decks/${idOrCode}/`),
+  createDeck: (deckData) => apiClient.post('flashcards/decks/', deckData),
+  updateDeck: (idOrCode, deckData) => apiClient.put(`flashcards/decks/${idOrCode}/`, deckData),
+  deleteDeck: (idOrCode) => apiClient.delete(`flashcards/decks/${idOrCode}/`),
+  submitDeckForReview: (idOrCode) => apiClient.post(`flashcards/decks/${idOrCode}/submit-review/`),
+  resubmitDeckForReview: (idOrCode) => apiClient.post(`flashcards/decks/${idOrCode}/resubmit/`),
+  reviewDeck: (idOrCode, reviewData) => apiClient.post(`flashcards/decks/${idOrCode}/review/`, reviewData),
+
+  getCards: (params = {}) => apiClient.get('flashcards/cards/', { params }),
+  createCard: (cardData) => apiClient.post('flashcards/cards/', cardData),
+  updateCard: (cardId, cardData) => apiClient.put(`flashcards/cards/${cardId}/`, cardData),
+  deleteCard: (cardId) => apiClient.delete(`flashcards/cards/${cardId}/`),
+
+  getProgress: (deckId) => apiClient.get('flashcards/progress/', { params: { deck_id: deckId } }),
+  toggleMastered: (cardId) => apiClient.post('flashcards/progress/toggle-mastered/', { card_id: cardId }),
+  toggleReview: (cardId) => apiClient.post('flashcards/progress/toggle-review/', { card_id: cardId }),
+};

@@ -30,6 +30,7 @@ import TeacherFlashcardManager from './components/TeacherFlashcardManager';
 import AICommunicationView from './components/AICommunicationView';
 import ErrorBoundary from './components/ErrorBoundary';
 import { recordStudyActivity } from './utils/streakCalculator';
+import { syncFlashcardsFromDatabase } from './utils/flashcardStorage';
 import Footer from './components/Footer';
 import FloatingContactWidget from './components/FloatingContactWidget';
 import { cleanCourseTitle } from './utils/media';
@@ -141,6 +142,7 @@ export default function App() {
     };
 
     syncUserProfileOnLoad();
+    syncFlashcardsFromDatabase();
   }, []);
 
   // Dữ liệu SỐNG từ Database PostgreSQL

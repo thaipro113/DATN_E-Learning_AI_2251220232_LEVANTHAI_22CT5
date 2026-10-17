@@ -1,4 +1,6 @@
 // Quản lý lưu trữ và chia sẻ dữ liệu Flashcards giữa Admin, Teacher và Student
+import { flashcardAPI } from '../services/api';
+
 export const DEFAULT_VOCABULARY_DECKS = [
   {
     id: 'daily_life',
@@ -812,15 +814,12 @@ export const getStoredCustomDecks = () => {
     const saved = localStorage.getItem('elearning_custom_decks');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Tự động bổ sung hoặc đồng bộ các bộ thẻ Giảng viên mẫu
+      // Tự động bổ sung các bộ thẻ Giảng viên mẫu nếu chưa có trong danh sách
+      const existingIds = new Set(parsed.map((d) => d.id));
       let modified = false;
       INITIAL_TEACHER_DECKS.forEach((d) => {
-        const foundIndex = parsed.findIndex((item) => item.id === d.id);
-        if (foundIndex === -1) {
+        if (!existingIds.has(d.id)) {
           parsed.push(d);
-          modified = true;
-        } else if (!parsed[foundIndex].isPublic || parsed[foundIndex].accessScope !== 'PUBLIC') {
-          parsed[foundIndex] = { ...parsed[foundIndex], ...d, isPublic: true, accessScope: 'PUBLIC' };
           modified = true;
         }
       });
@@ -873,6 +872,74 @@ export const saveStoredCustomWords = (words) => {
     localStorage.setItem('elearning_custom_flashcards', JSON.stringify(words));
   } catch (e) {
     console.error('Error saving custom words:', e);
+  }
+};
+
+// Đồng bộ 2 chiều: Tải dữ liệu chính thức từ Database PostgreSQL/MSSQL về Client
+export const syncFlashcardsFromDatabase = async () => {
+  try {
+    const [decksRes, cardsRes] = await Promise.all([
+      flashcardAPI.getDecks({ page_size: 100 }).catch(() => null),
+      flashcardAPI.getCards({ page_size: 500 }).catch(() => null),
+    ]);
+
+    if (decksRes && decksRes.data) {
+      const rawDecks = decksRes.data.results || decksRes.data;
+      if (Array.isArray(rawDecks) && rawDecks.length > 0) {
+        const mappedDecks = rawDecks.map((d) => ({
+          id: d.code || d.id,
+          dbId: d.id,
+          title: d.title,
+          description: d.description || '',
+          level: d.level || 'B1 - B2',
+          color: d.color || '#0284c7',
+          icon: d.icon || 'fa-book-bookmark',
+          category: (d.category || 'teacher').toLowerCase(),
+          author: d.author || d.author_name || 'Hệ thống',
+          authorId: d.authorId || d.author_id,
+          authorRole: d.authorRole || d.author_role || 'TEACHER',
+          authorAvatar: d.authorAvatar || d.author_avatar,
+          courseId: d.courseId || d.course_id,
+          courseTitle: d.courseTitle || d.course_title,
+          accessScope: d.accessScope || d.access_scope || 'PUBLIC',
+          isPublic: d.isPublic != null ? d.isPublic : d.is_public,
+          status: d.status || 'PUBLISHED',
+          rejectionReason: d.rejectionReason || d.rejection_reason,
+          previousRejectionReason: d.previousRejectionReason || d.previous_rejection_reason,
+          reviewedBy: d.reviewedBy,
+          reviewedAt: d.reviewed_at,
+          is_resubmitted: d.is_resubmitted,
+        }));
+        saveStoredCustomDecks(mappedDecks);
+      }
+    }
+
+    if (cardsRes && cardsRes.data) {
+      const rawCards = cardsRes.data.results || cardsRes.data;
+      if (Array.isArray(rawCards) && rawCards.length > 0) {
+        const mappedCards = rawCards.map((c) => ({
+          id: c.code || c.id,
+          dbId: c.id,
+          deckId: c.deckId || c.deck_id || c.deck,
+          word: c.word,
+          ipa: c.ipa || '',
+          type: c.type || c.part_of_speech || 'Noun',
+          meaning: c.meaning,
+          english_def: c.english_def || '',
+          example: c.example || '',
+          example_vi: c.example_vi || '',
+          collocation: c.collocation || '',
+          audio_url: c.audio_url || null,
+        }));
+        saveStoredCustomWords(mappedCards);
+      }
+    }
+
+    window.dispatchEvent(new CustomEvent('elearning_flashcards_db_synced'));
+    return true;
+  } catch (err) {
+    console.warn('Lỗi đồng bộ Flashcards từ database:', err);
+    return false;
   }
 };
 
@@ -997,18 +1064,16 @@ export const getAllDecksWithWords = (forUser = null, customDecksParam = null, cu
       }
 
 
+      const accessScope =
+        override.accessScope ||
+        d.accessScope ||
+        (override.isPublic === true || d.isPublic === true ? 'PUBLIC' : (d.courseId || d.courseTitle ? 'ENROLLED' : 'PUBLIC'));
       const isPublic =
         override.isPublic != null
           ? override.isPublic
           : d.isPublic != null
           ? d.isPublic
-          : d.accessScope === 'PUBLIC'
-          ? true
-          : !(d.courseId || d.courseTitle);
-      const accessScope =
-        override.accessScope ||
-        d.accessScope ||
-        (isPublic ? 'PUBLIC' : 'ENROLLED');
+          : accessScope === 'PUBLIC';
 
       return {
         ...d,
@@ -1180,6 +1245,14 @@ export const updateDeckStatus = (deckId, status, rejectionReason = null, reviewe
     };
     saveDeckOverrides(overrides);
   }
+
+  // Đồng bộ lên Backend Database
+  try {
+    flashcardAPI.reviewDeck(deckId, {
+      status,
+      rejection_reason: rejectionReason,
+    }).catch((err) => console.warn('Sync reviewDeck to DB:', err));
+  } catch (e) {}
 };
 
 // Giảng viên nộp đề tài bản nháp sang Hội đồng Thẩm định sau khi đã thêm từ vựng
@@ -1212,6 +1285,11 @@ export const submitDeckForReview = (deckId) => {
     };
     saveDeckOverrides(overrides);
   }
+
+  // Đồng bộ lên Backend Database
+  try {
+    flashcardAPI.submitDeckForReview(deckId).catch((err) => console.warn('Sync submitReview to DB:', err));
+  } catch (e) {}
 };
 
 // Giảng viên gửi lại đề tài sau khi đã chỉnh sửa theo phản biện
@@ -1247,6 +1325,11 @@ export const resubmitDeckForReview = (deckId) => {
     };
     saveDeckOverrides(overrides);
   }
+
+  // Đồng bộ lên Backend Database
+  try {
+    flashcardAPI.resubmitDeckForReview(deckId).catch((err) => console.warn('Sync resubmitReview to DB:', err));
+  } catch (e) {}
 };
 
 export const speakWord = (wordText, rate = 1.0) => {
