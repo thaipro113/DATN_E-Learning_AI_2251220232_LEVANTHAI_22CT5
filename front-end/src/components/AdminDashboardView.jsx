@@ -96,6 +96,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
   const [courseForm, setCourseForm] = useState(initialCourseFormData);
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [isEditingCourseAssignment, setIsEditingCourseAssignment] = useState(false);
+  const [showCoTeacherSection, setShowCoTeacherSection] = useState(false);
   const [rejectModal, setRejectModal] = useState({
     isOpen: false,
     course: null,
@@ -447,6 +448,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
   // 3.0 Admin Khởi tạo khung khóa học & Phân công nhân sự (GV chính, Đồng giảng, Phản biện)
   const handleOpenCreateCourseModal = () => {
     setIsEditingCourseAssignment(false);
+    setShowCoTeacherSection(false);
     const teacherList = users.filter((u) => u.role === 'TEACHER');
     const reviewerList = users.filter((u) => u.role === 'REVIEWER');
     setCourseForm({
@@ -468,6 +470,8 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
 
   const handleOpenAssignModal = (course) => {
     setIsEditingCourseAssignment(true);
+    const hasCoTeachers = Array.isArray(course.co_teachers) && course.co_teachers.length > 0;
+    setShowCoTeacherSection(hasCoTeachers);
     setCourseForm({
       id: course.id,
       title: course.title,
@@ -3362,54 +3366,73 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>
-                      Giảng viên đồng phụ trách / Trợ giảng ({courseForm.co_teacher_ids.length}):
+                      Giảng viên đồng phụ trách / Trợ giảng {courseForm.co_teacher_ids.length > 0 ? `(${courseForm.co_teacher_ids.length})` : ''}:
                     </label>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      (Có thể tích chọn nhiều giáo viên)
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCoTeacherSection(!showCoTeacherSection)}
+                      style={{
+                        border: 'none',
+                        background: 'none',
+                        color: '#0284c7',
+                        fontSize: '0.76rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <i className={`fa-solid ${showCoTeacherSection ? 'fa-chevron-up' : 'fa-plus'}`}></i>
+                      {showCoTeacherSection ? 'Thu gọn' : (courseForm.co_teacher_ids.length > 0 ? 'Chỉnh sửa danh sách' : 'Thêm đồng giảng viên')}
+                    </button>
                   </div>
-                  <div style={{ maxHeight: '120px', overflowY: 'auto', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'var(--bg-surface)', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '6px' }}>
-                    {users
-                      .filter((u) => u.role === 'TEACHER' && u.id !== courseForm.teacher_id)
-                      .map((t) => {
-                        const isChecked = courseForm.co_teacher_ids.includes(t.id);
-                        return (
-                          <label
-                            key={t.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              fontSize: '0.8rem',
-                              cursor: 'pointer',
-                              padding: '5px 8px',
-                              borderRadius: '4px',
-                              backgroundColor: isChecked ? '#e0f2fe' : 'transparent',
-                              border: isChecked ? '1px solid #bae6fd' : '1px solid transparent',
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                const newIds = e.target.checked
-                                  ? [...courseForm.co_teacher_ids, t.id]
-                                  : courseForm.co_teacher_ids.filter((id) => id !== t.id);
-                                setCourseForm({ ...courseForm, co_teacher_ids: newIds });
+                  {(showCoTeacherSection || courseForm.co_teacher_ids.length > 0) && (
+                    <div style={{ maxHeight: '120px', overflowY: 'auto', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'var(--bg-surface)', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '6px' }}>
+                      {users
+                        .filter((u) => u.role === 'TEACHER' && u.id !== courseForm.teacher_id)
+                        .map((t) => {
+                          const isChecked = courseForm.co_teacher_ids.includes(t.id);
+                          return (
+                            <label
+                              key={t.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                padding: '5px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: isChecked ? '#e0f2fe' : 'transparent',
+                                border: isChecked ? '1px solid #bae6fd' : '1px solid transparent',
                               }}
-                            />
-                            <span style={{ fontWeight: isChecked ? '700' : '400', color: isChecked ? '#0369a1' : 'var(--text-main)' }}>
-                              {t.full_name || t.email}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    {users.filter((u) => u.role === 'TEACHER' && u.id !== courseForm.teacher_id).length === 0 && (
-                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px' }}>
-                        Chưa có thêm giảng viên khác trong hệ thống.
-                      </div>
-                    )}
-                  </div>
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const newIds = e.target.checked
+                                    ? [...courseForm.co_teacher_ids, t.id]
+                                    : courseForm.co_teacher_ids.filter((id) => id !== t.id);
+                                  setCourseForm({ ...courseForm, co_teacher_ids: newIds });
+                                }}
+                              />
+                              <span style={{ fontWeight: isChecked ? '700' : '400', color: isChecked ? '#0369a1' : 'var(--text-main)' }}>
+                                {t.full_name || t.email}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      {users.filter((u) => u.role === 'TEACHER' && u.id !== courseForm.teacher_id).length === 0 && (
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px' }}>
+                          Chưa có thêm giảng viên khác trong hệ thống.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. Thẩm định viên */}
