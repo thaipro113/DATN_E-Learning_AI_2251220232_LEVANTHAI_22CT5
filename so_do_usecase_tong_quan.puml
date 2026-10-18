@@ -37,7 +37,7 @@ rectangle "HỆ THỐNG E-LEARNING HỌC TIẾNG ANH TÍCH HỢP AI" as SystemBo
 
     ' PHÂN HỆ 1: TÀI KHOẢN & PHÂN QUYỀN
     package "Phân hệ 1: Tài khoản & Phân quyền (RBAC)" as PkgAuth #EFF6FF {
-        usecase "UC01: Đăng ký & Đăng nhập\n(JWT Authentication)" as UC01 #DBEAFE
+        usecase "UC01: Đăng ký (Học viên) & Đăng nhập\n(JWT Authentication)" as UC01 #DBEAFE
         usecase "UC02: Quản lý hồ sơ cá nhân\n(Profile & Security)" as UC02 #DBEAFE
     }
 
@@ -59,16 +59,16 @@ rectangle "HỆ THỐNG E-LEARNING HỌC TIẾNG ANH TÍCH HỢP AI" as SystemBo
 
     ' PHÂN HỆ 4: GIẢNG DẠY & BIÊN SOẠN (TEACHER)
     package "Phân hệ 4: Giảng dạy & Biên soạn (Teacher Studio)" as PkgTeacher #FFFBEB {
-        usecase "UC10: Biên soạn giáo trình khóa học\n(Curriculum Studio theo phân công)" as UC10 #FEF3C7
+        usecase "UC10: Tạo & Biên soạn giáo trình khóa học\n(Khởi tạo khóa học, bài học & đề thi)" as UC10 #FEF3C7
         usecase "UC12: Import ngân hàng câu hỏi\n(Batch Import Word/Excel)" as UC12 #FEF3C7
         usecase "UC13: Soạn thảo & Quản lý Flashcard\n(Decks & Vocabulary Words)" as UC13 #FEF3C7
     }
 
     ' PHÂN HỆ 5: THẨM ĐỊNH & QUẢN TRỊ
     package "Phân hệ 5: Thẩm định hai chiều & Quản trị" as PkgReviewAdmin #FFF1F2 {
-        usecase "UC14: Thẩm định & Phản biện khóa học\n(Reviewer Studio: Phân công thẩm định)" as UC14 #FFE4E6
+        usecase "UC14: Thẩm định & Phản biện khóa học\n(Reviewer Studio: Xem xét & kiểm duyệt theo phân công)" as UC14 #FFE4E6
         usecase "UC15: Thẩm định bộ từ vựng Flashcard\n(Quality Control & Publish)" as UC15 #FFE4E6
-        usecase "UC16: Quản trị đào tạo & Người dùng\n(Tạo khung khóa học, gán GV+PB, RBAC)" as UC16 #FFE4E6
+        usecase "UC16: Quản trị danh mục, tài khoản & Phân công\n(Tạo danh mục, cấp TK, gán Thẩm định viên & duyệt)" as UC16 #FFE4E6
     }
 }
 
@@ -121,10 +121,20 @@ note right of UC07
 end note
 
 note bottom of UC10
-  Quy trình đào tạo 3 cấp:
-  1. Admin tạo khung & phân công GV + Reviewer
-  2. Teacher biên soạn giáo trình (DRAFT) và nộp duyệt (PENDING)
-  3. Reviewer thẩm định 2 chiều (PUBLISHED hoặc REJECTED kèm lý do).
+  Quy trình đào tạo & phát hành khóa học:
+  1. Quản trị viên (Admin) tạo danh mục khóa học (Categories) và cấp tài khoản Giảng viên.
+  2. Giảng viên chủ động tự tạo khóa học (chọn danh mục phù hợp) & biên soạn giáo trình (DRAFT).
+  3. Giảng viên gửi yêu cầu thẩm định (PENDING).
+  4. Quản trị viên (Admin) phân công Thẩm định viên (Reviewer) vào khóa học đó để xem xét.
+  5. Thẩm định viên vào xem xét chất lượng và phê duyệt (PUBLISHED) hoặc yêu cầu sửa đổi.
+end note
+
+note bottom of UC16
+  Quy tắc phân quyền Quản trị viên (Admin):
+  - Admin không cần tạo thủ công khóa học mà chỉ tạo & quản lý Danh mục (Categories).
+  - Admin phân công Thẩm định viên (Reviewer) xem xét khóa học của Giảng viên.
+  - Khách vãng lai chỉ được đăng ký tài khoản Học viên (Student);
+    tài khoản Giảng viên (Teacher) và Thẩm định viên (Reviewer) do Admin cấp phát.
 end note
 
 @enduml

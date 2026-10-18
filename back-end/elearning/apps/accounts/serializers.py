@@ -61,9 +61,10 @@ class RegisterSerializer(serializers.Serializer):
         help_text="Xác nhận lại mật khẩu vừa nhập"
     )
     role = serializers.ChoiceField(
-        choices=[UserRole.STUDENT, UserRole.TEACHER],
+        choices=[UserRole.STUDENT],
         default=UserRole.STUDENT,
-        help_text="Vai trò đăng ký: STUDENT (Học viên) hoặc TEACHER (Giáo viên)"
+        required=False,
+        help_text="Vai trò đăng ký: Mặc định là STUDENT (Học viên). Tài khoản Giảng viên do Admin tạo."
     )
     level = serializers.ChoiceField(
         choices=EnglishLevel.choices,
@@ -97,6 +98,13 @@ class RegisterSerializer(serializers.Serializer):
         return normalized_email
 
     def validate(self, attrs):
+        role = attrs.get('role', UserRole.STUDENT)
+        if role and role != UserRole.STUDENT:
+            raise serializers.ValidationError({
+                "role": "Hệ thống không cho phép tự đăng ký tài khoản Giảng viên hoặc Quản trị viên. Tài khoản Giảng viên do Quản trị viên trực tiếp khởi tạo và cấp phát."
+            })
+        attrs['role'] = UserRole.STUDENT
+
         password = attrs.get('password')
         confirm_password = attrs.get('confirm_password')
 

@@ -238,38 +238,27 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
           {isRegisterMode && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                    Vai trò hệ thống:
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    style={{ width: '100%', padding: '9px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', fontWeight: '600' }}
-                  >
-                    <option value="STUDENT">Học viên</option>
-                    <option value="TEACHER">Giảng viên</option>
-                  </select>
-                </div>
+              <div style={{ padding: '8px 12px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-user-graduate" style={{ color: '#16a34a', fontSize: '0.9rem' }}></i>
+                <span>Tài khoản đăng ký dành cho <strong>Học viên</strong>. Tài khoản Giảng viên do Quản trị viên cấp phát.</span>
+              </div>
 
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                    Trình độ CEFR ban đầu:
-                  </label>
-                  <select
-                    value={targetLevel}
-                    onChange={(e) => setTargetLevel(e.target.value)}
-                    style={{ width: '100%', padding: '9px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', fontWeight: '600' }}
-                  >
-                    <option value="A1">A1 - Beginner (Mới bắt đầu)</option>
-                    <option value="A2">A2 - Elementary (Sơ cấp)</option>
-                    <option value="B1">B1 - Intermediate (Trung cấp)</option>
-                    <option value="B2">B2 - Upper-Intermediate (Trung cao)</option>
-                    <option value="C1">C1 - Advanced (Cao cấp)</option>
-                    <option value="C2">C2 - Proficiency (Thành thạo)</option>
-                  </select>
-                </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
+                  Trình độ CEFR ban đầu:
+                </label>
+                <select
+                  value={targetLevel}
+                  onChange={(e) => setTargetLevel(e.target.value)}
+                  style={{ width: '100%', padding: '9px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.85rem', fontWeight: '600' }}
+                >
+                  <option value="A1">A1 - Beginner (Mới bắt đầu)</option>
+                  <option value="A2">A2 - Elementary (Sơ cấp)</option>
+                  <option value="B1">B1 - Intermediate (Trung cấp)</option>
+                  <option value="B2">B2 - Upper-Intermediate (Trung cao)</option>
+                  <option value="C1">C1 - Advanced (Cao cấp)</option>
+                  <option value="C2">C2 - Proficiency (Thành thạo)</option>
+                </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>

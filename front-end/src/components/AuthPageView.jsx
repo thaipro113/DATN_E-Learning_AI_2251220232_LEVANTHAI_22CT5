@@ -331,38 +331,42 @@ export default function AuthPageView({ initialMode = 'login', onLoginSuccess, on
                   </div>
                 </div>
 
-                {/* 3. Role Selector Cards */}
+                {/* 3. Role Information Notice (Chỉ dành cho Học viên, Giảng viên do Admin tạo) */}
                 <div className="form-group">
                   <label className="form-label">
-                    Vai trò trong hệ thống <span className="req-star">*</span>
+                    Vai trò tài khoản
                   </label>
-                  <div className="role-selector-grid">
-                    <div
-                      className={`role-option-card ${role === 'STUDENT' ? 'selected' : ''}`}
-                      onClick={() => setRole('STUDENT')}
-                    >
-                      <div className="role-card-radio">
-                        <span className="radio-dot"></span>
-                      </div>
-                      <i className="fa-solid fa-user-graduate role-icon"></i>
-                      <div className="role-card-info">
-                        <strong>Học viên</strong>
-                        <span>Học tập, làm bài thi & luyện AI</span>
-                      </div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%)',
+                    border: '1.5px solid rgba(2, 132, 199, 0.25)',
+                  }}>
+                    <div style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '50%',
+                      backgroundColor: '#e0f2fe',
+                      color: '#0284c7',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.1rem',
+                      flexShrink: 0
+                    }}>
+                      <i className="fa-solid fa-user-graduate"></i>
                     </div>
-
-                    <div
-                      className={`role-option-card ${role === 'TEACHER' ? 'selected' : ''}`}
-                      onClick={() => setRole('TEACHER')}
-                    >
-                      <div className="role-card-radio">
-                        <span className="radio-dot"></span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong style={{ fontSize: '0.9rem', color: 'var(--text-main, #0f172a)' }}>Học viên (Student)</strong>
+                        <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '700' }}>Mặc định</span>
                       </div>
-                      <i className="fa-solid fa-chalkboard-user role-icon"></i>
-                      <div className="role-card-info">
-                        <strong>Giảng viên</strong>
-                        <span>Soạn khóa học & quản lý đề thi</span>
-                      </div>
+                      <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: '1.3' }}>
+                        Tài khoản phục vụ học tập, thi thử & luyện cùng Trợ giảng AI. <em>(Tài khoản Giảng viên và Thẩm định viên do Quản trị viên cấp phát)</em>
+                      </p>
                     </div>
                   </div>
                 </div>
