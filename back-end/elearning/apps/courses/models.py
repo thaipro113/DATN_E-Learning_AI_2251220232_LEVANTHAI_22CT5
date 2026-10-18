@@ -83,6 +83,20 @@ class Course(BaseModel):
     )
     price = models.DecimalField(_('Học phí (VND)'), max_digits=12, decimal_places=0, default=0)
     is_free = models.BooleanField(_('Khóa học miễn phí'), default=True)
+    co_teachers = models.ManyToManyField(
+        'accounts.CustomUser',
+        related_name='co_teaching_courses',
+        blank=True,
+        verbose_name=_('Giảng viên đồng phụ trách / Trợ giảng')
+    )
+    assigned_reviewer = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_review_courses',
+        verbose_name=_('Thẩm định viên được phân công')
+    )
     status = models.CharField(
         _('Trạng thái khóa học'),
         max_length=20,

@@ -64,8 +64,8 @@ class IsStudentUserRole(BasePermission):
 
 class IsOwnerOrReadOnly(BasePermission):
     """
-    Chỉ cho phép Chủ sở hữu (Chính giảng viên tạo ra khóa học) hoặc Quản trị viên (Admin) sửa / xóa.
-    Giảng viên khác tuyệt đối không có quyền sửa hay xóa khóa học của người khác.
+    Cho phép Giảng viên chính (Teacher), Giảng viên đồng phụ trách (co_teachers)
+    hoặc Quản trị viên (Admin) sửa / xóa khóa học và học liệu bên trong.
     """
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
@@ -75,6 +75,27 @@ class IsOwnerOrReadOnly(BasePermission):
         # Admin có toàn quyền quản trị
         if request.user.role == 'ADMIN' or request.user.is_staff or request.user.is_superuser:
             return True
-        # Chỉ đúng Giảng viên là chủ sở hữu (Owner) mới có quyền sửa/xóa
-        owner = getattr(obj, 'teacher', None) or getattr(obj, 'user', None) or getattr(obj, 'author', None)
+
+        # Kiểm tra nếu obj trực tiếp là Course
+        if hasattr(obj, 'teacher'):
+            if obj.teacher == request.user:
+                return True
+            if hasattr(obj, 'co_teachers') and obj.co_teachers.filter(id=request.user.id).exists():
+                return True
+
+        # Kiểm tra nếu obj là Chapter, Lesson, Material thuộc về một Course
+        course = getattr(obj, 'course', None)
+        if not course and hasattr(obj, 'chapter') and getattr(obj.chapter, 'course', None):
+            course = obj.chapter.course
+        if not course and hasattr(obj, 'lesson') and getattr(obj.lesson, 'chapter', None):
+            course = obj.lesson.chapter.course
+
+        if course:
+            if course.teacher == request.user:
+                return True
+            if hasattr(course, 'co_teachers') and course.co_teachers.filter(id=request.user.id).exists():
+                return True
+
+        # Fallback kiểm tra sở hữu thông thường (author, user)
+        owner = getattr(obj, 'user', None) or getattr(obj, 'author', None)
         return owner == request.user

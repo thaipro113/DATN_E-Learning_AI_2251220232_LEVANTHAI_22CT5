@@ -215,7 +215,9 @@ class CourseListCreateAPIView(APIView):
             )
 
         validated_data = serializer.validated_data
-        if request.user.role == 'TEACHER':
+        is_admin = request.user.role == 'ADMIN' or request.user.is_staff or request.user.is_superuser
+
+        if not is_admin and request.user.role == 'TEACHER':
             if validated_data.get('status') != CourseStatus.DRAFT:
                 validated_data['status'] = CourseStatus.PENDING
 
@@ -224,7 +226,11 @@ class CourseListCreateAPIView(APIView):
             validated_data=validated_data
         )
 
-        success_msg = "Tạo khóa học thành công! Khóa học đang ở trạng thái chờ Quản trị viên duyệt." if course.status == CourseStatus.PENDING else "Tạo khóa học thành công!"
+        if is_admin:
+            success_msg = f"Khởi tạo khung khóa học '{course.title}' và phân công giảng viên thành công!"
+        else:
+            success_msg = "Tạo khóa học thành công! Khóa học đang ở trạng thái chờ Thẩm định viên duyệt." if course.status == CourseStatus.PENDING else "Tạo khóa học thành công!"
+
         return success_response(
             data=CourseDetailSerializer(course).data,
             message=success_msg,

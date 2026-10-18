@@ -77,7 +77,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         }
       }
 
-      // Lọc chính xác theo email/ID/tên của giáo viên đang đăng nhập
+      // Lọc chính xác theo email/ID/tên của giáo viên đang đăng nhập (kể cả vai trò giảng viên chính hoặc đồng giảng dạy)
       if (teacherCoursesList.length === 0 && allCoursesRes.status === 'fulfilled' && allCoursesRes.value.data) {
         const allList = allCoursesRes.value.data.results || allCoursesRes.value.data.data?.results || allCoursesRes.value.data.data || allCoursesRes.value.data;
         if (Array.isArray(allList) && user) {
@@ -85,7 +85,12 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             const isEmailMatch = user.email && c.teacher?.email && c.teacher.email.toLowerCase() === user.email.toLowerCase();
             const isIdMatch = user.id && c.teacher?.id && String(c.teacher.id) === String(user.id);
             const isNameMatch = user.full_name && c.teacher?.full_name && c.teacher.full_name.trim().toLowerCase() === user.full_name.trim().toLowerCase();
-            return isEmailMatch || isIdMatch || isNameMatch;
+            const isCoTeacher = Array.isArray(c.co_teachers) && c.co_teachers.some((ct) =>
+              (user.id && String(ct.id) === String(user.id)) ||
+              (user.email && ct.email && ct.email.toLowerCase() === user.email.toLowerCase()) ||
+              (user.full_name && ct.full_name && ct.full_name.trim().toLowerCase() === user.full_name.trim().toLowerCase())
+            );
+            return isEmailMatch || isIdMatch || isNameMatch || isCoTeacher;
           });
         }
       }
@@ -553,14 +558,36 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
 
                         {/* Course Card Body */}
                         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', textTransform: 'uppercase' }}>
-                              {course.category?.name || 'Ngữ pháp Tiếng Anh'}
+                              {course.category?.name || 'Tiếng Anh'}
                             </span>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                              GV: {course.teacher?.full_name || teacherDisplayName}
-                            </span>
+                            {user && String(course.teacher?.id) === String(user.id) ? (
+                              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#ecfdf5', color: '#059669', fontWeight: '700' }}>
+                                Trưởng bộ môn
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '700' }}>
+                                Đồng giảng dạy
+                              </span>
+                            )}
                           </div>
+
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            <span><i className="fa-solid fa-user-tie" style={{ color: '#0284c7', marginRight: '4px' }}></i><strong>{course.teacher?.full_name || teacherDisplayName}</strong></span>
+                            {course.co_teachers && course.co_teachers.length > 0 && (
+                              <span style={{ color: '#64748b' }}>
+                                • Đồng giảng: {course.co_teachers.map((ct) => ct.full_name).join(', ')}
+                              </span>
+                            )}
+                          </div>
+
+                          {course.assigned_reviewer && (
+                            <div style={{ fontSize: '0.73rem', color: '#e11d48', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <i className="fa-solid fa-scale-balanced"></i>
+                              <span>Thẩm định viên: <strong>{course.assigned_reviewer.full_name}</strong></span>
+                            </div>
+                          )}
 
                           <h3
                             style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px', lineHeight: '1.3', cursor: 'pointer' }}

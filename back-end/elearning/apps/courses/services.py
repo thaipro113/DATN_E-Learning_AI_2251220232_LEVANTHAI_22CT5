@@ -124,11 +124,20 @@ class CourseService:
 
     @staticmethod
     def get_my_teaching_courses(teacher: CustomUser):
-        return Course.objects.filter(teacher=teacher).exclude(status=CourseStatus.ARCHIVED).select_related('category').order_by('-created_at')
+        return Course.objects.filter(
+            Q(teacher=teacher) | Q(co_teachers=teacher)
+        ).distinct().exclude(
+            status=CourseStatus.ARCHIVED
+        ).select_related(
+            'category', 'teacher', 'assigned_reviewer'
+        ).prefetch_related(
+            'co_teachers'
+        ).order_by('-created_at')
 
     @staticmethod
     def get_course_detail(identifier: str, user=None):
-        queryset = Course.objects.select_related('category', 'teacher').prefetch_related(
+        queryset = Course.objects.select_related('category', 'teacher', 'assigned_reviewer', 'reviewed_by').prefetch_related(
+            'co_teachers',
             'chapters__lessons__materials'
         )
 
@@ -144,14 +153,23 @@ class CourseService:
         if course.status != CourseStatus.PUBLISHED:
             if not user or not user.is_authenticated:
                 return None
-            if user.role not in ['ADMIN', 'REVIEWER'] and course.teacher != user:
+            if (
+                user.role not in ['ADMIN', 'REVIEWER'] 
+                and course.teacher != user 
+                and not course.co_teachers.filter(id=user.id).exists()
+            ):
                 return None
 
         return course
 
     @staticmethod
     def create_course(teacher: CustomUser, validated_data: dict) -> Course:
-        return Course.objects.create(teacher=teacher, **validated_data)
+        co_teachers = validated_data.pop('co_teachers', None)
+        course_teacher = validated_data.pop('teacher', None) or teacher
+        course = Course.objects.create(teacher=course_teacher, **validated_data)
+        if co_teachers:
+            course.co_teachers.set(co_teachers)
+        return course
 
     @staticmethod
     def update_course(course: Course, validated_data: dict, user: CustomUser = None) -> Course:
@@ -170,6 +188,10 @@ class CourseService:
                 course.rejection_reason = None
             validated_data['status'] = CourseStatus.PENDING
             validated_data['rejection_reason'] = None
+
+        co_teachers = validated_data.pop('co_teachers', None)
+        if co_teachers is not None:
+            course.co_teachers.set(co_teachers)
 
         for attr, value in validated_data.items():
             setattr(course, attr, value)
