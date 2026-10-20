@@ -787,3 +787,157 @@ class AdminActivityStatsAPIView(APIView):
             }
         )
 
+
+class TeacherCourseStudentsAPIView(APIView):
+    """
+    API Endpoint lấy danh sách chi tiết học viên thuộc các khóa học của Giảng viên:
+    - Hỗ trợ lọc theo `course_id` (hoặc `identifier` nếu truyền qua URL).
+    - Hỗ trợ tìm kiếm theo `search` (tên, email, số điện thoại học viên).
+    - Hỗ trợ lọc theo `status` (ACTIVE, COMPLETED).
+    - Trả về danh sách học viên kèm tiến độ học, điểm thi trắc nghiệm (QuizAttempt), trạng thái cấp chứng chỉ.
+    - Trả về thống kê tóm tắt: tổng số học viên, học viên đang học, hoàn thành, điểm trung bình, tiến độ trung bình.
+    """
+    permission_classes = [IsTeacherUserRole]
+
+    def get(self, request, identifier=None):
+        import uuid
+        from django.db.models import Q, Avg, Max
+        from apps.learning.models import Enrollment, EnrollmentStatus
+        from apps.assessments.models import QuizAttempt
+
+        user = request.user
+        course_id = identifier or request.query_params.get('course_id')
+        search_query = request.query_params.get('search', '').strip()
+        status_filter = request.query_params.get('status', '').strip().upper()
+
+        # Xác định tập khóa học thuộc quyền của giảng viên (hoặc tất cả nếu là ADMIN)
+        if user.role == 'ADMIN':
+            teacher_courses = Course.objects.all()
+        else:
+            teacher_courses = Course.objects.filter(
+                Q(teacher=user) | Q(co_teachers=user)
+            ).distinct()
+
+        enrollments = Enrollment.objects.filter(course__in=teacher_courses).select_related(
+            'student', 'course'
+        ).prefetch_related(
+            'lesson_progresses'
+        )
+
+        selected_course = None
+        if course_id and course_id != 'ALL':
+            try:
+                uuid_obj = uuid.UUID(str(course_id))
+                selected_course = teacher_courses.filter(id=uuid_obj).first()
+            except ValueError:
+                selected_course = teacher_courses.filter(slug=str(course_id)).first()
+
+            if selected_course:
+                enrollments = enrollments.filter(course=selected_course)
+            else:
+                return error_response(
+                    message="Không tìm thấy khóa học hoặc bạn không có quyền phụ trách khóa học này.",
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+
+        if status_filter in ['ACTIVE', 'COMPLETED', 'CANCELLED']:
+            enrollments = enrollments.filter(status=status_filter)
+
+        if search_query:
+            enrollments = enrollments.filter(
+                Q(student__full_name__icontains=search_query) |
+                Q(student__email__icontains=search_query) |
+                Q(student__phone_number__icontains=search_query)
+            )
+
+        total_students = enrollments.count()
+        active_count = enrollments.filter(status=EnrollmentStatus.ACTIVE).count()
+        completed_count = enrollments.filter(status=EnrollmentStatus.COMPLETED).count()
+
+        students_data = []
+        total_progress = 0
+        quiz_scores_list = []
+
+        for e in enrollments.order_by('-enrolled_at'):
+            stu = e.student
+            crs = e.course
+            progress_pct = float(e.progress_percent or 0.0)
+            total_progress += progress_pct
+
+            completed_lessons = e.lesson_progresses.filter(is_completed=True).count()
+            total_lessons = crs.total_lessons
+
+            # Thống kê điểm thi của học viên trong khóa
+            attempts = QuizAttempt.objects.filter(
+                student=stu,
+                quiz__course=crs,
+                status='COMPLETED'
+            )
+            # Nếu chưa có đề thi gắn thẳng với course, lấy tổng các bài thi hoàn thành của học viên
+            if not attempts.exists():
+                attempts = QuizAttempt.objects.filter(student=stu, status='COMPLETED')
+
+            attempts_count = attempts.count()
+            highest_score = None
+            avg_score = None
+            has_passed = False
+
+            if attempts_count > 0:
+                stats = attempts.aggregate(max_pct=Max('percentage'), avg_pct=Avg('percentage'))
+                highest_score = round(float(stats['max_pct'] or 0.0), 1)
+                avg_score = round(float(stats['avg_pct'] or 0.0), 1)
+                has_passed = attempts.filter(is_passed=True).exists()
+                quiz_scores_list.append(avg_score)
+
+            has_certificate = hasattr(e, 'certificate')
+
+            students_data.append({
+                'enrollment_id': str(e.id),
+                'student_id': str(stu.id),
+                'name': stu.full_name or 'Học viên',
+                'email': stu.email,
+                'phone_number': stu.phone_number or '',
+                'avatar_url': stu.avatar_url or '',
+                'level': stu.level or crs.level or 'A1',
+                'course_id': str(crs.id),
+                'course_title': crs.title,
+                'course_slug': crs.slug,
+                'enrolled_at': e.enrolled_at.isoformat() if e.enrolled_at else None,
+                'progress': progress_pct,
+                'completed_lessons': completed_lessons,
+                'total_lessons': total_lessons,
+                'status': e.status,
+                'status_display': e.get_status_display(),
+                'completed_at': e.completed_at.isoformat() if e.completed_at else None,
+                'certificate_issued': has_certificate,
+                'quiz_stats': {
+                    'attempts_count': attempts_count,
+                    'highest_score': highest_score,
+                    'avg_score': avg_score,
+                    'has_passed': has_passed
+                }
+            })
+
+        avg_progress = round(total_progress / total_students, 1) if total_students > 0 else 0
+        overall_avg_quiz = round(sum(quiz_scores_list) / len(quiz_scores_list), 1) if quiz_scores_list else 0
+
+        return success_response(
+            message="Lấy danh sách học viên khóa học thành công!",
+            data={
+                'course_info': {
+                    'id': str(selected_course.id),
+                    'title': selected_course.title,
+                    'slug': selected_course.slug,
+                } if selected_course else None,
+                'stats': {
+                    'total_students': total_students,
+                    'active_students': active_count,
+                    'completed_students': completed_count,
+                    'avg_progress': avg_progress,
+                    'avg_quiz_score': overall_avg_quiz,
+                },
+                'students': students_data
+            },
+            status_code=status.HTTP_200_OK
+        )
+

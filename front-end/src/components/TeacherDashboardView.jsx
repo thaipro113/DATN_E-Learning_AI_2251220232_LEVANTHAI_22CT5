@@ -16,6 +16,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedGradebookCourseId, setSelectedGradebookCourseId] = useState('ALL');
   const itemsPerPage = 8; // Phân trang 8 khóa học / 1 trang
 
   useEffect(() => {
@@ -378,7 +379,10 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         </button>
 
         <button
-          onClick={() => setActiveTab('gradebook')}
+          onClick={() => {
+            setSelectedGradebookCourseId('ALL');
+            setActiveTab('gradebook');
+          }}
           style={{
             padding: '10px 20px',
             border: 'none',
@@ -390,8 +394,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
             cursor: 'pointer',
           }}
         >
-          <i className="fa-solid fa-graduation-cap" style={{ marginRight: '6px' }}></i>
-          <span>Sổ điểm học viên (Gradebook)</span>
+          <i className="fa-solid fa-user-graduate" style={{ marginRight: '6px' }}></i>
+          <span>Học viên & Sổ điểm ({totalStudents})</span>
         </button>
       </div>
 
@@ -701,23 +705,50 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                             </div>
                           )}
 
-                          <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
                             <span><i className="fa-solid fa-layer-group"></i> {course.total_chapters != null ? course.total_chapters : (course.chapters?.length || 0)} chương</span>
                             <span><i className="fa-solid fa-circle-play"></i> {course.total_lessons != null ? course.total_lessons : (course.chapters?.reduce((acc, ch) => acc + (ch.lessons?.length || 0), 0) || 0)} bài giảng</span>
+                            <span style={{ color: (course.total_students || 0) > 0 ? '#0284c7' : 'var(--text-muted)', fontWeight: '700' }}>
+                              <i className="fa-solid fa-users"></i> {course.total_students || 0} học viên
+                            </span>
                           </div>
 
                           {/* Action Buttons */}
-                          <div style={{ display: 'flex', gap: '6px' }}>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             <button
                               className="btn-outline"
                               onClick={() => {
                                 setSelectedCourseForCurriculum(course);
                                 setShowCurriculumModal(true);
                               }}
-                              style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+                              style={{ flex: 1, minWidth: '130px', justifyContent: 'center', fontSize: '0.78rem' }}
                             >
                               <i className="fa-solid fa-pen-ruler"></i>
-                              <span>Quản lý giáo trình (Chi tiết)</span>
+                              <span>Quản lý giáo trình</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn-outline"
+                              onClick={() => {
+                                setSelectedGradebookCourseId(course.id);
+                                setActiveTab('gradebook');
+                              }}
+                              style={{
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                color: '#0284c7',
+                                borderColor: '#bfdbfe',
+                                backgroundColor: '#eff6ff',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontWeight: '700',
+                              }}
+                              title={`Xem danh sách & điểm số của ${course.total_students || 0} học viên trong khóa "${course.title}"`}
+                            >
+                              <i className="fa-solid fa-users"></i>
+                              <span>Học viên ({course.total_students || 0})</span>
                             </button>
 
                             <button
@@ -752,9 +783,12 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         </div>
       )}
 
-      {/* Tab 2: Sổ điểm học viên */}
+      {/* Tab 2: Quản lý học viên & Sổ điểm theo khóa học */}
       {activeTab === 'gradebook' && (
-        <TeacherGradebookView />
+        <TeacherGradebookView
+          initialCourseId={selectedGradebookCourseId}
+          onCourseChange={setSelectedGradebookCourseId}
+        />
       )}
 
       {/* Modal Studio Quản lý Toàn Diện Giáo Trình Khóa Học (Thêm, Sửa, Xóa Course, Chapter, Lesson, Material) */}

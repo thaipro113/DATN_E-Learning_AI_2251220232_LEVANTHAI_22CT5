@@ -14,7 +14,8 @@ from .views import (
     LessonDetailAPIView,
     MaterialCreateAPIView,
     MaterialDetailAPIView,
-    AdminActivityStatsAPIView
+    AdminActivityStatsAPIView,
+    TeacherCourseStudentsAPIView
 )
 
 app_name = 'courses'
@@ -30,6 +31,8 @@ urlpatterns = [
     # 2. Khóa học (Courses)
     path('', CourseListCreateAPIView.as_view(), name='course_list_create'),
     path('teaching/', TeacherCoursesAPIView.as_view(), name='my_teaching_courses'),
+    path('teacher/students/', TeacherCourseStudentsAPIView.as_view(), name='teacher_course_students'),
+    path('<str:identifier>/students/', TeacherCourseStudentsAPIView.as_view(), name='course_students'),
     path('<str:identifier>/', CourseDetailAPIView.as_view(), name='course_detail'),
     path('<str:identifier>/publish/', CoursePublishAPIView.as_view(), name='course_publish'),
     path('<str:identifier>/approve/', CourseApproveAPIView.as_view(), name='course_approve'),

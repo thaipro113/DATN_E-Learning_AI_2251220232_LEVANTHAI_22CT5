@@ -60,6 +60,7 @@ export const courseAPI = {
   uploadMaterial: (lessonId, data) => apiClient.post(`courses/lessons/${lessonId}/materials/`, data),
   deleteMaterial: (materialId) => apiClient.delete(`courses/materials/${materialId}/`),
   getAdminActivityStats: (days = 7) => apiClient.get('courses/admin-activity-stats/', { params: { days } }),
+  getTeacherStudents: (params) => apiClient.get('courses/teacher/students/', { params }),
 };
 
 export const learningAPI = {
