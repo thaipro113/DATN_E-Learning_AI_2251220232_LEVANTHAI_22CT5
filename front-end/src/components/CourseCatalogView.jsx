@@ -30,9 +30,11 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
         const matched = courses.find(
           (c) => String(c.id).toLowerCase() === String(cId).toLowerCase() || (c.slug && c.slug === cObj.slug)
         );
+        const parsedProgress = item.progress_percent != null ? Math.round(Number(item.progress_percent)) : (matched?.progress_percent != null ? Math.round(Number(matched.progress_percent)) : 0);
         enrolledMap.set(String(cId).toLowerCase(), {
           ...(matched || cObj),
-          progress_percent: item.progress_percent != null ? item.progress_percent : (matched?.progress_percent ?? 0),
+          progress_percent: parsedProgress,
+          status: item.status || (parsedProgress >= 100 ? 'COMPLETED' : 'ACTIVE'),
           enrollment: item,
         });
       }
@@ -41,7 +43,18 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
     courses.forEach((c) => {
       const key = String(c.id).toLowerCase();
       if (!enrolledMap.has(key) && isCourseEnrolled(c, myCourses)) {
-        enrolledMap.set(key, c);
+        const matchedItem = myCourses.find((item) => {
+          const cObj = item.course || item;
+          const cId = cObj.id || item.course_id;
+          return cId && String(cId).toLowerCase() === key;
+        });
+        const parsedProgress = matchedItem?.progress_percent != null ? Math.round(Number(matchedItem.progress_percent)) : 0;
+        enrolledMap.set(key, {
+          ...c,
+          progress_percent: parsedProgress,
+          status: matchedItem?.status || (parsedProgress >= 100 ? 'COMPLETED' : 'ACTIVE'),
+          enrollment: matchedItem,
+        });
       }
     });
 
@@ -76,9 +89,14 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
   // Hàm render 1 card khóa học chuẩn E-Learning
   const renderCourseCard = (course, isEnrolled) => {
     const isFree = course.is_free || Number(course.price) === 0;
+    const progress = Math.min(
+      100,
+      Math.max(0, Math.round(course.progress_percent != null ? course.progress_percent : (course.enrollment?.progress_percent || 0)))
+    );
+    const isCompleted = isEnrolled && (progress >= 100 || course.status === 'COMPLETED' || course.enrollment?.status === 'COMPLETED');
 
     return (
-      <div key={course.id} className="course-card">
+      <div key={course.id} className="course-card" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Card Image Banner */}
         <div
           className="course-card-top"
@@ -121,26 +139,49 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
           </span>
 
           {isEnrolled ? (
-            <span
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                padding: '3px 9px',
-                borderRadius: '6px',
-                backgroundColor: '#059669',
-                color: '#ffffff',
-                fontSize: '0.72rem',
-                fontWeight: '800',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
-              }}
-            >
-              <i className="fa-solid fa-check"></i>
-              <span>Đã đăng ký</span>
-            </span>
+            isCompleted ? (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  backgroundColor: '#10b981',
+                  color: '#ffffff',
+                  fontSize: '0.72rem',
+                  fontWeight: '800',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
+                }}
+              >
+                <i className="fa-solid fa-circle-check"></i>
+                <span>Hoàn thành</span>
+              </span>
+            ) : (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  padding: '3px 9px',
+                  borderRadius: '6px',
+                  backgroundColor: '#059669',
+                  color: '#ffffff',
+                  fontSize: '0.72rem',
+                  fontWeight: '800',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
+                }}
+              >
+                <i className="fa-solid fa-check"></i>
+                <span>Đã đăng ký</span>
+              </span>
+            )
           ) : (
             <span
               style={{
@@ -161,37 +202,123 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
         </div>
 
         {/* Card Content */}
-        <div className="course-card-content">
+        <div className="course-card-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '14px' }}>
           <div>
-            <span className="course-cat-tag">
-              {course.category?.name || 'Ngữ pháp Tiếng Anh'}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px' }}>
+              <span className="course-cat-tag" style={{ margin: 0 }}>
+                {course.category?.name || 'Ngữ pháp Tiếng Anh'}
+              </span>
+              <span style={{ fontSize: '0.74rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <i className="fa-solid fa-chalkboard-user"></i>
+                <span>{course.instructor?.full_name || course.instructor_name || 'TL-English Mentor'}</span>
+              </span>
+            </div>
+
             <h3
               className="course-card-title"
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', margin: '0 0 6px 0', fontSize: '0.96rem', fontWeight: '800', lineHeight: '1.35' }}
               onClick={() => setViewingCourse(course)}
             >
               {cleanCourseTitle(course.title)}
             </h3>
-            <p className="course-card-desc">{course.description}</p>
+            <p
+              className="course-card-desc"
+              style={{
+                fontSize: '0.78rem',
+                color: '#64748b',
+                margin: '0 0 10px 0',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {course.description}
+            </p>
           </div>
 
-          <div className="course-card-footer">
+          {/* Thanh Tiến độ học tập (%) chuẩn như ở Dashboard Tổng quan */}
+          {isEnrolled && (
+            <div style={{ marginTop: 'auto', marginBottom: '14px', paddingTop: '6px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '0.74rem',
+                  fontWeight: '700',
+                  color: isCompleted ? '#059669' : '#64748b',
+                  marginBottom: '5px',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <i
+                    className={isCompleted ? 'fa-solid fa-circle-check' : 'fa-solid fa-chart-line'}
+                    style={{ color: isCompleted ? '#10b981' : '#0284c7' }}
+                  ></i>
+                  <span>Tiến độ học tập</span>
+                </span>
+                <span style={{ color: isCompleted ? '#059669' : '#0284c7', fontWeight: '800' }}>
+                  {progress}%
+                </span>
+              </div>
+              <div
+                style={{
+                  width: '100%',
+                  height: '6px',
+                  backgroundColor: '#e2e8f0',
+                  borderRadius: '99px',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${progress}%`,
+                    height: '100%',
+                    background: isCompleted
+                      ? 'linear-gradient(90deg, #10b981 0%, #059669 100%)'
+                      : 'linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)',
+                    borderRadius: '99px',
+                    transition: 'width 0.4s ease',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Footer Actions */}
+          <div
+            className="course-card-footer"
+            style={{
+              marginTop: isEnrolled ? '0' : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+            }}
+          >
             <span
               className="course-price-text"
-              style={{ color: isEnrolled ? '#059669' : isFree ? '#0284c7' : 'var(--text-main)' }}
+              style={{
+                color: isCompleted ? '#059669' : isEnrolled ? '#0284c7' : isFree ? '#0284c7' : 'var(--text-main)',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+              }}
             >
-              {isEnrolled
+              {isCompleted
+                ? 'Đã hoàn thành'
+                : isEnrolled
                 ? 'Đang theo học'
                 : isFree
                 ? 'Miễn phí 100%'
                 : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
             </span>
+
             <div style={{ display: 'flex', gap: '6px' }}>
               <button
                 className="btn-outline"
                 onClick={() => setViewingCourse(course)}
-                style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                style={{ padding: '6px 10px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer' }}
                 title="Xem giáo trình chi tiết"
               >
                 <i className="fa-solid fa-eye" style={{ marginRight: '4px' }}></i>
@@ -205,14 +332,19 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
                   style={{
                     padding: '6px 12px',
                     fontSize: '0.8rem',
-                    backgroundColor: '#059669',
+                    borderRadius: '8px',
+                    backgroundColor: isCompleted ? '#10b981' : '#059669',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    gap: '5px',
+                    color: '#ffffff',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: isCompleted ? '0 2px 8px rgba(16, 185, 129, 0.25)' : '0 2px 8px rgba(5, 150, 105, 0.25)',
                   }}
                 >
-                  <i className="fa-solid fa-circle-play"></i>
-                  <span>Vào học</span>
+                  <i className={`fa-solid ${isCompleted ? 'fa-rotate-left' : 'fa-circle-play'}`}></i>
+                  <span>{isCompleted ? 'Ôn tập khóa học' : 'Tiếp tục học'}</span>
                 </button>
               ) : (
                 <button
@@ -221,10 +353,14 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
                   style={{
                     padding: '6px 12px',
                     fontSize: '0.8rem',
+                    borderRadius: '8px',
                     backgroundColor: isFree ? '#0284c7' : '#ea580c',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
+                    color: '#ffffff',
+                    fontWeight: '700',
+                    cursor: 'pointer',
                   }}
                 >
                   <i className={`fa-solid ${isFree ? 'fa-pen-to-square' : 'fa-cart-shopping'}`}></i>

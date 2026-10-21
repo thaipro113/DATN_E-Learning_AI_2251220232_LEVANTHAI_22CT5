@@ -479,6 +479,8 @@ class QuizAttemptListSerializer(serializers.ModelSerializer):
     quiz_title = serializers.CharField(source='quiz.title', read_only=True)
     quiz_type = serializers.CharField(source='quiz.quiz_type', read_only=True)
     quiz_type_display = serializers.CharField(source='quiz.get_quiz_type_display', read_only=True)
+    total_questions = serializers.SerializerMethodField()
+    correct_answers = serializers.SerializerMethodField()
 
     class Meta:
         model = QuizAttempt
@@ -494,5 +496,16 @@ class QuizAttemptListSerializer(serializers.ModelSerializer):
             'max_score',
             'percentage',
             'is_passed',
-            'status'
+            'status',
+            'total_questions',
+            'correct_answers',
         ]
+
+    def get_total_questions(self, obj):
+        answers_count = obj.student_answers.count()
+        if answers_count > 0:
+            return answers_count
+        return obj.quiz.questions.count()
+
+    def get_correct_answers(self, obj):
+        return obj.student_answers.filter(is_correct=True).count()

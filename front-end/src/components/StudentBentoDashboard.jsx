@@ -35,11 +35,23 @@ export default function StudentBentoDashboard({
   const nextLevel = nextLevelMap[userLevel] || 'B2';
   const levelDesc = levelDescriptions[userLevel] || 'Chuẩn hóa Châu Âu';
 
-  // 1. Thống kê bài thi & độ chính xác
-  const totalAttempts = myAttempts ? myAttempts.length : 0;
-  const totalQuestions = myAttempts.reduce((acc, a) => acc + (a.total_questions || 0), 0);
-  const totalCorrect = myAttempts.reduce((acc, a) => acc + (a.correct_answers || 0), 0);
-  const accuracyPercent = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : null;
+  // 1. Thống kê bài thi & độ chính xác từ CSDL thật
+  const backendStats = backendStreakData?.data || backendStreakData || {};
+
+  const totalAttempts = backendStats.total_attempts_count ?? (myAttempts ? myAttempts.length : 0);
+  const totalQuestions =
+    backendStats.total_questions_answered ??
+    myAttempts.reduce((acc, a) => acc + (a.total_questions || (a.percentage != null ? 10 : 0)), 0);
+  const totalCorrect =
+    backendStats.total_correct_answers ??
+    myAttempts.reduce((acc, a) => acc + (a.correct_answers || (a.percentage != null ? Math.round((a.percentage / 100) * 10) : 0)), 0);
+
+  const accuracyPercent =
+    backendStats.accuracy_percent != null
+      ? Math.round(backendStats.accuracy_percent)
+      : totalQuestions > 0
+      ? Math.round((totalCorrect / totalQuestions) * 100)
+      : null;
 
   // 2. Thống kê lỗi sai & chủ điểm yếu từ AI
   const totalMistakes =
@@ -54,13 +66,42 @@ export default function StudentBentoDashboard({
     ? rawWeakTopics.map((item) => (typeof item === 'string' ? { topic: item, count: 1 } : item))
     : [];
 
-  // 3. Số bài hoàn thành & XP & Chuỗi học
-  const totalCompletedLessons = myCourses.reduce(
-    (acc, c) => acc + (c.completed_lessons_count || (c.progress_percent >= 100 ? (c.total_lessons || 4) : 0)),
-    0
-  );
-  const aiSessionCount = Array.isArray(aiSessions) ? aiSessions.length : (aiSessions?.results?.length ?? 0);
-  const calculatedXP = Math.max(30, totalCompletedLessons * 20 + totalAttempts * 15 + aiSessionCount * 10);
+  // 3. Tiến độ chuẩn hóa CEFR thực tế (Level Progress %)
+  const cefrProgressPercent =
+    backendStats.cefr_progress_percent != null
+      ? Math.round(backendStats.cefr_progress_percent)
+      : (() => {
+          const levelCourses = myCourses.filter((c) => {
+            const courseObj = c.course || c;
+            return courseObj.level === userLevel;
+          });
+          const targetCourses = levelCourses.length > 0 ? levelCourses : myCourses;
+          const avgProgress =
+            targetCourses.length > 0
+              ? targetCourses.reduce((sum, c) => sum + (c.progress_percent || 0), 0) / targetCourses.length
+              : 0;
+          if (accuracyPercent !== null) {
+            return Math.round(avgProgress * 0.5 + accuracyPercent * 0.5);
+          }
+          return Math.round(avgProgress);
+        })();
+
+  // 4. Số bài hoàn thành & XP THẬT TẾ từ CSDL
+  const totalCompletedLessons =
+    backendStats.completed_lessons_count ??
+    myCourses.reduce(
+      (acc, c) => acc + (c.completed_lessons_count || (c.progress_percent >= 100 ? (c.total_lessons || 4) : 0)),
+      0
+    );
+  const aiSessionCount =
+    backendStats.chat_sessions_count ??
+    (Array.isArray(aiSessions) ? aiSessions.length : (aiSessions?.results?.length ?? 0));
+
+  // Ưu tiên điểm XP thật từ CSDL backend, fallback tính toán dựa trên hoạt động thực
+  const calculatedXP =
+    backendStats.xp != null
+      ? backendStats.xp
+      : (totalCompletedLessons * 20) + (totalAttempts * 15) + (aiSessionCount * 10);
 
   // 4. Tính toán Chuỗi học tập (Streak) THẬT dựa trên lịch sử học tập thực tế của học viên
   const [streakTick, setStreakTick] = React.useState(0);
@@ -467,14 +508,16 @@ export default function StudentBentoDashboard({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', fontWeight: '700', color: '#475569', marginBottom: '8px' }}>
                 <span>Tiến độ chuẩn hóa {userLevel} → {nextLevel}</span>
-                <span style={{ color: accuracyPercent !== null ? '#0284c7' : '#94a3b8' }}>
-                  {accuracyPercent !== null ? `${accuracyPercent}% độ chính xác` : 'Chưa có điểm test'}
+                <span style={{ color: cefrProgressPercent > 0 ? '#0284c7' : '#94a3b8' }}>
+                  {cefrProgressPercent > 0
+                    ? `${cefrProgressPercent}% ${accuracyPercent !== null ? `(${accuracyPercent}% test)` : 'tiến trình'}`
+                    : 'Chưa có điểm test / tiến trình'}
                 </span>
               </div>
               <div style={{ width: '100%', height: '7px', backgroundColor: '#e2e8f0', borderRadius: '99px', overflow: 'hidden' }}>
                 <div
                   style={{
-                    width: accuracyPercent !== null ? `${Math.min(100, Math.max(15, accuracyPercent))}%` : '20%',
+                    width: `${Math.min(100, Math.max(0, cefrProgressPercent))}%`,
                     height: '100%',
                     background: 'linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)',
                     borderRadius: '99px',

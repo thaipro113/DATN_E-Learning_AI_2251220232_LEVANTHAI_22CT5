@@ -78,6 +78,8 @@ class EnrollmentListSerializer(serializers.ModelSerializer):
     """
     course = CourseListSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    completed_lessons_count = serializers.SerializerMethodField()
+    total_lessons_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
@@ -87,10 +89,18 @@ class EnrollmentListSerializer(serializers.ModelSerializer):
             'status',
             'status_display',
             'progress_percent',
+            'completed_lessons_count',
+            'total_lessons_count',
             'enrolled_at',
             'completed_at',
             'updated_at'
         ]
+
+    def get_completed_lessons_count(self, obj):
+        return obj.lesson_progresses.filter(is_completed=True).count()
+
+    def get_total_lessons_count(self, obj):
+        return obj.course.total_lessons
 
 
 class EnrollmentDetailSerializer(serializers.ModelSerializer):

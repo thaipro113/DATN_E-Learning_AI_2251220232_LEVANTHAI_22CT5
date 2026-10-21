@@ -402,7 +402,7 @@ export default function CertificateVerifyView({ onBackToDashboard }) {
             >
               <div>
                 <span style={{ display: 'block', fontWeight: '700', color: '#0f172a', fontSize: '0.74rem', textTransform: 'uppercase' }}>
-                  MÃ XÁC THỰC CSDL
+                  MÃ CHỨNG CHỈ
                 </span>
                 <span style={{ fontFamily: 'monospace', color: '#0284c7', fontWeight: '800', fontSize: '0.9rem' }}>
                   {certResult.certificate_code}

@@ -345,6 +345,75 @@ class StudyStreakService:
             headline = 'Bắt đầu chuỗi ngày học đầu tiên của bạn!'
             subtext = 'Hãy học 1 bài học hoặc làm một bài trắc nghiệm hôm nay để bắt đầu chuỗi ngày học liên tục đầu tiên nhé!'
 
+        # 5. Tính toán Thống kê học tập & Điểm kinh nghiệm (XP) THẬT TẾ từ CSDL
+        completed_lessons_count = LessonProgress.objects.filter(
+            enrollment__student=student,
+            is_completed=True
+        ).count()
+
+        completed_attempts = QuizAttempt.objects.filter(student=student, status='COMPLETED')
+        total_attempts_count = QuizAttempt.objects.filter(student=student).count()
+
+        total_questions_answered = 0
+        total_correct_answers = 0
+        high_score_quizzes_count = 0
+
+        for a in completed_attempts:
+            ans_count = a.student_answers.count()
+            if ans_count == 0:
+                ans_count = a.quiz.questions.count()
+            corr_count = a.student_answers.filter(is_correct=True).count()
+            total_questions_answered += ans_count
+            total_correct_answers += corr_count
+            if float(a.percentage or 0) >= 80.0:
+                high_score_quizzes_count += 1
+
+        accuracy_percent = (
+            round((total_correct_answers / total_questions_answered) * 100, 1)
+            if total_questions_answered > 0
+            else None
+        )
+
+        completed_courses_count = Enrollment.objects.filter(
+            student=student,
+            status='COMPLETED'
+        ).count()
+
+        chat_sessions_count = ChatSession.objects.filter(student=student).count()
+
+        # Công thức tính Điểm kinh nghiệm (XP) minh bạch từ CSDL:
+        # - Bài học hoàn thành: +20 XP / bài
+        # - Bài thi trắc nghiệm hoàn thành: +15 XP / bài
+        # - Bài thi điểm cao (>=80%): Thưởng thêm +10 XP
+        # - Khóa học hoàn thành 100%: Thưởng lớn +50 XP
+        # - Tương tác hỏi đáp Gia sư AI: +10 XP / phiên
+        # - Số ngày học tích cực: +5 XP / ngày
+        calculated_xp = (
+            (completed_lessons_count * 20) +
+            (completed_attempts.count() * 15) +
+            (high_score_quizzes_count * 10) +
+            (completed_courses_count * 50) +
+            (chat_sessions_count * 10) +
+            (len(active_dates_set) * 5)
+        )
+
+        # 6. Tính toán Tiến độ chuẩn hóa CEFR thực tế (Level Progress %)
+        current_level = student.level or 'B1'
+        level_enrollments = Enrollment.objects.filter(student=student, course__level=current_level)
+        if not level_enrollments.exists():
+            level_enrollments = Enrollment.objects.filter(student=student)
+
+        avg_course_progress = (
+            float(sum(float(e.progress_percent) for e in level_enrollments) / level_enrollments.count())
+            if level_enrollments.exists()
+            else 0.0
+        )
+
+        if accuracy_percent is not None:
+            cefr_progress_percent = round((avg_course_progress * 0.5) + (accuracy_percent * 0.5), 1)
+        else:
+            cefr_progress_percent = round(avg_course_progress, 1)
+
         return {
             'streak': streak,
             'has_studied_today': has_studied_today,
@@ -357,6 +426,17 @@ class StudyStreakService:
             'last_study_time_display': last_study_time_display,
             'days_since_last_study': days_since_last_study,
             'total_study_days': len(active_dates_set),
-            'recent_study_dates': [d.isoformat() for d in sorted_dates[-7:]]
+            'recent_study_dates': [d.isoformat() for d in sorted_dates[-7:]],
+            # Thống kê thật từ CSDL
+            'xp': calculated_xp,
+            'accuracy_percent': accuracy_percent,
+            'cefr_progress_percent': cefr_progress_percent,
+            'completed_lessons_count': completed_lessons_count,
+            'completed_courses_count': completed_courses_count,
+            'total_attempts_count': total_attempts_count,
+            'completed_attempts_count': completed_attempts.count(),
+            'total_questions_answered': total_questions_answered,
+            'total_correct_answers': total_correct_answers,
+            'chat_sessions_count': chat_sessions_count,
         }
 
