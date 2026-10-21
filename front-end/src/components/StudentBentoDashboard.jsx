@@ -35,6 +35,10 @@ export default function StudentBentoDashboard({
   const nextLevel = nextLevelMap[userLevel] || 'B2';
   const levelDesc = levelDescriptions[userLevel] || 'Chuẩn hóa Châu Âu';
 
+  // State lưu dữ liệu chuỗi học tập & thống kê học tập từ CSDL Backend
+  const [streakTick, setStreakTick] = React.useState(0);
+  const [backendStreakData, setBackendStreakData] = React.useState(null);
+
   // 1. Thống kê bài thi & độ chính xác từ CSDL thật
   const backendStats = backendStreakData?.data || backendStreakData || {};
 
@@ -102,10 +106,6 @@ export default function StudentBentoDashboard({
     backendStats.xp != null
       ? backendStats.xp
       : (totalCompletedLessons * 20) + (totalAttempts * 15) + (aiSessionCount * 10);
-
-  // 4. Tính toán Chuỗi học tập (Streak) THẬT dựa trên lịch sử học tập thực tế của học viên
-  const [streakTick, setStreakTick] = React.useState(0);
-  const [backendStreakData, setBackendStreakData] = React.useState(null);
 
   React.useEffect(() => {
     let isMounted = true;
