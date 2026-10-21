@@ -204,7 +204,21 @@ class CertificateService:
     def list_student_certificates(student: CustomUser):
         """
         Lấy danh sách toàn bộ các chứng chỉ đã đạt được của học viên.
+        Đảm bảo nếu học viên đã hoàn thành khóa học nhưng chưa được cấp chứng chỉ thì tự động cấp mã cố định lưu vào DB.
         """
+        completed_enrollments = Enrollment.objects.filter(
+            student=student,
+            status=EnrollmentStatus.COMPLETED
+        ).select_related('course')
+
+        for enr in completed_enrollments:
+            if not hasattr(enr, 'certificate'):
+                cert_code = Certificate.generate_unique_code(enr.course.slug)
+                Certificate.objects.create(
+                    enrollment=enr,
+                    certificate_code=cert_code
+                )
+
         return Certificate.objects.filter(
             enrollment__student=student
         ).select_related('enrollment__course__teacher', 'enrollment__student').order_by('-issued_at')
@@ -212,10 +226,14 @@ class CertificateService:
     @staticmethod
     def get_certificate_by_code(certificate_code: str) -> Certificate | None:
         """
-        Tra cứu và xác thực tính hợp lệ của chứng chỉ theo Mã Chứng Chỉ duy nhất.
+        Tra cứu và xác thực tính hợp lệ của chứng chỉ theo Mã Chứng Chỉ duy nhất từ CSDL.
+        Hỗ trợ đối chiếu chuẩn xác không phân biệt chữ hoa/thường và tự động chuẩn hóa khoảng trắng.
         """
+        code = (certificate_code or '').strip()
+        if not code:
+            return None
         return Certificate.objects.filter(
-            certificate_code=certificate_code.strip()
+            certificate_code__iexact=code
         ).select_related('enrollment__student', 'enrollment__course__teacher').first()
 
 

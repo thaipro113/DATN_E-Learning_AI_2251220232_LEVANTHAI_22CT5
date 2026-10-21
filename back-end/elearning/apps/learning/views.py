@@ -203,7 +203,7 @@ class CertificateVerificationAPIView(APIView):
 
         if not certificate:
             return error_response(
-                message="Mã chứng chỉ không tồn tại hoặc không hợp lệ.",
+                message=f"Mã chứng chỉ '{certificate_code}' không tồn tại trong cơ sở dữ liệu hệ thống hoặc chưa từng được cấp!",
                 status_code=status.HTTP_404_NOT_FOUND
             )
 

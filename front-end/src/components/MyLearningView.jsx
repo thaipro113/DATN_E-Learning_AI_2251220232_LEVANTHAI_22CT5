@@ -438,25 +438,22 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
 
       if (match) {
         setCertificateData(match);
+      } else if (list.length > 0) {
+        setCertificateData(list[0]);
       } else {
-        setCertificateData({
-          certificate_code: `CERT-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`,
-          student_name: user?.full_name || 'Lê Văn Thái',
-          course_title: selectedCourse?.title || courseDetail?.title || 'Khóa học Tiếng Anh',
-          course_level: selectedCourse?.level || courseDetail?.level || 'B1',
-          teacher_name: selectedCourse?.teacher?.full_name || courseDetail?.teacher?.full_name || 'TL-ENGLISH Teacher',
-          issued_at: new Date().toISOString(),
+        setNotification({
+          type: 'error',
+          text: 'Chưa tìm thấy chứng chỉ được cấp cho khóa học này trong cơ sở dữ liệu!',
         });
+        return;
       }
     } catch (e) {
-      setCertificateData({
-        certificate_code: `CERT-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`,
-        student_name: user?.full_name || 'Lê Văn Thái',
-        course_title: selectedCourse?.title || courseDetail?.title || 'Khóa học Tiếng Anh',
-        course_level: selectedCourse?.level || courseDetail?.level || 'B1',
-        teacher_name: selectedCourse?.teacher?.full_name || courseDetail?.teacher?.full_name || 'TL-ENGLISH Teacher',
-        issued_at: new Date().toISOString(),
+      console.warn('Lỗi tải chứng chỉ từ CSDL:', e);
+      setNotification({
+        type: 'error',
+        text: 'Không thể tải chứng chỉ từ máy chủ. Vui lòng kiểm tra lại kết nối mạng!',
       });
+      return;
     }
     setShowCertificate(true);
   };
