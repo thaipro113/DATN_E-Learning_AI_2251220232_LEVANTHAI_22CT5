@@ -20,7 +20,7 @@ export default function FloatingContactWidget({ onOpenAITutor }) {
   };
 
   return (
-    <div className="floating-contact-stack">
+    <div className="floating-contact-stack no-print">
       {/* 1. Nút Zalo Hỗ Trợ Trực Tuyến */}
       <a
         href="https://zalo.me"

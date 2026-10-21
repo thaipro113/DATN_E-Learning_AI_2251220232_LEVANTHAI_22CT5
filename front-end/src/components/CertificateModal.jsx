@@ -15,6 +15,91 @@ export default function CertificateModal({ isOpen, onClose, user, course, certif
     alert(`✓ Đã sao chép mã xác thực: ${certCode}\nBạn có thể dùng mã này để tra cứu công khai!`);
   };
 
+  const handlePrintCertificate = () => {
+    const certCard = document.getElementById('modal-printable-certificate-card');
+    if (!certCard) {
+      window.print();
+      return;
+    }
+
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+
+    const certClone = certCard.cloneNode(true);
+    const closeBtn = certClone.querySelector('.no-print');
+    if (closeBtn) closeBtn.remove();
+    const actionBtns = certClone.querySelector('.modal-action-btns');
+    if (actionBtns) actionBtns.remove();
+
+    const doc = printFrame.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Chứng Chỉ Hoàn Thành Khóa Học - ${studentName}</title>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 8mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              background: #ffffff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 95vh;
+              padding: 20px;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .certificate-wrapper {
+              width: 100%;
+              max-width: 820px;
+              background-color: #ffffff;
+              border-radius: 18px;
+              padding: 38px 42px;
+              border: 8px solid #fef3c7;
+              text-align: center;
+              box-shadow: none;
+              margin: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="certificate-wrapper">
+            ${certClone.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    printFrame.contentWindow.focus();
+    setTimeout(() => {
+      printFrame.contentWindow.print();
+      setTimeout(() => {
+        if (document.body.contains(printFrame)) {
+          document.body.removeChild(printFrame);
+        }
+      }, 1500);
+    }, 450);
+  };
+
   return (
     <div
       style={{
@@ -32,6 +117,8 @@ export default function CertificateModal({ isOpen, onClose, user, course, certif
       }}
     >
       <div
+        id="modal-printable-certificate-card"
+        className="certificate-print-card"
         style={{
           backgroundColor: '#ffffff',
           borderRadius: 'var(--radius-lg)',
@@ -46,6 +133,7 @@ export default function CertificateModal({ isOpen, onClose, user, course, certif
       >
         {/* Close button */}
         <button
+          className="no-print"
           onClick={onClose}
           style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '1.2rem', color: '#94a3b8', cursor: 'pointer' }}
         >
@@ -108,7 +196,7 @@ export default function CertificateModal({ isOpen, onClose, user, course, certif
           </div>
         </div>
 
-        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="no-print modal-action-btns" style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <button
             className="btn-outline"
             onClick={handleCopyCode}
@@ -119,7 +207,7 @@ export default function CertificateModal({ isOpen, onClose, user, course, certif
           </button>
           <button
             className="btn-primary"
-            onClick={() => window.print()}
+            onClick={handlePrintCertificate}
             style={{ padding: '8px 18px', fontSize: '0.85rem' }}
           >
             <i className="fa-solid fa-print"></i>

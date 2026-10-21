@@ -4780,4 +4780,67 @@ textarea {
 .quick-hub-item:hover {
   transform: translateX(4px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
+}
+
+/* ==========================================================================
+   PRINT STYLES FOR DIGITAL CERTIFICATES
+   ========================================================================== */
+@media print {
+  /* 1. Ẩn toàn bộ tất cả mọi phần tử trên trang web */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* 2. Chỉ hiển thị duy nhất tấm chứng chỉ và các thành phần con của nó */
+  .certificate-print-card,
+  .certificate-print-card * {
+    visibility: visible !important;
+  }
+
+  /* 3. Căn chỉnh tấm chứng chỉ nằm chính giữa trang in PDF đẹp mắt */
+  .certificate-print-card {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 90% !important;
+    max-width: 820px !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: 8px solid #fef3c7 !important;
+    border-radius: 18px !important;
+    padding: 36px 40px !important;
+    background-color: #ffffff !important;
+    page-break-inside: avoid !important;
+    text-align: center !important;
+    display: block !important;
+    z-index: 999999 !important;
+  }
+
+  /* 4. Ẩn triệt để các nút bấm, widget liên hệ, thanh điều hướng */
+  .no-print,
+  .no-print *,
+  header,
+  footer,
+  nav,
+  .navbar,
+  .floating-contact-stack,
+  .floating-contact-stack * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+}
+

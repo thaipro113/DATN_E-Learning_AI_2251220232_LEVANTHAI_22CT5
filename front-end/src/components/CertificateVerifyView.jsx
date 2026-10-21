@@ -17,7 +17,7 @@ export default function CertificateVerifyView({ onBackToDashboard }) {
     setCertResult(null);
 
     try {
-      // Gọi API tra cứu thực tế từ CSDL PostgreSQL (không dùng dữ liệu giả lập)
+      // Gọi API tra cứu thực tế từ CSDL PostgreSQL (đối chiếu 100% không dùng mock data)
       const res = await learningAPI.verifyCertificate(cleanCode);
       const data = res.data?.data || res.data;
       if (data && data.certificate_code) {
@@ -26,7 +26,6 @@ export default function CertificateVerifyView({ onBackToDashboard }) {
         setErrorMsg(`Không tìm thấy chứng chỉ với mã "${cleanCode.toUpperCase()}" trong cơ sở dữ liệu hệ thống!`);
       }
     } catch (err) {
-      // Hiển thị đúng thông báo lỗi từ Backend khi mã không có trong DB
       const serverMsg = err.response?.data?.message || err.response?.data?.detail;
       setErrorMsg(
         serverMsg ||
@@ -38,36 +37,105 @@ export default function CertificateVerifyView({ onBackToDashboard }) {
     }
   };
 
-  const handleQuickTest = (sampleCode) => {
-    setCertCode(sampleCode);
+  const handleCopyCode = () => {
+    if (!certResult?.certificate_code) return;
+    navigator.clipboard.writeText(certResult.certificate_code);
+    alert(`✓ Đã sao chép mã xác thực: ${certResult.certificate_code}\nBạn có thể dùng mã này để chia sẻ hoặc đối chiếu công khai!`);
+  };
+
+  // Hàm in chuyên dụng: CHỈ IN MỖI TẤM CHỨNG CHỈ, LOẠI BỎ 100% GIAO DIỆN WEB & NÚT BẤM
+  const handlePrintCertificate = () => {
+    const certCard = document.getElementById('printable-certificate-card');
+    if (!certCard) {
+      window.print();
+      return;
+    }
+
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+
+    const certClone = certCard.cloneNode(true);
+    const actionBtns = certClone.querySelector('.no-print');
+    if (actionBtns) {
+      actionBtns.remove();
+    }
+
+    const doc = printFrame.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Chứng Chỉ Hoàn Thành Khóa Học - ${certResult?.student_name || 'Học viên'}</title>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 8mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              background: #ffffff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 95vh;
+              padding: 20px;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .certificate-wrapper {
+              width: 100%;
+              max-width: 820px;
+              background-color: #ffffff;
+              border-radius: 18px;
+              padding: 38px 42px;
+              border: 8px solid #fef3c7;
+              text-align: center;
+              box-shadow: none;
+              margin: auto;
+            }
+            .no-print {
+              display: none !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="certificate-wrapper">
+            ${certClone.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    printFrame.contentWindow.focus();
     setTimeout(() => {
-      // Tự động kích hoạt tra cứu
-      const cleanCode = sampleCode.trim();
-      setIsLoading(true);
-      setErrorMsg('');
-      setCertResult(null);
-      learningAPI.verifyCertificate(cleanCode)
-        .then((res) => {
-          const data = res.data?.data || res.data;
-          if (data && data.certificate_code) {
-            setCertResult(data);
-          } else {
-            setErrorMsg(`Không tìm thấy chứng chỉ với mã "${cleanCode}" trong cơ sở dữ liệu!`);
-          }
-        })
-        .catch((err) => {
-          const msg = err.response?.data?.message || `Mã chứng chỉ "${cleanCode}" không tồn tại trong CSDL!`;
-          setErrorMsg(msg);
-          setCertResult(null);
-        })
-        .finally(() => setIsLoading(false));
-    }, 50);
+      printFrame.contentWindow.print();
+      setTimeout(() => {
+        if (document.body.contains(printFrame)) {
+          document.body.removeChild(printFrame);
+        }
+      }, 1500);
+    }, 450);
   };
 
   return (
     <div style={{ maxWidth: '840px', margin: '0 auto', padding: '10px 0' }}>
-      {/* Breadcrumb */}
-      <div style={{ marginBottom: '16px' }}>
+      {/* Breadcrumb (Ẩn khi in) */}
+      <div className="no-print" style={{ marginBottom: '16px' }}>
         <button
           onClick={onBackToDashboard}
           style={{
@@ -87,8 +155,8 @@ export default function CertificateVerifyView({ onBackToDashboard }) {
         </button>
       </div>
 
-      {/* Header */}
-      <div className="page-header-box" style={{ textAlign: 'center', flexDirection: 'column', gap: '8px', padding: '24px' }}>
+      {/* Header (Ẩn khi in) */}
+      <div className="page-header-box no-print" style={{ textAlign: 'center', flexDirection: 'column', gap: '8px', padding: '24px' }}>
         <div
           style={{
             width: '60px',
@@ -114,8 +182,9 @@ export default function CertificateVerifyView({ onBackToDashboard }) {
         </p>
       </div>
 
-      {/* Search Box */}
+      {/* Search Box (Ẩn khi in) */}
       <div
+        className="no-print"
         style={{
           backgroundColor: 'var(--bg-surface)',
           padding: '24px',
@@ -165,29 +234,6 @@ export default function CertificateVerifyView({ onBackToDashboard }) {
           </button>
         </form>
 
-        {/* Gợi ý tra cứu mẫu từ CSDL */}
-        <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          <span style={{ fontWeight: '600' }}><i className="fa-solid fa-lightbulb" style={{ color: '#eab308' }}></i> Mã chứng chỉ có sẵn trong CSDL để thử nghiệm:</span>
-          <button
-            type="button"
-            onClick={() => handleQuickTest('CERT-2026-CHINH-EA3K5Q')}
-            style={{
-              padding: '2px 8px',
-              borderRadius: '4px',
-              backgroundColor: '#e0f2fe',
-              color: '#0369a1',
-              border: '1px solid #bae6fd',
-              fontSize: '0.78rem',
-              fontWeight: '700',
-              fontFamily: 'monospace',
-              cursor: 'pointer',
-            }}
-            title="Bấm để tự động điền và tra cứu mã chứng chỉ thật từ CSDL"
-          >
-            CERT-2026-CHINH-EA3K5Q
-          </button>
-        </div>
-
         {/* Thông báo lỗi khi mã không có trong CSDL */}
         {errorMsg && (
           <div
@@ -214,150 +260,200 @@ export default function CertificateVerifyView({ onBackToDashboard }) {
         )}
       </div>
 
-      {/* Kết quả Tra cứu đối chiếu CSDL thành công */}
+      {/* KẾT QUẢ ĐỐI CHIẾU: TẤM CHỨNG CHỈ DANH DỰ (GIỐNG CHỨNG CHỈ TRONG KHÓA HỌC) */}
       {certResult && (
-        <div
-          style={{
-            backgroundColor: 'var(--bg-surface)',
-            border: '2px solid #10b981',
-            borderRadius: 'var(--radius-lg)',
-            padding: '28px',
-            boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.15)',
-            animation: 'fadeIn 0.3s ease',
-          }}
-        >
-          {/* Header kết quả */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ animation: 'fadeIn 0.3s ease' }}>
+          {/* Header trạng thái xác thực phía trên (Ẩn khi in) */}
+          <div
+            className="no-print"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '16px',
+              padding: '12px 18px',
+              backgroundColor: '#dcfce7',
+              border: '1px solid #86efac',
+              borderRadius: 'var(--radius-md)',
+              color: '#15803d',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', fontSize: '0.9rem' }}>
+              <i className="fa-solid fa-circle-check" style={{ fontSize: '1.1rem' }}></i>
+              <span>CHỨNG CHỈ HỢP LỆ VÀ ĐÃ ĐƯỢC ĐỐI CHIẾU THÀNH CÔNG VỚI CSDL HỆ THỐNG</span>
+            </div>
+            <div
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: '#ffffff',
+                color: '#15803d',
+                border: '1px solid #86efac',
+              }}
+            >
+              PostgreSQL Verified ✓
+            </div>
+          </div>
+
+          {/* TẤM CHỨNG CHỈ SỐ HOÀN HẢO ĐỂ HIỂN THỊ VÀ IN ẤN */}
+          <div
+            id="printable-certificate-card"
+            className="certificate-print-card"
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: 'var(--radius-lg)',
+              maxWidth: '780px',
+              width: '100%',
+              margin: '0 auto',
+              padding: '40px 36px',
+              boxShadow: 'var(--shadow-lg)',
+              border: '8px solid #fef3c7',
+              position: 'relative',
+              textAlign: 'center',
+            }}
+          >
+            {/* Certificate Icon */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
               <div
                 style={{
-                  width: '44px',
-                  height: '44px',
+                  width: '68px',
+                  height: '68px',
                   borderRadius: '50%',
-                  backgroundColor: '#dcfce7',
-                  color: '#15803d',
+                  backgroundColor: '#fef3c7',
+                  color: '#d97706',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.4rem',
-                  boxShadow: '0 2px 8px rgba(22, 163, 74, 0.2)',
+                  fontSize: '2.1rem',
+                  boxShadow: '0 4px 14px rgba(217, 119, 6, 0.25)',
                 }}
               >
-                <i className="fa-solid fa-check-double"></i>
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#15803d', margin: 0 }}>
-                  CHỨNG CHỈ HỢP LỆ & ĐÃ ĐỐI CHIẾU THÀNH CÔNG
-                </h3>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  Dữ liệu gốc được lưu trữ cố định và bảo mật tại CSDL PostgreSQL E-Learning AI
-                </span>
+                <i className="fa-solid fa-award"></i>
               </div>
             </div>
+
+            <div style={{ fontSize: '0.85rem', fontWeight: '800', letterSpacing: '2px', color: '#d97706', textTransform: 'uppercase' }}>
+              E-LEARNING AI PLATFORM · CHỨNG CHỈ SỐ
+            </div>
+
+            <h2 style={{ fontSize: '1.85rem', fontWeight: '800', color: '#0f172a', margin: '8px 0 16px 0', fontFamily: 'serif' }}>
+              CHỨNG CHỈ HOÀN THÀNH KHÓA HỌC
+            </h2>
+
+            <p style={{ fontSize: '0.92rem', color: '#64748b', fontStyle: 'italic', marginBottom: '6px' }}>
+              Chứng nhận danh dự được trao tặng cho:
+            </p>
 
             <div
               style={{
-                padding: '4px 12px',
-                borderRadius: 'var(--radius-full)',
-                backgroundColor: '#dcfce7',
-                color: '#15803d',
-                fontSize: '0.78rem',
+                fontSize: '1.9rem',
                 fontWeight: '800',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
+                color: '#0284c7',
+                margin: '10px 0 16px 0',
+                borderBottom: '2px solid #e2e8f0',
+                display: 'inline-block',
+                paddingBottom: '4px',
+                letterSpacing: '0.5px',
               }}
             >
-              <i className="fa-solid fa-shield-check"></i>
-              <span>CHỨNG NHẬN CHÍNH THỨC</span>
-            </div>
-          </div>
-
-          {/* Bảng thông tin chi tiết */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '16px',
-              backgroundColor: 'var(--bg-subtle)',
-              padding: '20px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-color)',
-              marginBottom: '20px',
-            }}
-          >
-            <div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>
-                MÃ XÁC THỰC DUY NHẤT (CSDL):
-              </span>
-              <strong style={{ fontSize: '1.05rem', color: '#0284c7', fontFamily: 'monospace', display: 'block', marginTop: '2px' }}>
-                {certResult.certificate_code}
-              </strong>
+              {certResult.student_name}
             </div>
 
-            <div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>
-                HỌC VIÊN HOÀN THÀNH:
-              </span>
-              <strong style={{ fontSize: '1.05rem', color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
-                {certResult.student_name}
+            <p style={{ fontSize: '0.95rem', color: '#334155', maxWidth: '580px', margin: '0 auto 24px auto', lineHeight: 1.6 }}>
+              Đã xuất sắc hoàn thành 100% giáo trình học tập và vượt qua các bài kiểm tra đánh giá năng lực của khóa học:
+              <strong style={{ display: 'block', color: '#0f172a', marginTop: '8px', fontSize: '1.15rem' }}>
+                "{certResult.course_title}"
               </strong>
-              {certResult.student_email && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{certResult.student_email}</span>
+              {certResult.course_level && (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '6px',
+                    fontSize: '0.76rem',
+                    fontWeight: '800',
+                    padding: '2px 10px',
+                    borderRadius: 'var(--radius-full)',
+                    backgroundColor: '#e0f2fe',
+                    color: '#0369a1',
+                  }}
+                >
+                  Trình độ đạt được: {certResult.course_level}
+                </span>
               )}
+            </p>
+
+            {/* Certificate Details Footer */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-around',
+                borderTop: '1px solid #e2e8f0',
+                paddingTop: '20px',
+                marginTop: '20px',
+                fontSize: '0.82rem',
+                color: '#64748b',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <span style={{ display: 'block', fontWeight: '700', color: '#0f172a', fontSize: '0.74rem', textTransform: 'uppercase' }}>
+                  MÃ XÁC THỰC CSDL
+                </span>
+                <span style={{ fontFamily: 'monospace', color: '#0284c7', fontWeight: '800', fontSize: '0.9rem' }}>
+                  {certResult.certificate_code}
+                </span>
+              </div>
+              <div>
+                <span style={{ display: 'block', fontWeight: '700', color: '#0f172a', fontSize: '0.74rem', textTransform: 'uppercase' }}>
+                  NGÀY CẤP
+                </span>
+                <span style={{ fontWeight: '700', color: '#334155' }}>
+                  {certResult.issued_at ? new Date(certResult.issued_at).toLocaleDateString('vi-VN') : '20/09/2026'}
+                </span>
+              </div>
+              <div>
+                <span style={{ display: 'block', fontWeight: '700', color: '#0f172a', fontSize: '0.74rem', textTransform: 'uppercase' }}>
+                  CHỮ KÝ ĐIỆN TỬ
+                </span>
+                <span style={{ color: '#059669', fontWeight: '800' }}>✓ Verified by E-Learning AI</span>
+              </div>
             </div>
 
-            <div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>
-                KHÓA HỌC TỐT NGHIỆP:
-              </span>
-              <strong style={{ fontSize: '1rem', color: '#0f172a', display: 'block', marginTop: '2px' }}>
-                {certResult.course_title}
-              </strong>
-            </div>
-
-            <div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>
-                TRÌNH ĐỘ ĐẠT ĐƯỢC:
-              </span>
-              <span
-                style={{
-                  display: 'inline-block',
-                  marginTop: '4px',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  backgroundColor: '#dbeafe',
-                  color: '#1e40af',
-                  fontSize: '0.78rem',
-                  fontWeight: '800',
-                }}
+            {/* CỤM 2 BUTTON THAO TÁC Ở DƯỚI (ẨN HOÀN TOÀN 100% KHI IN) */}
+            <div
+              className="no-print"
+              style={{
+                marginTop: '28px',
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '12px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={handleCopyCode}
+                style={{ padding: '9px 20px', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                {certResult.course_level || 'CEFR Standard'}
-              </span>
+                <i className="fa-solid fa-copy"></i>
+                <span>Sao chép mã tra cứu</span>
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handlePrintCertificate}
+                style={{ padding: '9px 22px', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <i className="fa-solid fa-print"></i>
+                <span>In chứng chỉ (PDF)</span>
+              </button>
             </div>
-
-            <div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>
-                GIẢNG VIÊN PHỤ TRÁCH:
-              </span>
-              <strong style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
-                {certResult.teacher_name || 'Hội đồng chuyên môn E-Learning AI'}
-              </strong>
-            </div>
-
-            <div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>
-                NGÀY CẤP CHỨNG NHẬN:
-              </span>
-              <strong style={{ fontSize: '0.92rem', color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
-                {certResult.issued_at ? new Date(certResult.issued_at).toLocaleDateString('vi-VN') : 'Mới đây'}
-              </strong>
-            </div>
-          </div>
-
-          <div style={{ textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-            <i className="fa-solid fa-lock" style={{ marginRight: '4px' }}></i>
-            Chứng chỉ được chứng thực điện tử theo mã băm bảo mật duy nhất trong cơ sở dữ liệu khóa học.
           </div>
         </div>
       )}
