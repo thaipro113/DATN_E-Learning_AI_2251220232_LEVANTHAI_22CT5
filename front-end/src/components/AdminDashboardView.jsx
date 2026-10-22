@@ -78,7 +78,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
   // Course Approval & Rejection State
   const [courseStatusFilter, setCourseStatusFilter] = useState('ALL');
   
-  // Khởi tạo và phân công khóa học (Admin tạo khung, phân công GV chính + nhiều GV đồng giảng + Thẩm định viên)
+  // Khởi tạo và phân công khóa học (Admin tạo khung, phân công GV chính + Thẩm định viên chính / Hội đồng phản biện)
   const initialCourseFormData = {
     id: null,
     title: '',
@@ -87,6 +87,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
     teacher_id: '',
     co_teacher_ids: [],
     assigned_reviewer_id: '',
+    co_reviewer_ids: [],
     price: 0,
     is_free: true,
     thumbnail_url: '',
@@ -97,6 +98,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [isEditingCourseAssignment, setIsEditingCourseAssignment] = useState(false);
   const [showCoTeacherSection, setShowCoTeacherSection] = useState(false);
+  const [showCoReviewerSection, setShowCoReviewerSection] = useState(false);
   const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
   const [rejectModal, setRejectModal] = useState({
     isOpen: false,
@@ -298,6 +300,11 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
     });
   }, [teacherUsers, teacherSearchQuery]);
 
+  // Danh sách tài khoản Thẩm định viên (chỉ role === 'REVIEWER')
+  const reviewerUsers = useMemo(() => {
+    return (users || []).filter((u) => u.role === 'REVIEWER');
+  }, [users]);
+
   const handleReanalyzeQuestion = async (item) => {
     setIsReanalyzing(true);
     try {
@@ -462,10 +469,11 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
     });
   };
 
-  // 3.0 Admin Khởi tạo khung khóa học & Phân công nhân sự (GV chính, Đồng giảng, Phản biện)
+  // 3.0 Admin Khởi tạo khung khóa học & Phân công nhân sự (GV chính, Thẩm định viên chính, Hội đồng thẩm định)
   const handleOpenCreateCourseModal = () => {
     setIsEditingCourseAssignment(false);
     setShowCoTeacherSection(false);
+    setShowCoReviewerSection(false);
     setTeacherSearchQuery('');
     const teacherList = users.filter((u) => u.role === 'TEACHER');
     setCourseForm({
@@ -476,6 +484,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
       teacher_id: teacherList[0]?.id || '',
       co_teacher_ids: [],
       assigned_reviewer_id: '',
+      co_reviewer_ids: [],
       price: 0,
       is_free: true,
       thumbnail_url: '',
@@ -487,8 +496,9 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
 
   const handleOpenAssignModal = (course) => {
     setIsEditingCourseAssignment(true);
-    const hasCoTeachers = Array.isArray(course.co_teachers) && course.co_teachers.length > 0;
-    setShowCoTeacherSection(hasCoTeachers);
+    const hasCoReviewers = Array.isArray(course.co_reviewers) && course.co_reviewers.length > 0;
+    setShowCoReviewerSection(hasCoReviewers);
+    setShowCoTeacherSection(false);
     setTeacherSearchQuery('');
     setCourseForm({
       id: course.id,
@@ -498,6 +508,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
       teacher_id: course.teacher?.id || '',
       co_teacher_ids: (course.co_teachers || []).map((t) => t.id),
       assigned_reviewer_id: course.assigned_reviewer?.id || course.reviewed_by?.id || '',
+      co_reviewer_ids: (course.co_reviewers || []).map((r) => r.id),
       price: course.price || 0,
       is_free: course.is_free !== false,
       thumbnail_url: course.thumbnail_url || '',
@@ -525,8 +536,9 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
         category_id: courseForm.category_id || null,
         level: courseForm.level,
         teacher_id: courseForm.teacher_id,
-        co_teacher_ids: showCoTeacherSection ? courseForm.co_teacher_ids : [],
+        co_teacher_ids: courseForm.co_teacher_ids || [],
         assigned_reviewer_id: courseForm.assigned_reviewer_id || null,
+        co_reviewer_ids: showCoReviewerSection ? courseForm.co_reviewer_ids : [],
         price: courseForm.is_free ? 0 : Number(courseForm.price || 0),
         is_free: courseForm.is_free,
         thumbnail_url: courseForm.thumbnail_url.trim() || undefined,
@@ -2161,10 +2173,16 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                               )}
                             </td>
                             <td style={{ padding: '12px 10px' }}>
-                              <div style={{ fontSize: '0.82rem', fontWeight: '600', color: c.assigned_reviewer ? 'var(--text-main)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: '600', color: (c.assigned_reviewer || (c.co_reviewers && c.co_reviewers.length > 0)) ? 'var(--text-main)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                 <i className="fa-solid fa-scale-balanced" style={{ color: c.assigned_reviewer ? '#e11d48' : '#94a3b8', fontSize: '0.8rem' }}></i>
                                 <span>{c.assigned_reviewer?.full_name || c.reviewed_by?.full_name || 'Chưa phân công'}</span>
                               </div>
+                              {Array.isArray(c.co_reviewers) && c.co_reviewers.length > 0 && (
+                                <div style={{ fontSize: '0.72rem', color: '#be123c', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', fontWeight: '600' }}>
+                                  <i className="fa-solid fa-users" style={{ color: '#e11d48', fontSize: '0.7rem' }}></i>
+                                  <span>Hội đồng: +{c.co_reviewers.length} Thẩm định</span>
+                                </div>
+                              )}
                             </td>
                             <td style={{ padding: '12px 10px' }}>
                               <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '800', fontSize: '0.78rem' }}>
@@ -3348,65 +3366,65 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                 </div>
               </div>
 
-              {/* PHÂN CÔNG NHÂN SỰ ĐÀO TẠO */}
-              <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* PHÂN CÔNG NHÂN SỰ ĐÀO TẠO & THẨM ĐỊNH */}
+              <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-color)', paddingBottom: '8px' }}>
-                  <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <i className="fa-solid fa-users-gear"></i>
-                    <span>PHÂN CÔNG GIẢNG VIÊN & THẨM ĐỊNH VIÊN</span>
+                  <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#be123c', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="fa-solid fa-scale-balanced" style={{ color: '#e11d48' }}></i>
+                    <span>PHÂN CÔNG THẨM ĐỊNH VIÊN & GIẢNG VIÊN</span>
                   </div>
-                  {/* Nút chuyển đổi chế độ: 1 Giảng viên chính (mặc định) HOẶC Nhiều giảng viên */}
+                  {/* Nút chuyển đổi chế độ Thẩm định viên: 1 Thẩm định viên (mặc định) HOẶC Hội đồng nhiều thẩm định */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-surface)', padding: '2px 4px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                     <button
                       type="button"
                       onClick={() => {
-                        setShowCoTeacherSection(false);
-                        setCourseForm({ ...courseForm, co_teacher_ids: [] });
+                        setShowCoReviewerSection(false);
+                        setCourseForm({ ...courseForm, co_reviewer_ids: [] });
                       }}
                       style={{
                         border: 'none',
                         padding: '4px 9px',
                         borderRadius: '4px',
                         fontSize: '0.74rem',
-                        fontWeight: !showCoTeacherSection ? '700' : '500',
-                        backgroundColor: !showCoTeacherSection ? '#0284c7' : 'transparent',
-                        color: !showCoTeacherSection ? '#fff' : 'var(--text-muted)',
+                        fontWeight: !showCoReviewerSection ? '700' : '500',
+                        backgroundColor: !showCoReviewerSection ? '#e11d48' : 'transparent',
+                        color: !showCoReviewerSection ? '#fff' : 'var(--text-muted)',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                       }}
-                      title="Chế độ mặc định: Chọn 1 giảng viên phụ trách chính"
+                      title="Chế độ mặc định: Chỉ định 1 Thẩm định viên chịu trách nhiệm duyệt khóa học"
                     >
-                      <i className="fa-solid fa-user" style={{ marginRight: '4px' }}></i>
-                      1 Giảng viên chính
+                      <i className="fa-solid fa-user-shield" style={{ marginRight: '4px' }}></i>
+                      1 Thẩm định viên
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowCoTeacherSection(true)}
+                      onClick={() => setShowCoReviewerSection(true)}
                       style={{
                         border: 'none',
                         padding: '4px 9px',
                         borderRadius: '4px',
                         fontSize: '0.74rem',
-                        fontWeight: showCoTeacherSection ? '700' : '500',
-                        backgroundColor: showCoTeacherSection ? '#0284c7' : 'transparent',
-                        color: showCoTeacherSection ? '#fff' : 'var(--text-muted)',
+                        fontWeight: showCoReviewerSection ? '700' : '500',
+                        backgroundColor: showCoReviewerSection ? '#e11d48' : 'transparent',
+                        color: showCoReviewerSection ? '#fff' : 'var(--text-muted)',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                       }}
-                      title="Chuyển sang chế độ chọn nhiều giảng viên đồng phụ trách & trợ giảng"
+                      title="Chuyển sang chế độ Hội đồng nhiều Thẩm định viên cùng tham gia phản biện"
                     >
                       <i className="fa-solid fa-users" style={{ marginRight: '4px' }}></i>
-                      Nhiều giảng viên {courseForm.co_teacher_ids.length > 0 ? `(${courseForm.co_teacher_ids.length + 1})` : ''}
+                      Hội đồng nhiều thẩm định {courseForm.co_reviewer_ids.length > 0 ? `(${courseForm.co_reviewer_ids.length + 1})` : ''}
                     </button>
                   </div>
                 </div>
 
                 {/* 1. CHUYÊN GIA THẨM ĐỊNH / PHẢN BIỆN KHÓA HỌC (REVIEWER) - VAI TRÒ CHÍNH CỦA ADMIN */}
-                <div style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: '#fff1f2', border: '1.5px solid #fecdd3' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: '#fff1f2', border: '1.5px solid #fecdd3', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#be123c', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-                      <i className="fa-solid fa-scale-balanced" style={{ color: '#e11d48' }}></i>
-                      <span>Chuyên gia Thẩm định / Phản biện khóa học (Reviewer):</span>
+                      <i className="fa-solid fa-shield-halved" style={{ color: '#e11d48' }}></i>
+                      <span>{showCoReviewerSection ? 'Thẩm định viên chính (Chủ tịch / Chủ trì duyệt) *:' : 'Thẩm định viên phụ trách duyệt khóa học (Reviewer):'}</span>
                     </label>
                     <span style={{ fontSize: '0.72rem', color: '#9f1239', fontWeight: '700' }}>
                       ⭐ Nhiệm vụ của Admin
@@ -3414,26 +3432,213 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                   </div>
                   <select
                     value={courseForm.assigned_reviewer_id}
-                    onChange={(e) => setCourseForm({ ...courseForm, assigned_reviewer_id: e.target.value })}
+                    onChange={(e) => {
+                      const newRId = e.target.value;
+                      setCourseForm({
+                        ...courseForm,
+                        assigned_reviewer_id: newRId,
+                        co_reviewer_ids: courseForm.co_reviewer_ids.filter((id) => id !== newRId),
+                      });
+                    }}
                     style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #fda4af', fontSize: '0.88rem', fontWeight: '700', backgroundColor: '#fff', color: '#0f172a' }}
                   >
                     <option value="">-- Chưa chỉ định (Để trống nếu chưa có) --</option>
-                    {users
-                      .filter((u) => u.role === 'REVIEWER')
-                      .map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.full_name || r.email} ({r.email})
-                        </option>
-                      ))}
+                    {reviewerUsers.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.full_name || r.email} ({r.email})
+                      </option>
+                    ))}
                   </select>
-                  <p style={{ margin: '6px 0 0', fontSize: '0.74rem', color: '#9f1239', lineHeight: '1.3' }}>
-                    * Admin chỉ định Thẩm định viên (Reviewer) xem xét giáo trình, kiểm định chất lượng và duyệt xuất bản khóa học.
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: '#9f1239', lineHeight: '1.35' }}>
+                    * Admin chỉ định Thẩm định viên gán riêng cho khóa học này. Chỉ Thẩm định viên được phân công mới có quyền xem giáo trình và duyệt xuất bản.
                   </p>
+
+                  {/* Khi bật chế độ Hội đồng nhiều Thẩm định viên */}
+                  {showCoReviewerSection && (
+                    <div style={{ marginTop: '4px', padding: '12px', borderRadius: '8px', backgroundColor: '#ffffff', border: '1px solid #fbcfe8', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#9d174d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <i className="fa-solid fa-users-viewfinder"></i>
+                          <span>Hội đồng Thẩm định viên đồng phản biện ({courseForm.co_reviewer_ids.length}):</span>
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const selectableIds = reviewerUsers
+                                .filter((r) => r.id !== courseForm.assigned_reviewer_id)
+                                .map((r) => r.id);
+                              setCourseForm({ ...courseForm, co_reviewer_ids: selectableIds });
+                            }}
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: '700',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: '#fce7f3',
+                              color: '#9d174d',
+                              border: '1px solid #fbcfe8',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Chọn tất cả
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCourseForm({ ...courseForm, co_reviewer_ids: [] })}
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: '600',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: '#f1f5f9',
+                              color: '#64748b',
+                              border: '1px solid #cbd5e1',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Bỏ chọn
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Chips Thẩm định viên đã chọn */}
+                      {courseForm.co_reviewer_ids.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '6px 8px', backgroundColor: '#fff1f2', borderRadius: '6px', border: '1px dashed #fda4af' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#be123c', alignSelf: 'center', marginRight: '4px' }}>
+                            Đã thêm ({courseForm.co_reviewer_ids.length}):
+                          </span>
+                          {courseForm.co_reviewer_ids.map((id) => {
+                            const r = reviewerUsers.find((u) => u.id === id);
+                            if (!r) return null;
+                            return (
+                              <span
+                                key={id}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  padding: '3px 8px',
+                                  borderRadius: '12px',
+                                  backgroundColor: '#e11d48',
+                                  color: '#ffffff',
+                                  fontSize: '0.74rem',
+                                  fontWeight: '600',
+                                }}
+                              >
+                                <span>{r.full_name || r.email}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCourseForm({
+                                      ...courseForm,
+                                      co_reviewer_ids: courseForm.co_reviewer_ids.filter((rid) => rid !== id),
+                                    });
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    fontSize: '0.75rem',
+                                    lineHeight: 1,
+                                  }}
+                                  title="Xóa khỏi hội đồng"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Checkboxes Thẩm định viên */}
+                      <div style={{ maxHeight: '160px', overflowY: 'auto', padding: '5px', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'var(--bg-subtle)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        {reviewerUsers.map((r) => {
+                          const isMainReviewer = r.id === courseForm.assigned_reviewer_id;
+                          const isChecked = courseForm.co_reviewer_ids.includes(r.id);
+
+                          return (
+                            <div
+                              key={r.id}
+                              onClick={() => {
+                                if (isMainReviewer) return;
+                                const newIds = isChecked
+                                  ? courseForm.co_reviewer_ids.filter((id) => id !== r.id)
+                                  : [...courseForm.co_reviewer_ids, r.id];
+                                setCourseForm({ ...courseForm, co_reviewer_ids: newIds });
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '7px 10px',
+                                borderRadius: '6px',
+                                backgroundColor: isMainReviewer ? '#f8fafc' : isChecked ? '#fff1f2' : 'var(--bg-surface)',
+                                border: isMainReviewer ? '1px dashed #cbd5e1' : isChecked ? '1px solid #fda4af' : '1px solid var(--border-color)',
+                                cursor: isMainReviewer ? 'not-allowed' : 'pointer',
+                                opacity: isMainReviewer ? 0.65 : 1,
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <input
+                                  type="checkbox"
+                                  disabled={isMainReviewer}
+                                  checked={isChecked || isMainReviewer}
+                                  onChange={() => {}}
+                                  style={{ cursor: isMainReviewer ? 'not-allowed' : 'pointer' }}
+                                />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div
+                                    style={{
+                                      width: '26px',
+                                      height: '26px',
+                                      borderRadius: '50%',
+                                      backgroundColor: '#e11d48',
+                                      color: '#fff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '700',
+                                    }}
+                                  >
+                                    {(r.full_name || r.email || 'R').charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                                      {r.full_name || r.email}
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                      {r.email}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              {isMainReviewer && (
+                                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#be123c', backgroundColor: '#ffe4e6', padding: '2px 6px', borderRadius: '4px' }}>
+                                  Thẩm định chính
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {reviewerUsers.length === 0 && (
+                          <div style={{ textAlign: 'center', padding: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            Chưa có tài khoản Thẩm định viên (Reviewer) nào trong hệ thống.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Thanh tìm kiếm giảng viên theo Tên hoặc Gmail */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                {/* 2. GIẢNG VIÊN CHÍNH PHỤ TRÁCH */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Tìm kiếm giảng viên */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <i className="fa-solid fa-magnifying-glass" style={{ color: '#0284c7' }}></i>
                       <span>Tìm kiếm giảng viên (theo Tên hoặc Gmail):</span>
@@ -3482,28 +3687,19 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                     )}
                   </div>
                   {teacherSearchQuery && (
-                    <div style={{ fontSize: '0.74rem', color: '#0284c7', marginTop: '4px', fontStyle: 'italic' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#0284c7', marginTop: '2px', fontStyle: 'italic' }}>
                       Hiển thị {filteredTeachers.length} / {teacherUsers.length} giảng viên khớp với "{teacherSearchQuery}"
                     </div>
                   )}
-                </div>
 
-                {/* 1. Giảng viên chính (KHÔNG hiển thị Admin, chỉ hiển thị tài khoản TEACHER) */}
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                    {showCoTeacherSection ? 'Giảng viên chính phụ trách (Trưởng nhóm) ' : 'Giảng viên chính phụ trách '}<span style={{ color: '#dc2626' }}>*</span>:
+                  {/* Dropdown chọn Giảng viên chính */}
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginTop: '4px' }}>
+                    Giảng viên chính phụ trách <span style={{ color: '#dc2626' }}>*</span>:
                   </label>
                   <select
                     required
                     value={courseForm.teacher_id}
-                    onChange={(e) => {
-                      const newTId = e.target.value;
-                      setCourseForm({
-                        ...courseForm,
-                        teacher_id: newTId,
-                        co_teacher_ids: courseForm.co_teacher_ids.filter((id) => id !== newTId),
-                      });
-                    }}
+                    onChange={(e) => setCourseForm({ ...courseForm, teacher_id: e.target.value })}
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem', fontWeight: '600' }}
                   >
                     <option value="">-- Chọn Giảng viên phụ trách --</option>
@@ -3517,229 +3713,6 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                     )}
                   </select>
                 </div>
-
-                {/* 2. Giảng viên đồng phụ trách (Co-teachers - Nhiều giáo viên) - Xuất hiện khi bấm chế độ Nhiều giảng viên */}
-                {showCoTeacherSection && (
-                  <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', border: '1px solid #bae6fd', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      <label style={{ fontSize: '0.82rem', fontWeight: '700', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <i className="fa-solid fa-users-rectangle"></i>
-                        <span>Danh sách Giảng viên đồng phụ trách & Trợ giảng ({courseForm.co_teacher_ids.length}):</span>
-                      </label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const selectableIds = filteredTeachers
-                              .filter((t) => t.id !== courseForm.teacher_id)
-                              .map((t) => t.id);
-                            const merged = Array.from(new Set([...courseForm.co_teacher_ids, ...selectableIds]));
-                            setCourseForm({ ...courseForm, co_teacher_ids: merged });
-                          }}
-                          style={{
-                            fontSize: '0.72rem',
-                            fontWeight: '700',
-                            padding: '3px 9px',
-                            borderRadius: '4px',
-                            backgroundColor: '#e0f2fe',
-                            color: '#0369a1',
-                            border: '1px solid #bae6fd',
-                            cursor: 'pointer',
-                          }}
-                          title="Chọn tất cả giảng viên đang hiển thị"
-                        >
-                          <i className="fa-solid fa-check-double" style={{ marginRight: '3px' }}></i>
-                          Chọn tất cả ({filteredTeachers.filter((t) => t.id !== courseForm.teacher_id).length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCourseForm({ ...courseForm, co_teacher_ids: [] })}
-                          style={{
-                            fontSize: '0.72rem',
-                            fontWeight: '600',
-                            padding: '3px 9px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#64748b',
-                            border: '1px solid #cbd5e1',
-                            cursor: 'pointer',
-                          }}
-                          title="Bỏ chọn tất cả"
-                        >
-                          Bỏ chọn
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Vùng Thẻ (Chips) các Giảng viên đã chọn */}
-                    {courseForm.co_teacher_ids.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '6px 8px', backgroundColor: '#f0f9ff', borderRadius: '6px', border: '1px dashed #7dd3fc' }}>
-                        <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#0284c7', alignSelf: 'center', marginRight: '4px' }}>
-                          Đã chọn ({courseForm.co_teacher_ids.length}):
-                        </span>
-                        {courseForm.co_teacher_ids.map((id) => {
-                          const t = teacherUsers.find((u) => u.id === id);
-                          if (!t) return null;
-                          return (
-                            <span
-                              key={id}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                padding: '3px 8px',
-                                borderRadius: '12px',
-                                backgroundColor: '#0284c7',
-                                color: '#ffffff',
-                                fontSize: '0.74rem',
-                                fontWeight: '600',
-                              }}
-                            >
-                              <span>{t.full_name || t.email}</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setCourseForm({
-                                    ...courseForm,
-                                    co_teacher_ids: courseForm.co_teacher_ids.filter((tid) => tid !== id),
-                                  });
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#fff',
-                                  cursor: 'pointer',
-                                  padding: 0,
-                                  fontSize: '0.75rem',
-                                  lineHeight: 1,
-                                  opacity: 0.85,
-                                }}
-                                title="Bỏ chọn"
-                              >
-                                ✕
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Danh sách tích chọn giảng viên với thanh cuộn, tên, email, avatar */}
-                    <div style={{ maxHeight: '185px', overflowY: 'auto', padding: '5px', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'var(--bg-subtle)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      {filteredTeachers.map((t) => {
-                        const isMainTeacher = t.id === courseForm.teacher_id;
-                        const isChecked = courseForm.co_teacher_ids.includes(t.id);
-
-                        return (
-                          <div
-                            key={t.id}
-                            onClick={() => {
-                              if (isMainTeacher) return;
-                              const newIds = isChecked
-                                ? courseForm.co_teacher_ids.filter((id) => id !== t.id)
-                                : [...courseForm.co_teacher_ids, t.id];
-                              setCourseForm({ ...courseForm, co_teacher_ids: newIds });
-                            }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '7px 10px',
-                              borderRadius: '6px',
-                              backgroundColor: isMainTeacher ? '#fef3c7' : isChecked ? '#e0f2fe' : 'var(--bg-surface)',
-                              border: isMainTeacher ? '1px solid #fde68a' : isChecked ? '1px solid #7dd3fc' : '1px solid var(--border-color)',
-                              cursor: isMainTeacher ? 'default' : 'pointer',
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <input
-                                type="checkbox"
-                                checked={isMainTeacher || isChecked}
-                                disabled={isMainTeacher}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  if (isMainTeacher) return;
-                                  const newIds = e.target.checked
-                                    ? [...courseForm.co_teacher_ids, t.id]
-                                    : courseForm.co_teacher_ids.filter((id) => id !== t.id);
-                                  setCourseForm({ ...courseForm, co_teacher_ids: newIds });
-                                }}
-                                style={{ width: '16px', height: '16px', cursor: isMainTeacher ? 'default' : 'pointer', accentColor: '#0284c7' }}
-                              />
-                              {/* Avatar viết tắt */}
-                              <div
-                                style={{
-                                  width: '30px',
-                                  height: '30px',
-                                  borderRadius: '50%',
-                                  backgroundColor: isMainTeacher ? '#d97706' : '#0284c7',
-                                  color: '#fff',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontWeight: '800',
-                                  fontSize: '0.74rem',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {(t.full_name || t.email).charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <div style={{ fontSize: '0.82rem', fontWeight: '700', color: isMainTeacher ? '#92400e' : isChecked ? '#0369a1' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span>{t.full_name || t.email}</span>
-                                  {isMainTeacher && (
-                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f59e0b', color: '#fff', fontWeight: '700' }}>
-                                      ⭐ GV Chính
-                                    </span>
-                                  )}
-                                </div>
-                                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                                  {t.email}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Nút đặt làm GV chính nếu chưa phải */}
-                            {!isMainTeacher && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCourseForm({
-                                    ...courseForm,
-                                    teacher_id: t.id,
-                                    co_teacher_ids: courseForm.co_teacher_ids.filter((id) => id !== t.id),
-                                  });
-                                }}
-                                style={{
-                                  fontSize: '0.7rem',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  backgroundColor: 'transparent',
-                                  border: '1px solid var(--border-color)',
-                                  color: 'var(--text-muted)',
-                                  cursor: 'pointer',
-                                }}
-                                title="Chuyển giảng viên này thành Giảng viên chính phụ trách"
-                              >
-                                Đặt làm GV chính
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {filteredTeachers.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '16px 8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          <i className="fa-solid fa-user-slash" style={{ fontSize: '1.2rem', marginBottom: '6px', display: 'block', color: '#cbd5e1' }}></i>
-                          Không tìm thấy giảng viên nào với từ khóa "{teacherSearchQuery}"
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
               </div>
 
               {/* Học phí & Thumbnail */}

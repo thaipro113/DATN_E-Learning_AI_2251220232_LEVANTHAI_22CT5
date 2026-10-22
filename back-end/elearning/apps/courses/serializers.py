@@ -231,6 +231,7 @@ class CourseListSerializer(serializers.ModelSerializer):
     teacher = TeacherSimpleSerializer(read_only=True)
     co_teachers = TeacherSimpleSerializer(many=True, read_only=True)
     assigned_reviewer = TeacherSimpleSerializer(read_only=True)
+    co_reviewers = TeacherSimpleSerializer(many=True, read_only=True)
     reviewed_by = TeacherSimpleSerializer(read_only=True)
     level_display = serializers.CharField(source='get_level_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
@@ -260,6 +261,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             'reviewed_by',
             'reviewed_at',
             'assigned_reviewer',
+            'co_reviewers',
             'category',
             'teacher',
             'co_teachers',
@@ -290,6 +292,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     teacher = TeacherSimpleSerializer(read_only=True)
     co_teachers = TeacherSimpleSerializer(many=True, read_only=True)
     assigned_reviewer = TeacherSimpleSerializer(read_only=True)
+    co_reviewers = TeacherSimpleSerializer(many=True, read_only=True)
     reviewed_by = TeacherSimpleSerializer(read_only=True)
     chapters = ChapterSimpleSerializer(many=True, read_only=True)
     level_display = serializers.CharField(source='get_level_display', read_only=True)
@@ -320,6 +323,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'reviewed_by',
             'reviewed_at',
             'assigned_reviewer',
+            'co_reviewers',
             'category',
             'teacher',
             'co_teachers',
@@ -373,7 +377,14 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
         source='assigned_reviewer',
         required=False,
         allow_null=True,
-        help_text="ID chuyên gia thẩm định được phân công"
+        help_text="ID chuyên gia thẩm định được phân công chính"
+    )
+    co_reviewer_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=CustomUser.objects.filter(role__in=['REVIEWER', 'ADMIN']),
+        source='co_reviewers',
+        required=False,
+        help_text="Danh sách ID hội đồng chuyên gia thẩm định / đồng phản biện"
     )
     thumbnail_url = serializers.CharField(
         required=False,
@@ -392,6 +403,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             'teacher_id',
             'co_teacher_ids',
             'assigned_reviewer_id',
+            'co_reviewer_ids',
             'level',
             'thumbnail_url',
             'price',

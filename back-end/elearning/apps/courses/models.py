@@ -97,6 +97,12 @@ class Course(BaseModel):
         related_name='assigned_review_courses',
         verbose_name=_('Thẩm định viên được phân công')
     )
+    co_reviewers = models.ManyToManyField(
+        'accounts.CustomUser',
+        related_name='co_reviewing_courses',
+        blank=True,
+        verbose_name=_('Hội đồng Thẩm định viên / Đồng phản biện')
+    )
     status = models.CharField(
         _('Trạng thái khóa học'),
         max_length=20,

@@ -73,15 +73,26 @@ class CourseService:
     @staticmethod
     def list_courses(filters: dict = None, user=None):
         filters = filters or {}
-        queryset = Course.objects.select_related('category', 'teacher')
+        queryset = Course.objects.select_related(
+            'category', 'teacher', 'assigned_reviewer', 'reviewed_by'
+        ).prefetch_related(
+            'co_teachers', 'co_reviewers'
+        )
 
-        if user and user.is_authenticated and user.role in ['ADMIN', 'REVIEWER']:
+        if user and user.is_authenticated and user.role == 'ADMIN':
+            if filters.get('status'):
+                queryset = queryset.filter(status=filters.get('status'))
+        elif user and user.is_authenticated and user.role == 'REVIEWER':
+            # Thẩm định viên CHỈ XEM các khóa học mà mình được Admin phân công (Trưởng thẩm định hoặc Hội đồng)
+            queryset = queryset.filter(
+                Q(assigned_reviewer=user) | Q(co_reviewers=user)
+            ).distinct()
             if filters.get('status'):
                 queryset = queryset.filter(status=filters.get('status'))
         elif user and user.is_authenticated and user.role == 'TEACHER':
             queryset = queryset.filter(
-                Q(status=CourseStatus.PUBLISHED) | Q(teacher=user)
-            )
+                Q(status=CourseStatus.PUBLISHED) | Q(teacher=user) | Q(co_teachers=user)
+            ).distinct()
             if filters.get('status'):
                 queryset = queryset.filter(status=filters.get('status'))
         else:
@@ -131,13 +142,16 @@ class CourseService:
         ).select_related(
             'category', 'teacher', 'assigned_reviewer'
         ).prefetch_related(
-            'co_teachers'
+            'co_teachers', 'co_reviewers'
         ).order_by('-created_at')
 
     @staticmethod
     def get_course_detail(identifier: str, user=None):
-        queryset = Course.objects.select_related('category', 'teacher', 'assigned_reviewer', 'reviewed_by').prefetch_related(
+        queryset = Course.objects.select_related(
+            'category', 'teacher', 'assigned_reviewer', 'reviewed_by'
+        ).prefetch_related(
             'co_teachers',
+            'co_reviewers',
             'chapters__lessons__materials'
         )
 
@@ -153,8 +167,13 @@ class CourseService:
         if course.status != CourseStatus.PUBLISHED:
             if not user or not user.is_authenticated:
                 return None
-            if (
-                user.role not in ['ADMIN', 'REVIEWER'] 
+            if user.role == 'REVIEWER':
+                # Thẩm định viên chỉ xem chi tiết nếu được phân công
+                is_assigned = (course.assigned_reviewer_id == user.id) or course.co_reviewers.filter(id=user.id).exists()
+                if not is_assigned and not user.is_superuser:
+                    return None
+            elif (
+                user.role != 'ADMIN'
                 and course.teacher != user 
                 and not course.co_teachers.filter(id=user.id).exists()
             ):
@@ -217,10 +236,13 @@ class CourseService:
     @staticmethod
     def create_course(teacher: CustomUser, validated_data: dict) -> Course:
         co_teachers = validated_data.pop('co_teachers', None)
+        co_reviewers = validated_data.pop('co_reviewers', None)
         course_teacher = validated_data.pop('teacher', None) or teacher
         course = Course.objects.create(teacher=course_teacher, **validated_data)
         if co_teachers:
             course.co_teachers.set(co_teachers)
+        if co_reviewers:
+            course.co_reviewers.set(co_reviewers)
         return course
 
     @staticmethod
@@ -245,6 +267,10 @@ class CourseService:
         if co_teachers is not None:
             course.co_teachers.set(co_teachers)
 
+        co_reviewers = validated_data.pop('co_reviewers', None)
+        if co_reviewers is not None:
+            course.co_reviewers.set(co_reviewers)
+
         for attr, value in validated_data.items():
             setattr(course, attr, value)
         course.save()
@@ -258,6 +284,12 @@ class CourseService:
     @staticmethod
     def approve_course(course: Course, user=None) -> tuple[bool, str, Course]:
         from django.utils import timezone
+        # Kiểm tra nếu là Thẩm định viên thì phải được Admin phân công
+        if user and user.is_authenticated and user.role == 'REVIEWER':
+            is_assigned = (course.assigned_reviewer_id == user.id) or course.co_reviewers.filter(id=user.id).exists()
+            if not is_assigned and not user.is_superuser:
+                return False, "Bạn không được Admin phân công thẩm định khóa học này. Chỉ Thẩm định viên được phân công mới có quyền phê duyệt giáo trình.", course
+
         course.status = CourseStatus.PUBLISHED
         course.rejection_reason = None
         course.is_resubmitted = False
@@ -270,6 +302,12 @@ class CourseService:
     @staticmethod
     def reject_course(course: Course, reason: str = "", user=None) -> tuple[bool, str, Course]:
         from django.utils import timezone
+        # Kiểm tra nếu là Thẩm định viên thì phải được Admin phân công
+        if user and user.is_authenticated and user.role == 'REVIEWER':
+            is_assigned = (course.assigned_reviewer_id == user.id) or course.co_reviewers.filter(id=user.id).exists()
+            if not is_assigned and not user.is_superuser:
+                return False, "Bạn không được Admin phân công thẩm định khóa học này. Chỉ Thẩm định viên được phân công mới có quyền phản biện giáo trình.", course
+
         course.status = CourseStatus.REJECTED
         if isinstance(reason, dict):
             reason_str = reason.get('reason', '')

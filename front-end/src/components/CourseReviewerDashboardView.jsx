@@ -781,10 +781,12 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '48px 24px', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
           <i className="fa-solid fa-clipboard-check" style={{ fontSize: '3rem', color: '#94a3b8', marginBottom: '14px' }}></i>
           <h3 style={{ margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: '800', color: '#334155' }}>
-            Không tìm thấy khóa học nào phù hợp bộ lọc
+            {courses.length === 0 ? 'Bạn chưa được phân công thẩm định khóa học nào' : 'Không tìm thấy khóa học nào phù hợp bộ lọc'}
           </h3>
           <p style={{ margin: 0, color: '#64748b', fontSize: '0.88rem' }}>
-            Hiện tại không có khóa học nào thuộc điều kiện tìm kiếm hoặc tất cả đã được thẩm định xong.
+            {courses.length === 0
+              ? 'Hiện tại Quản trị viên (Admin) chưa phân công bạn thẩm định khóa học nào. Khi được Admin gán thẩm định riêng, khóa học sẽ xuất hiện tại đây để bạn kiểm định giáo trình và phê duyệt.'
+              : 'Hiện tại không có khóa học nào thuộc điều kiện tìm kiếm hoặc tất cả đã được thẩm định xong.'}
           </p>
         </div>
       ) : (
@@ -861,6 +863,18 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                         Trình độ: {c.level_display || c.level}
                       </span>
 
+                      {/* Huy hiệu vai trò Thẩm định viên */}
+                      {(c.assigned_reviewer?.id === user?.id || (!c.assigned_reviewer && c.reviewed_by?.id === user?.id)) && (
+                        <span style={{ fontSize: '0.75rem', fontWeight: '800', backgroundColor: '#fef2f2', color: '#be123c', padding: '3px 9px', borderRadius: '8px', border: '1px solid #fecdd3', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <i className="fa-solid fa-user-shield"></i> Thẩm định viên chính
+                        </span>
+                      )}
+                      {(c.assigned_reviewer?.id !== user?.id && Array.isArray(c.co_reviewers) && c.co_reviewers.some((r) => r.id === user?.id)) && (
+                        <span style={{ fontSize: '0.75rem', fontWeight: '800', backgroundColor: '#fdf2f8', color: '#9d174d', padding: '3px 9px', borderRadius: '8px', border: '1px solid #fbcfe8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <i className="fa-solid fa-users"></i> Hội đồng Thẩm định
+                        </span>
+                      )}
+
                       {c.category?.name && (
                         <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', backgroundColor: '#f8fafc', padding: '3px 8px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                           <i className="fa-solid fa-tag" style={{ marginRight: '4px', fontSize: '0.7rem' }}></i>
@@ -882,10 +896,21 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
                         <i className="fa-solid fa-layer-group" style={{ marginRight: '5px', color: '#0284c7' }}></i>
                         {c.total_chapters || 0} chương • {c.total_lessons || 0} bài giảng
                       </span>
-                      {c.reviewed_by?.full_name && (
+                      {c.assigned_reviewer?.full_name ? (
+                        <span style={{ color: '#be123c', fontWeight: '600' }}>
+                          <i className="fa-solid fa-scale-balanced" style={{ marginRight: '4px' }}></i>
+                          Chủ trì: {c.assigned_reviewer.full_name}
+                        </span>
+                      ) : c.reviewed_by?.full_name ? (
                         <span style={{ color: '#059669', fontWeight: '600' }}>
                           <i className="fa-solid fa-user-check" style={{ marginRight: '4px' }}></i>
                           Thẩm định bởi: {c.reviewed_by.full_name}
+                        </span>
+                      ) : null}
+                      {Array.isArray(c.co_reviewers) && c.co_reviewers.length > 0 && (
+                        <span style={{ color: '#9d174d', fontWeight: '600' }}>
+                          <i className="fa-solid fa-users" style={{ marginRight: '4px' }}></i>
+                          Hội đồng: {c.co_reviewers.map((r) => r.full_name).join(', ')}
                         </span>
                       )}
                     </div>
