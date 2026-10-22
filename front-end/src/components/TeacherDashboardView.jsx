@@ -36,6 +36,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [newPrice, setNewPrice] = useState(0);
   const [isFree, setIsFree] = useState(true);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
 
   // Modal Chi tiết Phản biện / Từ chối khóa học
@@ -127,8 +128,9 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
 
   const handleCreateCourse = async (e) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim() || isSubmittingCourse) return;
 
+    setIsSubmittingCourse(true);
     try {
       const payload = {
         title: newTitle.trim(),
@@ -142,8 +144,9 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         status: newStatus,
       };
 
-      await courseAPI.createCourse(payload);
-      setToastMsg(`✓ Đã tạo thành công khóa học "${newTitle}"!`);
+      const res = await courseAPI.createCourse(payload);
+      const successMessage = res.data?.message || `✓ Đã tạo thành công khóa học "${newTitle}"!`;
+      setToastMsg(`✓ ${successMessage}`);
       setNewTitle('');
       setNewSlug('');
       setNewDescription('');
@@ -151,9 +154,15 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       setShowCreateModal(false);
       fetchTeacherCourses();
     } catch (err) {
-      setToastMsg(`✓ Đã lưu khóa học "${newTitle}"!`);
-      setShowCreateModal(false);
-      fetchTeacherCourses();
+      const errorMsg =
+        err.response?.data?.message ||
+        err.response?.data?.detail ||
+        (typeof err.response?.data === 'string' ? err.response.data : null) ||
+        err.message ||
+        'Không thể tạo khóa học!';
+      setToastMsg(`⚠️ ${errorMsg}`);
+    } finally {
+      setIsSubmittingCourse(false);
     }
   };
 
@@ -844,7 +853,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
               boxShadow: 'var(--shadow-lg)',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)' }}>Tạo Khóa Học Tiếng Anh Mới</h3>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Nhập thông tin khóa học, hình ảnh và lưu vào CSDL</p>
@@ -852,6 +861,35 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
               <button onClick={() => setShowCreateModal(false)} style={{ fontSize: '1.2rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <i className="fa-solid fa-xmark"></i>
               </button>
+            </div>
+
+            {/* Banner Lưu ý Chính sách Thẩm định & Giới hạn tạo khóa học */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                padding: '10px 14px',
+                backgroundColor: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                borderRadius: '10px',
+                marginBottom: '16px',
+                fontSize: '0.76rem',
+                color: '#0369a1',
+                lineHeight: '1.45',
+              }}
+            >
+              <i className="fa-solid fa-shield-halved" style={{ fontSize: '1.1rem', marginTop: '2px', color: '#0284c7' }}></i>
+              <div>
+                <strong style={{ fontSize: '0.8rem', color: '#0284c7' }}>Chính sách Kiểm soát Chất lượng & Chống Spam:</strong>
+                <div style={{ marginTop: '2px', color: '#0c4a6e' }}>
+                  • Mỗi giảng viên được tạo tối đa <strong>5 khóa học mới/ngày</strong> để đảm bảo tiến độ thẩm định giáo trình.
+                  <br />
+                  • Khoảng cách tối thiểu giữa 2 lần tạo là <strong>30 giây</strong> để tránh trùng lặp dữ liệu.
+                  <br />
+                  • Khóa học mới sẽ được gửi tới Thẩm định viên/Admin duyệt trước khi công khai cho học viên.
+                </div>
+              </div>
             </div>
 
             <form onSubmit={handleCreateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -1167,12 +1205,29 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button type="button" className="btn-outline" onClick={() => setShowCreateModal(false)}>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => setShowCreateModal(false)}
+                  disabled={isSubmittingCourse}
+                >
                   Hủy bỏ
                 </button>
-                <button type="submit" className="btn-primary" style={{ padding: '10px 22px' }}>
-                  <i className="fa-solid fa-cloud-arrow-up"></i>
-                  <span>Lưu Khóa Học Vào CSDL</span>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={isSubmittingCourse}
+                  style={{
+                    padding: '10px 22px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: isSubmittingCourse ? 'not-allowed' : 'pointer',
+                    opacity: isSubmittingCourse ? 0.75 : 1,
+                  }}
+                >
+                  <i className={`fa-solid ${isSubmittingCourse ? 'fa-circle-notch fa-spin' : 'fa-cloud-arrow-up'}`}></i>
+                  <span>{isSubmittingCourse ? 'Đang lưu vào CSDL...' : 'Lưu Khóa Học Vào CSDL'}</span>
                 </button>
               </div>
             </form>

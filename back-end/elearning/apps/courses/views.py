@@ -217,6 +217,17 @@ class CourseListCreateAPIView(APIView):
         validated_data = serializer.validated_data
         is_admin = request.user.role == 'ADMIN' or request.user.is_staff or request.user.is_superuser
 
+        # Kiểm tra kiểm soát giới hạn và chống spam tạo khóa học từ Giảng viên
+        can_create, limit_message = CourseService.validate_teacher_course_creation_limit(
+            teacher=request.user,
+            title=validated_data.get('title', '')
+        )
+        if not can_create:
+            return error_response(
+                message=limit_message,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
         if not is_admin and request.user.role == 'TEACHER':
             if validated_data.get('status') != CourseStatus.DRAFT:
                 validated_data['status'] = CourseStatus.PENDING

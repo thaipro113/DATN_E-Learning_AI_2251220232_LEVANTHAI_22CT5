@@ -163,6 +163,58 @@ class CourseService:
         return course
 
     @staticmethod
+    def validate_teacher_course_creation_limit(teacher: CustomUser, title: str) -> tuple[bool, str]:
+        """
+        Kiểm soát và giới hạn việc tạo khóa học từ Giảng viên nhằm:
+        - Chống bấm đúp / Spam request liên tục (Cooldown 30s giữa 2 lần tạo).
+        - Hạn ngạch số lượng khóa học tạo mới trong ngày (Daily Quota tối đa 5 khóa / ngày).
+        - Chống trùng lặp tiêu đề khóa học của cùng giảng viên.
+        - Chống tạo khóa học rác hàng loạt (Tối đa 5 khóa nháp chưa có bài học nào).
+        """
+        from django.utils import timezone
+
+        # Admin / Superuser không bị áp dụng giới hạn
+        if teacher.role == 'ADMIN' or teacher.is_staff or teacher.is_superuser:
+            return True, ""
+
+        title_clean = (title or "").strip()
+
+        # 1. Chống trùng lặp tiêu đề khóa học của cùng giảng viên
+        if Course.objects.filter(teacher=teacher, title__iexact=title_clean).exists():
+            return False, f"Bạn đã có một khóa học mang tên '{title_clean}'. Vui lòng đặt tiêu đề khác hoặc cập nhật giáo trình của khóa học hiện có để tránh trùng lặp dữ liệu."
+
+        # 2. Chống spam thao tác liên tục (Anti-flood Cooldown 30 giây)
+        last_course = Course.objects.filter(teacher=teacher).order_by('-created_at').first()
+        if last_course:
+            elapsed_seconds = (timezone.now() - last_course.created_at).total_seconds()
+            cooldown_seconds = 30
+            if elapsed_seconds < cooldown_seconds:
+                remaining = int(cooldown_seconds - elapsed_seconds)
+                return False, f"Thao tác quá nhanh! Vui lòng đợi {remaining} giây trước khi tạo khóa học tiếp theo để đảm bảo tính toàn vẹn dữ liệu."
+
+        # 3. Hạn ngạch tạo khóa học mới trong ngày (Daily Quota: Tối đa 5 khóa/ngày)
+        today = timezone.localdate()
+        today_courses_count = Course.objects.filter(
+            teacher=teacher,
+            created_at__date=today
+        ).count()
+        max_daily_courses = 5
+        if today_courses_count >= max_daily_courses:
+            return False, f"Bạn đã đạt hạn ngạch tối đa {max_daily_courses} khóa học mới trong ngày hôm nay ({today.strftime('%d/%m/%Y')}). Chính sách này nhằm đảm bảo chất lượng thẩm định giáo trình. Vui lòng quay lại vào ngày mai!"
+
+        # 4. Chống tạo hàng loạt khóa học rác chưa soạn bài (Empty Draft Spam Protection)
+        unfinished_courses = Course.objects.filter(
+            teacher=teacher,
+            status__in=[CourseStatus.DRAFT, CourseStatus.PENDING]
+        )
+        empty_count = sum(1 for c in unfinished_courses if c.total_lessons == 0)
+        max_empty_drafts = 5
+        if empty_count >= max_empty_drafts:
+            return False, f"Bạn đang có {empty_count} khóa học nháp chưa có bài giảng nào. Vui lòng hoàn thiện nội dung (thêm chương & bài học) cho các khóa học hiện tại trước khi tạo thêm khóa học mới!"
+
+        return True, ""
+
+    @staticmethod
     def create_course(teacher: CustomUser, validated_data: dict) -> Course:
         co_teachers = validated_data.pop('co_teachers', None)
         course_teacher = validated_data.pop('teacher', None) or teacher
