@@ -93,8 +93,8 @@ export default function CourseReviewerDashboardView({ user, onBackToDashboard, i
   const fetchAllCourses = async () => {
     setLoading(true);
     try {
-      // Backend cho phép REVIEWER xem mọi trạng thái khóa học
-      const res = await courseAPI.getCourses();
+      // Backend cho phép REVIEWER xem mọi trạng thái khóa học được phân công
+      const res = await courseAPI.getCourses({ page_size: 100 });
       const rawData =
         res.data?.data?.results ||
         res.data?.results ||

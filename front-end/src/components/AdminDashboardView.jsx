@@ -138,7 +138,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
         analysesRes,
       ] = await Promise.allSettled([
         authAPI.getUsers(),
-        courseAPI.getCourses(),
+        courseAPI.getCourses({ page_size: 100 }),
         courseAPI.getCategories(),
         assessmentAPI.getQuizzes(),
         learningAPI.getMyCertificates(),
@@ -499,20 +499,15 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
     const hasCoReviewers = Array.isArray(course.co_reviewers) && course.co_reviewers.length > 0;
     setShowCoReviewerSection(hasCoReviewers);
     setShowCoTeacherSection(false);
-    setTeacherSearchQuery('');
     setCourseForm({
       id: course.id,
       title: course.title,
-      category_id: course.category?.id || '',
+      categoryName: course.category?.name || 'Khác',
       level: course.level || 'B1',
-      teacher_id: course.teacher?.id || '',
-      co_teacher_ids: (course.co_teachers || []).map((t) => t.id),
+      teacherName: course.teacher?.full_name || course.teacher?.email || 'Giảng viên',
+      status: course.status,
       assigned_reviewer_id: course.assigned_reviewer?.id || course.reviewed_by?.id || '',
       co_reviewer_ids: (course.co_reviewers || []).map((r) => r.id),
-      price: course.price || 0,
-      is_free: course.is_free !== false,
-      thumbnail_url: course.thumbnail_url || '',
-      description: course.description || '',
       isSubmitting: false,
     });
     setShowCourseModal(true);
@@ -520,47 +515,23 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
 
   const handleSaveCourse = async (e) => {
     e.preventDefault();
-    if (!courseForm.title.trim()) {
-      setToastMsg({ type: 'error', text: 'Vui lòng nhập tiêu đề khóa học!' });
-      return;
-    }
-    if (!courseForm.teacher_id) {
-      setToastMsg({ type: 'error', text: 'Vui lòng chỉ định Giảng viên chính phụ trách!' });
-      return;
-    }
+    if (!courseForm.id) return;
 
     setCourseForm((prev) => ({ ...prev, isSubmitting: true }));
     try {
       const payload = {
-        title: courseForm.title.trim(),
-        category_id: courseForm.category_id || null,
-        level: courseForm.level,
-        teacher_id: courseForm.teacher_id,
-        co_teacher_ids: courseForm.co_teacher_ids || [],
         assigned_reviewer_id: courseForm.assigned_reviewer_id || null,
         co_reviewer_ids: showCoReviewerSection ? courseForm.co_reviewer_ids : [],
-        price: courseForm.is_free ? 0 : Number(courseForm.price || 0),
-        is_free: courseForm.is_free,
-        thumbnail_url: courseForm.thumbnail_url.trim() || undefined,
-        description: courseForm.description.trim() || `Khóa học ${courseForm.title.trim()} chuẩn hóa CEFR ${courseForm.level}.`,
       };
 
-      if (isEditingCourseAssignment && courseForm.id) {
-        const res = await courseAPI.updateCourse(courseForm.id, payload);
-        const updatedCourse = res.data?.data || res.data;
-        setCourses((prev) => prev.map((c) => (c.id === courseForm.id ? { ...c, ...updatedCourse } : c)));
-        setToastMsg({ type: 'success', text: `✓ Đã cập nhật phân công nhân sự cho khóa "${courseForm.title}"!` });
-      } else {
-        payload.status = 'DRAFT';
-        const res = await courseAPI.createCourse(payload);
-        const newCourse = res.data?.data || res.data;
-        setCourses((prev) => [newCourse, ...prev]);
-        setToastMsg({ type: 'success', text: `✓ Đã khởi tạo khung khóa học "${courseForm.title}" và phân công giảng viên thành công!` });
-      }
+      const res = await courseAPI.updateCourse(courseForm.id, payload);
+      const updatedCourse = res.data?.data || res.data;
+      setCourses((prev) => prev.map((c) => (c.id === courseForm.id ? { ...c, ...updatedCourse } : c)));
+      setToastMsg({ type: 'success', text: `✓ Đã cập nhật phân công Thẩm định viên cho khóa "${courseForm.title}"!` });
       setShowCourseModal(false);
       fetchAdminData();
     } catch (err) {
-      const errMsg = err.response?.data?.message || (isEditingCourseAssignment ? 'Lỗi khi cập nhật phân công.' : 'Lỗi khi khởi tạo khóa học.');
+      const errMsg = err.response?.data?.message || 'Lỗi khi cập nhật phân công Thẩm định viên.';
       setToastMsg({ type: 'error', text: errMsg });
     } finally {
       setCourseForm((prev) => ({ ...prev, isSubmitting: false }));
@@ -3287,21 +3258,21 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
         </div>
       )}
 
-      {/* MODAL 2.5: KHỞI TẠO KHUNG KHÓA HỌC & PHÂN CÔNG GIẢNG VIÊN (ADMIN COURSE MODAL) */}
+      {/* MODAL 2.5: PHÂN CÔNG CHUYÊN GIA THẨM ĐỊNH KHÓA HỌC */}
       {showCourseModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 120, padding: '20px' }}>
-          <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: 'var(--shadow-lg)' }}>
+          <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', maxWidth: '580px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: 'var(--shadow-lg)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
-                  <i className="fa-solid fa-graduation-cap"></i>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: '#ffe4e6', color: '#e11d48', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.15rem' }}>
+                  <i className="fa-solid fa-scale-balanced"></i>
                 </div>
                 <div>
                   <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: 'var(--text-main)' }}>
-                    {isEditingCourseAssignment ? 'Phân Công Giảng Viên & Thẩm Định' : 'Khởi Tạo Khung Khóa Học Mới'}
+                    Phân Công Thẩm Định Viên Khóa Học
                   </h3>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {isEditingCourseAssignment ? 'Điều chỉnh Giảng viên phụ trách, đồng giảng dạy hoặc Thẩm định viên' : 'Thiết lập tiêu đề, danh mục, cấp độ và gán nhân sự phụ trách'}
+                    Chỉ định chuyên gia Reviewer duyệt giáo trình & xuất bản khóa học
                   </div>
                 </div>
               </div>
@@ -3313,68 +3284,39 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
               </button>
             </div>
 
+            {/* CARD THÔNG TIN KHÓA HỌC (READ-ONLY) */}
+            <div style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Khóa học cần thẩm định:
+              </div>
+              <div style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', lineHeight: '1.35' }}>
+                {courseForm.title}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                <span>
+                  <i className="fa-solid fa-chalkboard-user" style={{ marginRight: '4px', color: '#4338ca' }}></i>
+                  Giảng viên: <strong style={{ color: 'var(--text-main)' }}>{courseForm.teacherName}</strong>
+                </span>
+                <span>
+                  <i className="fa-solid fa-tag" style={{ marginRight: '4px', color: '#0284c7' }}></i>
+                  {courseForm.categoryName}
+                </span>
+                <span style={{ padding: '1px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '700' }}>
+                  {courseForm.level}
+                </span>
+              </div>
+            </div>
+
             <form onSubmit={handleSaveCourse} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                  Tiêu đề khóa học <span style={{ color: '#dc2626' }}>*</span>:
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: Luyện Thi IELTS Speaking 7.0+ Bứt Tốc..."
-                  value={courseForm.title}
-                  onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                    Danh mục đào tạo:
-                  </label>
-                  <select
-                    value={courseForm.category_id}
-                    onChange={(e) => setCourseForm({ ...courseForm, category_id: e.target.value })}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
-                  >
-                    <option value="">-- Chọn danh mục --</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                    Trình độ CEFR:
-                  </label>
-                  <select
-                    value={courseForm.level}
-                    onChange={(e) => setCourseForm({ ...courseForm, level: e.target.value })}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
-                  >
-                    <option value="A1">A1 - Sơ Cấp</option>
-                    <option value="A2">A2 - Cơ Bản</option>
-                    <option value="B1">B1 - Trung Cấp</option>
-                    <option value="B2">B2 - Trung Cao Cấp</option>
-                    <option value="C1">C1 - Cao Cấp</option>
-                    <option value="C2">C2 - Thành Thạo</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* PHÂN CÔNG NHÂN SỰ ĐÀO TẠO & THẨM ĐỊNH */}
-              <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-color)', paddingBottom: '8px' }}>
+              {/* KHỐI CHỌN THẨM ĐỊNH VIÊN */}
+              <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: '#fff1f2', border: '1.5px solid #fecdd3', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px dashed #fecdd3', paddingBottom: '8px' }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#be123c', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <i className="fa-solid fa-scale-balanced" style={{ color: '#e11d48' }}></i>
-                    <span>PHÂN CÔNG THẨM ĐỊNH VIÊN & GIẢNG VIÊN</span>
+                    <i className="fa-solid fa-shield-halved" style={{ color: '#e11d48' }}></i>
+                    <span>HÌNH THỨC THẨM ĐỊNH</span>
                   </div>
                   {/* Nút chuyển đổi chế độ Thẩm định viên: 1 Thẩm định viên (mặc định) HOẶC Hội đồng nhiều thẩm định */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-surface)', padding: '2px 4px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#ffffff', padding: '2px 4px', borderRadius: '6px', border: '1px solid #fecdd3' }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -3392,7 +3334,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                       }}
-                      title="Chế độ mặc định: Chỉ định 1 Thẩm định viên chịu trách nhiệm duyệt khóa học"
+                      title="Chỉ định 1 Thẩm định viên chịu trách nhiệm duyệt khóa học"
                     >
                       <i className="fa-solid fa-user-shield" style={{ marginRight: '4px' }}></i>
                       1 Thẩm định viên
@@ -3419,17 +3361,12 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                   </div>
                 </div>
 
-                {/* 1. CHUYÊN GIA THẨM ĐỊNH / PHẢN BIỆN KHÓA HỌC (REVIEWER) - VAI TRÒ CHÍNH CỦA ADMIN */}
-                <div style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: '#fff1f2', border: '1.5px solid #fecdd3', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#be123c', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-                      <i className="fa-solid fa-shield-halved" style={{ color: '#e11d48' }}></i>
-                      <span>{showCoReviewerSection ? 'Thẩm định viên chính (Chủ tịch / Chủ trì duyệt) *:' : 'Thẩm định viên phụ trách duyệt khóa học (Reviewer):'}</span>
-                    </label>
-                    <span style={{ fontSize: '0.72rem', color: '#9f1239', fontWeight: '700' }}>
-                      ⭐ Nhiệm vụ của Admin
-                    </span>
-                  </div>
+                {/* 1. CHUYÊN GIA THẨM ĐỊNH CHÍNH */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#be123c', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                    <i className="fa-solid fa-star" style={{ color: '#e11d48', fontSize: '0.75rem' }}></i>
+                    <span>{showCoReviewerSection ? 'Thẩm định viên chính (Chủ trì / Trưởng hội đồng) *:' : 'Thẩm định viên phụ trách duyệt khóa học (Reviewer):'}</span>
+                  </label>
                   <select
                     value={courseForm.assigned_reviewer_id}
                     onChange={(e) => {
@@ -3452,339 +3389,188 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                   <p style={{ margin: 0, fontSize: '0.74rem', color: '#9f1239', lineHeight: '1.35' }}>
                     * Admin chỉ định Thẩm định viên gán riêng cho khóa học này. Chỉ Thẩm định viên được phân công mới có quyền xem giáo trình và duyệt xuất bản.
                   </p>
+                </div>
 
-                  {/* Khi bật chế độ Hội đồng nhiều Thẩm định viên */}
-                  {showCoReviewerSection && (
-                    <div style={{ marginTop: '4px', padding: '12px', borderRadius: '8px', backgroundColor: '#ffffff', border: '1px solid #fbcfe8', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#9d174d', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <i className="fa-solid fa-users-viewfinder"></i>
-                          <span>Hội đồng Thẩm định viên đồng phản biện ({courseForm.co_reviewer_ids.length}):</span>
-                        </label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const selectableIds = reviewerUsers
-                                .filter((r) => r.id !== courseForm.assigned_reviewer_id)
-                                .map((r) => r.id);
-                              setCourseForm({ ...courseForm, co_reviewer_ids: selectableIds });
-                            }}
-                            style={{
-                              fontSize: '0.72rem',
-                              fontWeight: '700',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              backgroundColor: '#fce7f3',
-                              color: '#9d174d',
-                              border: '1px solid #fbcfe8',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Chọn tất cả
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setCourseForm({ ...courseForm, co_reviewer_ids: [] })}
-                            style={{
-                              fontSize: '0.72rem',
-                              fontWeight: '600',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              backgroundColor: '#f1f5f9',
-                              color: '#64748b',
-                              border: '1px solid #cbd5e1',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Bỏ chọn
-                          </button>
-                        </div>
+                {/* Khi bật chế độ Hội đồng nhiều Thẩm định viên */}
+                {showCoReviewerSection && (
+                  <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#ffffff', border: '1px solid #fbcfe8', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#9d174d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <i className="fa-solid fa-users-viewfinder"></i>
+                        <span>Hội đồng Thẩm định viên đồng phản biện ({courseForm.co_reviewer_ids.length}):</span>
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const selectableIds = reviewerUsers
+                              .filter((r) => r.id !== courseForm.assigned_reviewer_id)
+                              .map((r) => r.id);
+                            setCourseForm({ ...courseForm, co_reviewer_ids: selectableIds });
+                          }}
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: '#fce7f3',
+                            color: '#9d174d',
+                            border: '1px solid #fbcfe8',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Chọn tất cả
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCourseForm({ ...courseForm, co_reviewer_ids: [] })}
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: '600',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: '#f1f5f9',
+                            color: '#64748b',
+                            border: '1px solid #cbd5e1',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Bỏ chọn
+                        </button>
                       </div>
+                    </div>
 
-                      {/* Chips Thẩm định viên đã chọn */}
-                      {courseForm.co_reviewer_ids.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '6px 8px', backgroundColor: '#fff1f2', borderRadius: '6px', border: '1px dashed #fda4af' }}>
-                          <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#be123c', alignSelf: 'center', marginRight: '4px' }}>
-                            Đã thêm ({courseForm.co_reviewer_ids.length}):
-                          </span>
-                          {courseForm.co_reviewer_ids.map((id) => {
-                            const r = reviewerUsers.find((u) => u.id === id);
-                            if (!r) return null;
-                            return (
-                              <span
-                                key={id}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                  padding: '3px 8px',
-                                  borderRadius: '12px',
-                                  backgroundColor: '#e11d48',
-                                  color: '#ffffff',
-                                  fontSize: '0.74rem',
-                                  fontWeight: '600',
-                                }}
-                              >
-                                <span>{r.full_name || r.email}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setCourseForm({
-                                      ...courseForm,
-                                      co_reviewer_ids: courseForm.co_reviewer_ids.filter((rid) => rid !== id),
-                                    });
-                                  }}
-                                  style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#fff',
-                                    cursor: 'pointer',
-                                    padding: 0,
-                                    fontSize: '0.75rem',
-                                    lineHeight: 1,
-                                  }}
-                                  title="Xóa khỏi hội đồng"
-                                >
-                                  ✕
-                                </button>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Checkboxes Thẩm định viên */}
-                      <div style={{ maxHeight: '160px', overflowY: 'auto', padding: '5px', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'var(--bg-subtle)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        {reviewerUsers.map((r) => {
-                          const isMainReviewer = r.id === courseForm.assigned_reviewer_id;
-                          const isChecked = courseForm.co_reviewer_ids.includes(r.id);
-
+                    {/* Chips Thẩm định viên đã chọn */}
+                    {courseForm.co_reviewer_ids.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '6px 8px', backgroundColor: '#fff1f2', borderRadius: '6px', border: '1px dashed #fda4af' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#be123c', alignSelf: 'center', marginRight: '4px' }}>
+                          Đã thêm ({courseForm.co_reviewer_ids.length}):
+                        </span>
+                        {courseForm.co_reviewer_ids.map((id) => {
+                          const r = reviewerUsers.find((u) => u.id === id);
+                          if (!r) return null;
                           return (
-                            <div
-                              key={r.id}
-                              onClick={() => {
-                                if (isMainReviewer) return;
-                                const newIds = isChecked
-                                  ? courseForm.co_reviewer_ids.filter((id) => id !== r.id)
-                                  : [...courseForm.co_reviewer_ids, r.id];
-                                setCourseForm({ ...courseForm, co_reviewer_ids: newIds });
-                              }}
+                            <span
+                              key={id}
                               style={{
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '7px 10px',
-                                borderRadius: '6px',
-                                backgroundColor: isMainReviewer ? '#f8fafc' : isChecked ? '#fff1f2' : 'var(--bg-surface)',
-                                border: isMainReviewer ? '1px dashed #cbd5e1' : isChecked ? '1px solid #fda4af' : '1px solid var(--border-color)',
-                                cursor: isMainReviewer ? 'not-allowed' : 'pointer',
-                                opacity: isMainReviewer ? 0.65 : 1,
+                                gap: '5px',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                backgroundColor: '#e11d48',
+                                color: '#ffffff',
+                                fontSize: '0.74rem',
+                                fontWeight: '600',
                               }}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <input
-                                  type="checkbox"
-                                  disabled={isMainReviewer}
-                                  checked={isChecked || isMainReviewer}
-                                  onChange={() => {}}
-                                  style={{ cursor: isMainReviewer ? 'not-allowed' : 'pointer' }}
-                                />
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <div
-                                    style={{
-                                      width: '26px',
-                                      height: '26px',
-                                      borderRadius: '50%',
-                                      backgroundColor: '#e11d48',
-                                      color: '#fff',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontSize: '0.75rem',
-                                      fontWeight: '700',
-                                    }}
-                                  >
-                                    {(r.full_name || r.email || 'R').charAt(0).toUpperCase()}
+                              <span>{r.full_name || r.email}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCourseForm({
+                                    ...courseForm,
+                                    co_reviewer_ids: courseForm.co_reviewer_ids.filter((rid) => rid !== id),
+                                  });
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#fff',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                  fontSize: '0.75rem',
+                                  lineHeight: 1,
+                                }}
+                                title="Xóa khỏi hội đồng"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Checkboxes Thẩm định viên */}
+                    <div style={{ maxHeight: '180px', overflowY: 'auto', padding: '5px', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'var(--bg-subtle)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      {reviewerUsers.map((r) => {
+                        const isMainReviewer = r.id === courseForm.assigned_reviewer_id;
+                        const isChecked = courseForm.co_reviewer_ids.includes(r.id);
+
+                        return (
+                          <div
+                            key={r.id}
+                            onClick={() => {
+                              if (isMainReviewer) return;
+                              const newIds = isChecked
+                                ? courseForm.co_reviewer_ids.filter((id) => id !== r.id)
+                                : [...courseForm.co_reviewer_ids, r.id];
+                              setCourseForm({ ...courseForm, co_reviewer_ids: newIds });
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '7px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: isMainReviewer ? '#f8fafc' : isChecked ? '#fff1f2' : 'var(--bg-surface)',
+                              border: isMainReviewer ? '1px dashed #cbd5e1' : isChecked ? '1px solid #fda4af' : '1px solid var(--border-color)',
+                              cursor: isMainReviewer ? 'not-allowed' : 'pointer',
+                              opacity: isMainReviewer ? 0.65 : 1,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <input
+                                type="checkbox"
+                                disabled={isMainReviewer}
+                                checked={isChecked || isMainReviewer}
+                                onChange={() => {}}
+                                style={{ cursor: isMainReviewer ? 'not-allowed' : 'pointer' }}
+                              />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div
+                                  style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#e11d48',
+                                    color: '#fff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '700',
+                                  }}
+                                >
+                                  {(r.full_name || r.email || 'R').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                                    {r.full_name || r.email}
                                   </div>
-                                  <div>
-                                    <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                                      {r.full_name || r.email}
-                                    </div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                      {r.email}
-                                    </div>
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                    {r.email}
                                   </div>
                                 </div>
                               </div>
-                              {isMainReviewer && (
-                                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#be123c', backgroundColor: '#ffe4e6', padding: '2px 6px', borderRadius: '4px' }}>
-                                  Thẩm định chính
-                                </span>
-                              )}
                             </div>
-                          );
-                        })}
-                        {reviewerUsers.length === 0 && (
-                          <div style={{ textAlign: 'center', padding: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            Chưa có tài khoản Thẩm định viên (Reviewer) nào trong hệ thống.
+                            {isMainReviewer && (
+                              <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#be123c', backgroundColor: '#ffe4e6', padding: '2px 6px', borderRadius: '4px' }}>
+                                Thẩm định chính
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        );
+                      })}
+                      {reviewerUsers.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          Chưa có tài khoản Thẩm định viên (Reviewer) nào trong hệ thống.
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-
-                {/* 2. GIẢNG VIÊN CHÍNH PHỤ TRÁCH */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {/* Tìm kiếm giảng viên */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <i className="fa-solid fa-magnifying-glass" style={{ color: '#0284c7' }}></i>
-                      <span>Tìm kiếm giảng viên (theo Tên hoặc Gmail):</span>
-                    </label>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                      Tổng số: <strong style={{ color: '#0284c7' }}>{teacherUsers.length}</strong> giảng viên
-                    </span>
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <i className="fa-solid fa-search" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.82rem' }}></i>
-                    <input
-                      type="text"
-                      placeholder="Nhập tên hoặc gmail để tìm nhanh (vd: Nguyễn Văn An, teacher@gmail.com)..."
-                      value={teacherSearchQuery}
-                      onChange={(e) => setTeacherSearchQuery(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 32px 8px 34px',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border-color)',
-                        fontSize: '0.84rem',
-                        backgroundColor: 'var(--bg-surface)',
-                        color: 'var(--text-main)',
-                      }}
-                    />
-                    {teacherSearchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setTeacherSearchQuery('')}
-                        style={{
-                          position: 'absolute',
-                          right: '10px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: '#94a3b8',
-                          cursor: 'pointer',
-                          fontSize: '0.85rem',
-                          padding: '2px',
-                        }}
-                        title="Xóa tìm kiếm"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                  {teacherSearchQuery && (
-                    <div style={{ fontSize: '0.74rem', color: '#0284c7', marginTop: '2px', fontStyle: 'italic' }}>
-                      Hiển thị {filteredTeachers.length} / {teacherUsers.length} giảng viên khớp với "{teacherSearchQuery}"
-                    </div>
-                  )}
-
-                  {/* Dropdown chọn Giảng viên chính */}
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginTop: '4px' }}>
-                    Giảng viên chính phụ trách <span style={{ color: '#dc2626' }}>*</span>:
-                  </label>
-                  <select
-                    required
-                    value={courseForm.teacher_id}
-                    onChange={(e) => setCourseForm({ ...courseForm, teacher_id: e.target.value })}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem', fontWeight: '600' }}
-                  >
-                    <option value="">-- Chọn Giảng viên phụ trách --</option>
-                    {filteredTeachers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.full_name || t.email} ({t.email})
-                      </option>
-                    ))}
-                    {filteredTeachers.length === 0 && (
-                      <option value="" disabled>Không tìm thấy giảng viên khớp với "{teacherSearchQuery}"</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              {/* Học phí & Thumbnail */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'center' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                    Chế độ học phí:
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', height: '38px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="coursePricing"
-                        checked={courseForm.is_free}
-                        onChange={() => setCourseForm({ ...courseForm, is_free: true, price: 0 })}
-                      />
-                      <span>Miễn phí</span>
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="coursePricing"
-                        checked={!courseForm.is_free}
-                        onChange={() => setCourseForm({ ...courseForm, is_free: false })}
-                      />
-                      <span>Có phí</span>
-                    </label>
-                  </div>
-                </div>
-
-                {!courseForm.is_free && (
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                      Học phí (VNĐ):
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="10000"
-                      placeholder="VD: 499000"
-                      value={courseForm.price}
-                      onChange={(e) => setCourseForm({ ...courseForm, price: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}
-                    />
                   </div>
                 )}
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                  Ảnh bìa khóa học (URL Thumbnail):
-                </label>
-                <input
-                  type="text"
-                  placeholder="https://example.com/thumbnail.jpg"
-                  value={courseForm.thumbnail_url}
-                  onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-                  Mô tả khóa học:
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Mục tiêu khóa học và các kỹ năng đầu ra của học viên..."
-                  value={courseForm.description}
-                  onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
@@ -3799,10 +3585,11 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                 <button
                   type="submit"
                   className="btn-primary"
-                  style={{ backgroundColor: '#059669' }}
+                  style={{ backgroundColor: '#e11d48', border: 'none' }}
                   disabled={courseForm.isSubmitting}
                 >
-                  {courseForm.isSubmitting ? 'Đang xử lý...' : isEditingCourseAssignment ? 'Lưu Phân Công' : 'Khởi Tạo Khóa Học'}
+                  <i className="fa-solid fa-check" style={{ marginRight: '4px' }}></i>
+                  {courseForm.isSubmitting ? 'Đang lưu...' : 'Lưu Phân Công Thẩm Định'}
                 </button>
               </div>
             </form>
