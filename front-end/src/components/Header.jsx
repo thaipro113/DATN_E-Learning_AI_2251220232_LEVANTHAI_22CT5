@@ -106,6 +106,7 @@ export default function Header({
                     <span>Khóa học</span>
                   </button>
                 </li>
+
                 {isLoggedIn && (
                   <>
                     <li>
@@ -169,6 +170,7 @@ export default function Header({
                 </li>
                 <li>
                   <button
+                    type="button"
                     className={`nav-link ${currentTab === 'flashcards' ? 'active' : ''}`}
                     onClick={() => onSelectTab('flashcards')}
                   >
@@ -184,6 +186,7 @@ export default function Header({
               <>
                 <li>
                   <button
+                    type="button"
                     className={`nav-link ${currentTab === 'admin_dashboard' || currentTab === 'dashboard' ? 'active' : ''}`}
                     onClick={() => onSelectTab('admin_dashboard')}
                   >
@@ -198,6 +201,7 @@ export default function Header({
               <>
                 <li>
                   <button
+                    type="button"
                     className={`nav-link ${currentTab === 'reviewer_dashboard' || currentTab === 'dashboard' ? 'active' : ''}`}
                     onClick={() => onSelectTab('reviewer_dashboard')}
                   >

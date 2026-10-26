@@ -420,3 +420,77 @@ class QuestionAnalysisAIService:
             except Exception as e:
                 logger.warning(f"Failed to analyze question {q.id}: {e}")
         return analyzed_count
+
+
+class AIRoadmapService:
+    """
+    Tầng xử lý nghiệp vụ Khởi tạo Lộ trình đào tạo cá nhân hóa AI (Personalized AI Roadmap Engine).
+    - Đọc các khóa học đang PUBLISHED trong hệ thống.
+    - Gọi LLM Client (Groq/Gemini/Fallback) để phân chia các giai đoạn (BƯỚC 01, BƯỚC 02, BƯỚC 03, BƯỚC 04).
+    - Bổ sung thông tin chi tiết của từng khóa học thực tế để Front-end hiển thị và người dùng có thể click học ngay.
+    """
+
+    @staticmethod
+    def generate_roadmap(
+        user: Optional[CustomUser] = None,
+        current_level: str = 'A2',
+        current_score: str = '',
+        target_goal: str = 'Luyện thi TOEIC',
+        target_score: str = '650+ TOEIC',
+        custom_notes: str = '',
+        num_stages: int = 4,
+        custom_stages: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
+        from apps.courses.models import Course, CourseStatus
+
+        published_courses = Course.objects.filter(
+            status=CourseStatus.PUBLISHED
+        ).select_related('category', 'teacher').prefetch_related('chapters__lessons')
+
+        course_dict = {}
+        candidate_courses = []
+
+        for c in published_courses:
+            cid_str = str(c.id)
+            total_lessons = sum(chap.lessons.count() for chap in c.chapters.all())
+            c_info = {
+                'id': cid_str,
+                'title': c.title,
+                'slug': c.slug,
+                'level': c.level,
+                'category': c.category.name if c.category else 'Tiếng Anh',
+                'price': int(c.price),
+                'is_free': c.is_free,
+                'thumbnail_url': c.thumbnail_url or '',
+                'teacher_name': c.teacher.full_name if c.teacher else 'TL-English Mentor',
+                'description': c.description[:250] if c.description else '',
+                'total_lessons': total_lessons
+            }
+            course_dict[cid_str] = c_info
+            candidate_courses.append(c_info)
+
+        req_payload = {
+            'current_level': current_level,
+            'current_score': current_score,
+            'target_goal': target_goal,
+            'target_score': target_score,
+            'custom_notes': custom_notes,
+            'num_stages': num_stages,
+            'custom_stages': custom_stages or []
+        }
+
+        provider = get_llm_provider()
+        roadmap_raw = provider.generate_personalized_roadmap(req_payload, candidate_courses)
+
+        # Gắn dữ liệu khóa học đầy đủ vào từng bước
+        steps = roadmap_raw.get('steps', [])
+        for step in steps:
+            cids = step.get('course_ids', [])
+            enriched_courses = []
+            for cid in cids:
+                if str(cid) in course_dict:
+                    enriched_courses.append(course_dict[str(cid)])
+            step['recommended_courses'] = enriched_courses
+
+        return roadmap_raw
+

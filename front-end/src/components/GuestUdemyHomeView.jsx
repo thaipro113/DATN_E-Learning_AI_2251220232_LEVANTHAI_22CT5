@@ -9,6 +9,7 @@ export default function GuestUdemyHomeView({
   onExploreClick,
   onOpenAuthModal,
   onSelectCourse,
+  onNavigateToAIRoadmap,
 }) {
   const [selectedCat, setSelectedCat] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
@@ -157,7 +158,8 @@ export default function GuestUdemyHomeView({
       </section>
 
       {/* ==================== 1.5. LEARNING ROADMAP TIMELINE (LỘ TRÌNH PHÁT TRIỂN NĂNG LỰC) ==================== */}
-      <LearningRoadmapTimeline onExploreClick={onExploreClick} />
+      <LearningRoadmapTimeline onExploreClick={onExploreClick} onNavigateToAIRoadmap={onNavigateToAIRoadmap} />
+
 
 
 

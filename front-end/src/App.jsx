@@ -28,6 +28,7 @@ import CourseReviewerDashboardView from './components/CourseReviewerDashboardVie
 import FlashcardStudyView from './components/FlashcardStudyView';
 import TeacherFlashcardManager from './components/TeacherFlashcardManager';
 import AICommunicationView from './components/AICommunicationView';
+import AIRoadmapView from './components/AIRoadmapView';
 import ErrorBoundary from './components/ErrorBoundary';
 import { recordStudyActivity } from './utils/streakCalculator';
 import { syncFlashcardsFromDatabase } from './utils/flashcardStorage';
@@ -46,7 +47,7 @@ export default function App() {
     }
     const validTabs = [
       'dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 
-      'flashcards', 'ai_coach', 'teacher_dashboard', 'teacher_quizzes', 'admin_dashboard', 
+      'flashcards', 'ai_coach', 'ai_roadmap', 'roadmap', 'teacher_dashboard', 'teacher_quizzes', 'admin_dashboard', 
       'reviewer_dashboard', 'cert_verify', 'login', 'register', 'profile'
     ];
     return { tab: validTabs.includes(rawHash) ? rawHash : 'dashboard', slug: null };
@@ -380,6 +381,8 @@ export default function App() {
     quizzes: 'Luyện Đề Thi',
     path: 'Luyện Lỗi Sai AI',
     skills: 'Luyện Lỗi Sai AI',
+    ai_roadmap: 'Lộ Trình Cá Nhân Hóa AI',
+    roadmap: 'Lộ Trình Cá Nhân Hóa AI',
     flashcards: 'Flashcards Từ Vựng',
     ai_coach: 'Phòng Luyện Giao Tiếp AI',
     teacher_dashboard: 'Studio Giảng dạy',
@@ -472,6 +475,7 @@ export default function App() {
             <button className={`nav-link ${currentTab === 'courses' ? 'active' : ''}`} onClick={() => handleSelectTab('courses')}>
               <span>Khóa học</span>
             </button>
+
 
             {isLoggedIn && user.role === 'STUDENT' && (
               <>
@@ -693,12 +697,26 @@ export default function App() {
           />
         )}
 
-        {/* ==================== A. PUBLIC / STUDENT / GUEST VIEWS ==================== */}
-        {currentTab === 'cert_verify' && (
-          <CertificateVerifyView onBackToDashboard={() => handleSelectTab(user.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')} />
+        {/* ==================== AI PERSONALIZED MULTI-STAGE ROADMAP (ALL ROLES & GUESTS) ==================== */}
+        {(currentTab === 'ai_roadmap' || currentTab === 'roadmap') && (
+          <AIRoadmapView
+            user={user}
+            isLoggedIn={isLoggedIn}
+            myCourses={myCourses}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            onNavigateToCourses={() => handleSelectTab('courses')}
+            onNavigateToLearning={handleNavigateToLearning}
+            onSelectCourse={handleOpenCourseDetail}
+            onEnroll={handleEnrollCourse}
+          />
         )}
 
-        {(!isLoggedIn || user.role === 'STUDENT') && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
+        {/* ==================== A. PUBLIC / STUDENT / GUEST VIEWS ==================== */}
+        {currentTab === 'cert_verify' && (
+          <CertificateVerifyView onBackToDashboard={() => handleSelectTab(user?.role === 'TEACHER' ? 'teacher_dashboard' : 'dashboard')} />
+        )}
+
+        {(!isLoggedIn || user?.role === 'STUDENT') && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
             {currentTab === 'dashboard' && (
               <>
@@ -709,6 +727,7 @@ export default function App() {
                     onExploreClick={() => setCurrentTab('courses')}
                     onOpenAuthModal={() => setIsAuthModalOpen(true)}
                     onSelectCourse={handleOpenCourseDetail}
+                    onNavigateToAIRoadmap={() => handleSelectTab('ai_roadmap')}
                   />
                 ) : (
                   /* 2. GIAO DIỆN ĐÃ ĐĂNG NHẬP: PERSONALIZED STUDENT DASHBOARD */
@@ -751,6 +770,9 @@ export default function App() {
                 myCourses={myCourses}
                 onEnroll={handleEnrollCourse}
                 onNavigateToLearning={handleNavigateToLearning}
+                user={user}
+                isLoggedIn={isLoggedIn}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
               />
             )}
 
@@ -817,7 +839,7 @@ export default function App() {
         )}
 
         {/* ==================== B. TEACHER VIEWS ==================== */}
-        {isLoggedIn && user.role === 'TEACHER' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
+        {isLoggedIn && user?.role === 'TEACHER' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
             {(currentTab === 'teacher_dashboard' || currentTab === 'dashboard') && (
               <TeacherDashboardView
@@ -853,7 +875,7 @@ export default function App() {
         )}
 
         {/* ==================== C. ADMIN VIEWS ==================== */}
-        {isLoggedIn && user.role === 'ADMIN' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
+        {isLoggedIn && user?.role === 'ADMIN' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
             {(currentTab === 'admin_dashboard' || currentTab === 'dashboard' || currentTab === 'flashcards') && (
               <AdminDashboardView
@@ -877,6 +899,9 @@ export default function App() {
                 myCourses={myCourses}
                 onEnroll={handleEnrollCourse}
                 onNavigateToLearning={handleNavigateToLearning}
+                user={user}
+                isLoggedIn={isLoggedIn}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
               />
             )}
 
@@ -900,7 +925,7 @@ export default function App() {
         )}
 
         {/* ==================== D. REVIEWER VIEWS ==================== */}
-        {isLoggedIn && user.role === 'REVIEWER' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
+        {isLoggedIn && user?.role === 'REVIEWER' && currentTab !== 'course_detail' && !['login', 'register', 'profile'].includes(currentTab) && (
           <>
             {(currentTab === 'reviewer_dashboard' || currentTab === 'dashboard') && (
               <CourseReviewerDashboardView

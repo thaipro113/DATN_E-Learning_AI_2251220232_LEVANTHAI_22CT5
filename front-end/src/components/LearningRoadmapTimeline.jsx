@@ -47,7 +47,7 @@ const ROADMAP_STEPS = [
   },
 ];
 
-export default function LearningRoadmapTimeline({ onExploreClick }) {
+export default function LearningRoadmapTimeline({ onExploreClick, onNavigateToAIRoadmap }) {
   const [visibleIndices, setVisibleIndices] = useState(new Set([0])); // Bước 1 sẵn sàng hiển thị
   const [lineHeight, setLineHeight] = useState(0);
   const trackRef = useRef(null);
@@ -145,7 +145,7 @@ export default function LearningRoadmapTimeline({ onExploreClick }) {
             type="button"
             className="btn-view-all-courses"
             style={{
-              marginTop: '24px',
+              marginTop: '20px',
               backgroundColor: '#0284c7',
               color: '#ffffff',
               borderColor: '#0284c7',
@@ -156,6 +156,30 @@ export default function LearningRoadmapTimeline({ onExploreClick }) {
           >
             <span>Xem các khóa học tương ứng</span>
             <i className="fa-solid fa-arrow-down"></i>
+          </button>
+
+          <button
+            type="button"
+            className="btn-view-all-courses"
+            style={{
+              marginTop: '10px',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: '#ffffff',
+              border: 'none',
+              width: '100%',
+              justifyContent: 'center',
+              boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+            }}
+            onClick={() => {
+              if (onNavigateToAIRoadmap) {
+                onNavigateToAIRoadmap();
+              } else {
+                window.location.hash = '#/ai_roadmap';
+              }
+            }}
+          >
+            <i className="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Tạo lộ trình riêng cùng AI</span>
           </button>
         </div>
 

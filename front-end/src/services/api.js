@@ -112,6 +112,8 @@ export const aiAPI = {
     apiClient.post('ai/questions/analyze/', data),
   getQuestionAnalyses: (params) =>
     apiClient.get('ai/questions/analyze/', { params }),
+  // AI Personalized Roadmap Generator (Lộ trình học tập bậc thang cá nhân hóa theo TOEIC, IELTS, CEFR)
+  generateRoadmap: (data) => apiClient.post('ai/roadmap/generate/', data),
 };
 
 export const recommendationAPI = {
@@ -144,7 +146,11 @@ export const recommendationAPI = {
   // AI Course Recommendation Wizard 4 bước
   recommendCoursesWizard: (wizardData) =>
     apiClient.post('recommendations/courses/wizard-recommend/', wizardData),
+  // AI Personalized Roadmap Generator
+  generateRoadmap: (data) => apiClient.post('ai/roadmap/generate/', data),
 };
+
+
 
 export const quizImportAPI = {
   uploadBatch: (formData) =>

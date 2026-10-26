@@ -468,3 +468,52 @@ class QuestionAnalysisAPIView(APIView):
             )
 
 
+class AIRoadmapGenerateAPIView(APIView):
+    """
+    API Endpoint: Khởi tạo Lộ trình học tập cá nhân hóa bậc thang bằng AI.
+    - Hỗ trợ cả Học viên đã đăng nhập và Khách trải nghiệm.
+    - Tiếp nhận mục tiêu: Cấp độ hiện tại, Điểm mong muốn (TOEIC 500 -> 700, IELTS 5.0 -> 6.5...), mục đích học tập.
+    - AI thiết kế lộ trình theo giai đoạn (BƯỚC 01, BƯỚC 02, BƯỚC 03, BƯỚC 04).
+    - Gán các khóa học thực tế đang có sẵn trong CSDL hệ thống để học viên click xem / ghi danh.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from .serializers import AIRoadmapRequestSerializer
+        from .services import AIRoadmapService
+
+        serializer = AIRoadmapRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                message="Dữ liệu yêu cầu lộ trình không hợp lệ.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        data = serializer.validated_data
+        user = request.user if request.user.is_authenticated else None
+
+        try:
+            roadmap = AIRoadmapService.generate_roadmap(
+                user=user,
+                current_level=data.get('current_level', 'A2'),
+                current_score=data.get('current_score', ''),
+                target_goal=data.get('target_goal', 'Luyện thi TOEIC'),
+                target_score=data.get('target_score', '650+ TOEIC'),
+                custom_notes=data.get('custom_notes', ''),
+                num_stages=data.get('num_stages', 4),
+                custom_stages=data.get('custom_stages', [])
+            )
+            return success_response(
+                data=roadmap,
+                message="Khởi tạo lộ trình học tập cá nhân hóa AI thành công!",
+                status_code=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return error_response(
+                message=f"Không thể khởi tạo lộ trình AI: {str(e)}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+

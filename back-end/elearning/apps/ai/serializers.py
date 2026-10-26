@@ -309,3 +309,55 @@ class GenerateCourseDescriptionRequestSerializer(serializers.Serializer):
     )
 
 
+class AIRoadmapRequestSerializer(serializers.Serializer):
+    """
+    Serializer tiếp nhận yêu cầu khởi tạo Lộ trình học tập cá nhân hóa AI.
+    """
+    current_level = serializers.CharField(
+        required=False,
+        default='A2',
+        max_length=50,
+        help_text="Trình độ hiện tại (A1, A2, B1, B2, C1, BEGINNER...)"
+    )
+    current_score = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default='',
+        max_length=100,
+        help_text="Điểm hoặc band hiện tại (VD: TOEIC 500, IELTS 4.5, Mất gốc...)"
+    )
+    target_goal = serializers.CharField(
+        required=False,
+        default='Luyện thi TOEIC',
+        max_length=200,
+        help_text="Mục đích học tập (Luyện thi TOEIC, Luyện thi IELTS, Tiếng Anh Giao tiếp, Lấy lại gốc...)"
+    )
+    target_score = serializers.CharField(
+        required=False,
+        default='650+ TOEIC',
+        max_length=100,
+        help_text="Mục tiêu điểm số hoặc band mong muốn (VD: TOEIC 700+, IELTS 6.5, B2...)"
+    )
+    custom_notes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default='',
+        max_length=500,
+        help_text="Ghi chú nguyện vọng riêng của học viên"
+    )
+    num_stages = serializers.IntegerField(
+        required=False,
+        default=4,
+        min_value=3,
+        max_value=5,
+        help_text="Số giai đoạn muốn phân chia (3 hoặc 4 giai đoạn)"
+    )
+    custom_stages = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        default=list,
+        help_text="Danh sách lựa chọn hoặc nội dung nhập riêng cho từng giai đoạn của học viên"
+    )
+
+
+

@@ -10,7 +10,8 @@ from .prompts import (
     QUIZ_GENERATOR_SYSTEM_PROMPT,
     QUESTION_ANALYSIS_SYSTEM_PROMPT,
     WEAK_TOPIC_QUIZ_SYSTEM_PROMPT,
-    COURSE_RECOMMENDATION_SYSTEM_PROMPT
+    COURSE_RECOMMENDATION_SYSTEM_PROMPT,
+    ROADMAP_GENERATOR_SYSTEM_PROMPT
 )
 
 try:
@@ -47,6 +48,14 @@ class BaseLLMProvider(ABC):
     def recommend_courses_with_llm(self, student_profile: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Đánh giá và xếp hạng các khóa học ứng viên từ CSDL cho học viên dựa trên hồ sơ và mục tiêu.
+        """
+        pass
+
+    @abstractmethod
+    def generate_personalized_roadmap(self, roadmap_request: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Sinh Lộ trình học tập bậc thang cá nhân hóa (BƯỚC 01, BƯỚC 02, BƯỚC 03, BƯỚC 04)
+        kết nối khóa học thực tế từ CSDL.
         """
         pass
 
@@ -335,6 +344,12 @@ class GeminiLLMProvider(BaseLLMProvider):
         if groq_key:
             return GroqLLMProvider(api_key=groq_key).recommend_courses_with_llm(student_profile, candidate_courses)
         return FallbackMockLLMProvider().recommend_courses_with_llm(student_profile, candidate_courses)
+
+    def generate_personalized_roadmap(self, roadmap_request: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+        groq_key = os.getenv('GROQ_API_KEY') or getattr(settings, 'GROQ_API_KEY', '')
+        if groq_key:
+            return GroqLLMProvider(api_key=groq_key).generate_personalized_roadmap(roadmap_request, candidate_courses)
+        return FallbackMockLLMProvider().generate_personalized_roadmap(roadmap_request, candidate_courses)
 
 
 class GroqLLMProvider(BaseLLMProvider):
@@ -787,6 +802,82 @@ class GroqLLMProvider(BaseLLMProvider):
 
         return {'recommended_courses': valid_recs}
 
+    def generate_personalized_roadmap(
+        self,
+        roadmap_request: Dict[str, Any],
+        candidate_courses: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Sinh Lộ trình học tập bậc thang cá nhân hóa (BƯỚC 01, BƯỚC 02, BƯỚC 03, BƯỚC 04)
+        kết nối khóa học thực tế từ CSDL bằng Groq LLM (Qwen / GPT-OSS).
+        """
+        courses_text = ""
+        for c in candidate_courses:
+            price_text = "Miễn phí" if c.get('is_free') else f"{c.get('price')} VNĐ"
+            courses_text += (
+                f"- Course ID: {c['id']}\n"
+                f"  Title: {c['title']}\n"
+                f"  Category: {c.get('category', 'English')}\n"
+                f"  Level: {c.get('level', 'B1')}\n"
+                f"  Price: {price_text}\n"
+                f"  Description: {c.get('description', '')}\n\n"
+            )
+
+        current_level = roadmap_request.get('current_level', 'A2')
+        current_score = roadmap_request.get('current_score', 'Chưa có / Cơ bản')
+        target_goal = roadmap_request.get('target_goal', 'Luyện thi TOEIC')
+        target_score = roadmap_request.get('target_score', '650+ TOEIC')
+        custom_notes = roadmap_request.get('custom_notes', '')
+        num_stages = roadmap_request.get('num_stages', 4)
+        custom_stages = roadmap_request.get('custom_stages') or []
+
+        custom_stages_str = ""
+        if custom_stages and isinstance(custom_stages, list):
+            custom_stages_str = "\nLỰA CHỌN CHI TIẾT TỪNG GIAI ĐOẠN CỦA HỌC VIÊN:\n"
+            for st in custom_stages:
+                st_num = st.get('stage_number', '')
+                st_title = st.get('title') or st.get('choice_label', '')
+                st_input = st.get('custom_input', '')
+                custom_stages_str += f"- Giai đoạn {st_num}: {st_title}"
+                if st_input:
+                    custom_stages_str += f" | Tự nhập mong muốn: {st_input}"
+                custom_stages_str += "\n"
+
+        user_prompt = (
+            f"HỒ SƠ HỌC VIÊN & MỤC TIÊU NĂNG LỰC:\n"
+            f"- Cấp độ / Điểm hiện tại: {current_level} (Chi tiết điểm/band: {current_score})\n"
+            f"- Mục đích học tập (Bạn học để làm gì): {target_goal}\n"
+            f"- Điểm số / Band mong muốn đạt được: {target_score}\n"
+            f"- Số giai đoạn phân chia mong muốn: {num_stages} giai đoạn\n"
+            f"- Ghi chú nguyện vọng riêng của học viên: {custom_notes if custom_notes else 'Không có'}\n"
+            f"{custom_stages_str}\n"
+            f"DANH SÁCH KHÓA HỌC THỰC TẾ TRONG CSDL (CHỈ ĐƯỢC CHỌN TỪ ĐÂY):\n"
+            f"{courses_text}\n"
+            f"Vui lòng thiết kế lộ trình {num_stages} giai đoạn bám sát cấu trúc bậc thang (BƯỚC 01, BƯỚC 02...), đáp ứng chính xác các lựa chọn từng giai đoạn của học viên, gán các khóa học phù hợp cho từng bước và trả về JSON chuẩn."
+        )
+
+        try:
+            data = self._call_json_completion(
+                system_prompt=ROADMAP_GENERATOR_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                max_tokens=3000,
+                temperature=0.3
+            )
+            if isinstance(data, dict) and 'steps' in data and len(data['steps']) > 0:
+                valid_ids = {str(c['id']) for c in candidate_courses}
+                for step in data['steps']:
+                    step_cids = [str(cid).strip() for cid in step.get('course_ids', []) if str(cid).strip() in valid_ids]
+                    if not step_cids:
+                        step_cids = FallbackMockLLMProvider._match_courses_for_step(
+                            step.get('phase', '') + ' ' + step.get('title', ''), candidate_courses
+                        )
+                    step['course_ids'] = step_cids
+                return data
+        except Exception as e:
+            logger.warning(f"Groq Personalized Roadmap Generation failed: {e}. Falling back to smart heuristic.")
+
+        return FallbackMockLLMProvider().generate_personalized_roadmap(roadmap_request, candidate_courses)
+
 
 class FallbackMockLLMProvider(BaseLLMProvider):
     """
@@ -987,6 +1078,282 @@ class FallbackMockLLMProvider(BaseLLMProvider):
 
     def recommend_courses_with_llm(self, student_profile: Dict[str, Any], candidate_courses: List[Dict[str, Any]]) -> Dict[str, Any]:
         return {'recommended_courses': []}
+
+    @staticmethod
+    def _match_courses_for_step(text_hint: str, candidate_courses: List[Dict[str, Any]]) -> List[str]:
+        """
+        Hàm heuristic hỗ trợ chọn khóa học tối ưu từ CSDL dựa trên từ khóa giai đoạn.
+        """
+        hint_lower = text_hint.lower()
+        matched = []
+
+        # 1. Tìm khóa học phù hợp theo trình độ và chủ đề
+        for c in candidate_courses:
+            title_lower = c.get('title', '').lower()
+            cat_lower = c.get('category', '').lower()
+            level = c.get('level', '')
+
+            if any(k in hint_lower for k in ['a1', 'a2', 'gốc', 'cơ bản', 'bắt đầu', 'nền tảng']):
+                if level in ['A1', 'A2'] or 'gốc' in title_lower or 'cơ bản' in title_lower:
+                    matched.append(str(c['id']))
+            elif any(k in hint_lower for k in ['b1', 'từ vựng', 'đọc hiểu']):
+                if level == 'B1' or 'từ vựng' in title_lower or 'đọc hiểu' in title_lower:
+                    matched.append(str(c['id']))
+            elif any(k in hint_lower for k in ['toeic', 'ielts']):
+                if 'toeic' in hint_lower and ('toeic' in title_lower or 'toeic' in cat_lower):
+                    matched.append(str(c['id']))
+                elif 'ielts' in hint_lower and ('ielts' in title_lower or 'ielts' in cat_lower):
+                    matched.append(str(c['id']))
+            elif any(k in hint_lower for k in ['giao tiếp', 'công sở', 'c1', 'c2']):
+                if 'giao tiếp' in title_lower or level in ['B2', 'C1']:
+                    matched.append(str(c['id']))
+
+        if not matched and candidate_courses:
+            # Fallback lấy 1 khóa đầu tiên
+            matched.append(str(candidate_courses[0]['id']))
+
+        # Giữ tối đa 2 khóa học tiêu biểu cho mỗi bước
+        return list(dict.fromkeys(matched))[:2]
+
+    def generate_personalized_roadmap(
+        self,
+        roadmap_request: Dict[str, Any],
+        candidate_courses: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Bộ sinh lộ trình sư phạm thông minh Heuristic (Smart Fallback Engine)
+        Tự động cấu trúc các chặng học tập bậc thang chuẩn CEFR theo mục tiêu điểm số của học viên.
+        """
+        current_level = roadmap_request.get('current_level', 'A2')
+        current_score = roadmap_request.get('current_score', '')
+        target_goal = roadmap_request.get('target_goal', 'Luyện thi TOEIC')
+        target_score = roadmap_request.get('target_score', '700+ TOEIC')
+        num_stages = int(roadmap_request.get('num_stages', 4))
+        if num_stages not in [3, 4]:
+            num_stages = 4
+
+        is_toeic = 'toeic' in target_goal.lower() or 'toeic' in target_score.lower()
+        is_ielts = 'ielts' in target_goal.lower() or 'ielts' in target_score.lower()
+        is_comm = 'giao tiếp' in target_goal.lower() or 'đi làm' in target_goal.lower() or 'công sở' in target_goal.lower()
+
+        if is_toeic:
+            title = f"Chiến Lược Chinh Phục TOEIC Mục Tiêu {target_score}"
+            summary = f"Lộ trình tinh gọn {num_stages} giai đoạn được AI cá nhân hóa từ trình độ hiện tại ({current_score or current_level}) giúp bạn làm chủ ngữ pháp then chốt, bứt phá vốn từ vựng thương mại và tối ưu kỹ thuật giải đề TOEIC."
+            
+            steps = [
+                {
+                    "step_number": 1,
+                    "phase": "BƯỚC 01 • CẤP ĐỘ CEFR A1 - A2 (NỀN TẢNG TOEIC 350 - 450)",
+                    "title": "XÂY DỰNG GỐC NGỮ PHÁP & PHÁT ÂM CƠ BẢN",
+                    "desc": "Bắt đầu hành trình với hệ thống bài giảng ngữ pháp cốt lõi và phát âm quốc tế IPA chuẩn xác. Từng bài học được chia nhỏ khoa học từ 12 thì cơ bản, cách đặt câu đến phản xạ từ vựng ban đầu. Hệ thống giúp học viên mất gốc lấy lại sự tự tin, nắm chắc nền tảng vững vàng.",
+                    "tags": [
+                        {"icon": "fa-solid fa-book-open", "label": "Quyết tâm lấy gốc Tiếng Anh"},
+                        {"icon": "fa-solid fa-spell-check", "label": "Ngữ pháp A1 - A2"},
+                        {"icon": "fa-solid fa-volume-high", "label": "Chuẩn hóa ngữ âm IPA"}
+                    ],
+                    "estimated_weeks": "3 - 4 tuần",
+                    "match_reason": "Củng cố lại toàn bộ ngữ pháp cơ bản và ngữ âm để nghe hiểu các đoạn hội thoại ngắn."
+                },
+                {
+                    "step_number": 2,
+                    "phase": "BƯỚC 02 • CẤP ĐỘ CEFR B1 (TĂNG TỐC TỪ VỰNG & NGHE HIỂU 500 - 600)",
+                    "title": "MỞ RỘNG VỐN TỪ VỰNG & RÈN LUYỆN ĐỌC HIỂU",
+                    "desc": "Chuyển tiếp sang giai đoạn tăng tốc với kho học liệu từ vựng chuyên sâu theo chủ đề công sở và đời sống. Người học được trang bị kỹ năng Skimming & Scanning để giải mã các bài đọc dài Part 7, hiểu sâu cấu trúc câu và hình thành phản xạ tư duy tiếng Anh trực tiếp.",
+                    "tags": [
+                        {"icon": "fa-solid fa-layer-group", "label": "Từ vựng & Đọc hiểu B1"},
+                        {"icon": "fa-solid fa-brain", "label": "Chinh phục 3000 từ vựng cốt lõi"},
+                        {"icon": "fa-solid fa-briefcase", "label": "Tiếng Anh văn phòng thực tế"}
+                    ],
+                    "estimated_weeks": "4 - 5 tuần",
+                    "match_reason": "Bổ sung lượng từ vựng thương mại phong phú và rèn luyện tốc độ đọc hiểu văn bản."
+                },
+                {
+                    "step_number": 3,
+                    "phase": f"BƯỚC 03 • CẤP ĐỘ CEFR B2 (LUYỆN ĐỀ THỰC CHIẾN BỨT PHÁ {target_score})",
+                    "title": "LUYỆN ĐỀ THỰC CHIẾN & TỰ ĐỘNG CHẨN ĐOÁN LỖI SAI",
+                    "desc": "Thử sức với ngân hàng đề thi trắc nghiệm chuẩn hóa mô phỏng bài thi quốc tế TOEIC. Sau mỗi lần nộp bài, hệ thống tự động phân tích chi tiết từng lỗi sai, chẩn đoán lỗ hổng kiến thức ngữ pháp và đề xuất bài giảng ôn tập bù đắp kịp thời, giúp bứt phá điểm số vượt bậc.",
+                    "tags": [
+                        {"icon": "fa-solid fa-file-signature", "label": "Luyện đề TOEIC Chuyên sâu"},
+                        {"icon": "fa-solid fa-magnifying-glass-chart", "label": "Phân tích lỗi sai thông minh"},
+                        {"icon": "fa-solid fa-graduation-cap", "label": "Chinh phục ngữ pháp B2"}
+                    ],
+                    "estimated_weeks": "4 - 6 tuần",
+                    "match_reason": "Rèn luyện áp lực phòng thi thật, khắc phục bẫy đề thi Part 5, 6, 7 và tăng tốc phản xạ nghe Part 3, 4."
+                },
+                {
+                    "step_number": 4,
+                    "phase": "BƯỚC 04 • CẤP ĐỘ CEFR C1 (CHINH PHỤC ĐỈNH CAO 850 - 900+)",
+                    "title": "LÀM CHỦ PHẢN XẠ NÂNG CAO & CẤP CHỨNG CHỈ SỐ",
+                    "desc": "Chinh phục đỉnh cao điểm số với các bộ đề khó phân loại học viên, tối ưu hóa điểm số tuyệt đối. Hoàn tất bài đánh giá năng lực cuối khóa để nhận Chứng chỉ số điện tử CEFR tích hợp mã QR xác thực chính quy, sẵn sàng cho công việc và cơ hội toàn cầu.",
+                    "tags": [
+                        {"icon": "fa-solid fa-trophy", "label": "Bứt tốc TOEIC 900+"},
+                        {"icon": "fa-solid fa-award", "label": "Chứng chỉ CEFR QR Code"},
+                        {"icon": "fa-solid fa-shield-check", "label": "Đánh giá năng lực chuẩn hóa"}
+                    ],
+                    "estimated_weeks": "3 - 4 tuần",
+                    "match_reason": "Bảo đảm phong độ làm bài đỉnh cao và ghi nhận thành tích chính thức."
+                }
+            ]
+        elif is_ielts:
+            title = f"Hành Trình Bứt Phá IELTS Toàn Diện Band {target_score}"
+            summary = f"Lộ trình {num_stages} giai đoạn được AI phân tích chuẩn xác giúp bạn xây dựng nền tảng từ vựng học thuật, rèn luyện tư duy phản biện và làm quen với format đề thi IELTS 4 kỹ năng."
+            steps = [
+                {
+                    "step_number": 1,
+                    "phase": "BƯỚC 01 • CẤP ĐỘ CEFR A1 - A2 (NỀN TẢNG NĂNG LỰC)",
+                    "title": "XÂY DỰNG GỐC NGỮ PHÁP & PHÁT ÂM CƠ BẢN",
+                    "desc": "Xây dựng lại hệ thống ngữ pháp tiếng Anh bài bản từ các thì, mệnh đề quan hệ và ngữ âm chuẩn IPA làm tiền đề cho kỹ năng Nghe - Nói IELTS.",
+                    "tags": [
+                        {"icon": "fa-solid fa-book-open", "label": "Quyết tâm lấy gốc Tiếng Anh"},
+                        {"icon": "fa-solid fa-spell-check", "label": "Ngữ pháp căn bản"},
+                        {"icon": "fa-solid fa-volume-high", "label": "Chuẩn hóa ngữ âm IPA"}
+                    ],
+                    "estimated_weeks": "3 - 4 tuần",
+                    "match_reason": "Nền tảng phát âm và cấu trúc câu chuẩn xác là chìa khóa của Speaking & Writing."
+                },
+                {
+                    "step_number": 2,
+                    "phase": "BƯỚC 02 • CẤP ĐỘ CEFR B1 (TIỀN IELTS 5.0 - 5.5)",
+                    "title": "MỞ RỘNG VỐN TỪ VỰNG HỌC THUẬT & ĐỌC HIỂU",
+                    "desc": "Tiếp cận kho học liệu từ vựng học thuật cơ bản, phương pháp Skimming và Scanning trong IELTS Reading và rèn luyện nghe bắt từ khóa.",
+                    "tags": [
+                        {"icon": "fa-solid fa-layer-group", "label": "Từ vựng Học thuật B1"},
+                        {"icon": "fa-solid fa-brain", "label": "Chiến thuật Skimming & Scanning"},
+                        {"icon": "fa-solid fa-headphones", "label": "Luyện nghe chủ động"}
+                    ],
+                    "estimated_weeks": "4 - 5 tuần",
+                    "match_reason": "Mở rộng 1500 từ vựng cốt lõi thường xuất hiện trong đề thi IELTS."
+                },
+                {
+                    "step_number": 3,
+                    "phase": f"BƯỚC 03 • CẤP ĐỘ CEFR B2 (LUYỆN ĐỀ IELTS {target_score})",
+                    "title": "LUYỆN ĐỀ THỰC CHIẾN & TỰ ĐỘNG CHẨN ĐOÁN LỖI SAI",
+                    "desc": "Thực hành giải các dạng bài IELTS Reading & Listening chuyên sâu, phân tích chi tiết lỗi sai bẫy đề thi và củng cố ngữ pháp phức tạp.",
+                    "tags": [
+                        {"icon": "fa-solid fa-file-signature", "label": f"IELTS Quyết tâm lấy {target_score}"},
+                        {"icon": "fa-solid fa-magnifying-glass-chart", "label": "Chẩn đoán bẫy đề thi"},
+                        {"icon": "fa-solid fa-graduation-cap", "label": "Chinh phục ngữ pháp B2"}
+                    ],
+                    "estimated_weeks": "5 - 6 tuần",
+                    "match_reason": "Giải quyết dứt điểm các lỗi sai thường gặp khi làm đề IELTS."
+                },
+                {
+                    "step_number": 4,
+                    "phase": "BƯỚC 04 • CẤP ĐỘ CEFR C1 (IELTS MASTERCLASS 7.5+)",
+                    "title": "LÀM CHỦ PHẢN XẠ HỌC THUẬT & CẤP CHỨNG CHỈ SỐ",
+                    "desc": "Nâng cao tư duy phản biện, làm chủ các cấu trúc ngữ pháp cao cấp C1 và hoàn thành bài kiểm tra chuẩn hóa để nhận chứng chỉ điện tử xác thực QR.",
+                    "tags": [
+                        {"icon": "fa-solid fa-comments", "label": "Masterclass 7.5+ Toàn Diện"},
+                        {"icon": "fa-solid fa-award", "label": "Chứng chỉ CEFR QR Code"},
+                        {"icon": "fa-solid fa-shield-check", "label": "Đánh giá chuẩn quốc tế"}
+                    ],
+                    "estimated_weeks": "4 - 5 tuần",
+                    "match_reason": "Tối ưu hóa độ trôi chảy và vốn từ cao cấp để chạm mốc điểm mong muốn."
+                }
+            ]
+        else:
+            title = f"Lộ Trình Phát Triển Năng Lực Tiếng Anh Toàn Diện ({target_score})"
+            summary = f"Lộ trình đào tạo bậc thang {num_stages} giai đoạn từ {current_level} lên {target_score}, kết hợp cân bằng giữa ngữ pháp ứng dụng, từ vựng và đàm thoại thực tế."
+            steps = [
+                {
+                    "step_number": 1,
+                    "phase": "BƯỚC 01 • CẤP ĐỘ CEFR A1 - A2",
+                    "title": "XÂY DỰNG GỐC NGỮ PHÁP & PHÁT ÂM CƠ BẢN",
+                    "desc": "Bắt đầu hành trình với hệ thống bài giảng ngữ pháp cốt lõi và phát âm quốc tế IPA chuẩn xác. Từng bài học được chia nhỏ khoa học từ 12 thì cơ bản, cách đặt câu đến phản xạ từ vựng ban đầu. Hệ thống giúp học viên mất gốc lấy lại sự tự tin, nắm chắc nền tảng vững vàng.",
+                    "tags": [
+                        {"icon": "fa-solid fa-book-open", "label": "Quyết tâm lấy gốc Tiếng Anh"},
+                        {"icon": "fa-solid fa-spell-check", "label": "Ngữ pháp A1 - A2"},
+                        {"icon": "fa-solid fa-volume-high", "label": "Chuẩn hóa ngữ âm IPA"}
+                    ],
+                    "estimated_weeks": "3 - 4 tuần",
+                    "match_reason": "Khóa học nền tảng giúp chuẩn hóa ngữ âm và hiểu rõ quy tắc đặt câu cơ bản."
+                },
+                {
+                    "step_number": 2,
+                    "phase": "BƯỚC 02 • CẤP ĐỘ CEFR B1",
+                    "title": "MỞ RỘNG VỐN TỪ VỰNG & RÈN LUYỆN ĐỌC HIỂU",
+                    "desc": "Chuyển tiếp sang giai đoạn tăng tốc với kho học liệu từ vựng chuyên sâu theo chủ đề đời sống, công sở và học thuật. Người học được trang bị kỹ năng Skimming & Scanning để giải mã các bài đọc dài, hiểu sâu cấu trúc ngữ pháp phức tạp và hình thành phản xạ tư duy trực tiếp.",
+                    "tags": [
+                        {"icon": "fa-solid fa-layer-group", "label": "Từ vựng & Đọc hiểu B1"},
+                        {"icon": "fa-solid fa-brain", "label": "Chinh phục 3000 từ vựng cốt lõi"},
+                        {"icon": "fa-solid fa-briefcase", "label": "Tiếng Anh văn phòng thực tế"}
+                    ],
+                    "estimated_weeks": "4 - 5 tuần",
+                    "match_reason": "Mở rộng vốn từ vựng đa dạng chủ đề và rèn luyện đọc hiểu nhanh."
+                },
+                {
+                    "step_number": 3,
+                    "phase": "BƯỚC 03 • CẤP ĐỘ CEFR B2",
+                    "title": "LUYỆN ĐỀ THỰC CHIẾN & TỰ ĐỘNG CHẨN ĐOÁN LỖI SAI",
+                    "desc": "Thử sức với ngân hàng đề thi trắc nghiệm chuẩn hóa mô phỏng bài thi quốc tế (TOEIC, IELTS, CEFR). Sau mỗi lần nộp bài, hệ thống tự động phân tích chi tiết từng lỗi sai, chẩn đoán lỗ hổng kiến thức ngữ pháp và đề xuất bài giảng ôn tập bù đắp kịp thời.",
+                    "tags": [
+                        {"icon": "fa-solid fa-file-signature", "label": "Luyện đề Thực chiến B2"},
+                        {"icon": "fa-solid fa-magnifying-glass-chart", "label": "Phân tích lỗi sai thông minh"},
+                        {"icon": "fa-solid fa-graduation-cap", "label": "Chinh phục ngữ pháp B2"}
+                    ],
+                    "estimated_weeks": "4 - 5 tuần",
+                    "match_reason": "Nâng cao độ chính xác ngữ pháp và tự tin xử lý bài thi."
+                },
+                {
+                    "step_number": 4,
+                    "phase": "BƯỚC 04 • CẤP ĐỘ CEFR C1 - C2",
+                    "title": "LÀM CHỦ GIAO TIẾP PHẢN XẠ & CẤP CHỨNG CHỈ SỐ",
+                    "desc": "Chinh phục đỉnh cao ngôn ngữ qua các bài luyện đàm thoại giao tiếp chuyên nghiệp, được chỉnh sửa phong thái diễn đạt tự nhiên chuẩn bản xứ. Hoàn tất bài đánh giá năng lực cuối khóa để nhận Chứng chỉ số điện tử CEFR tích hợp mã QR xác thực chính quy.",
+                    "tags": [
+                        {"icon": "fa-solid fa-comments", "label": "Giao tiếp C1 Chuyên nghiệp"},
+                        {"icon": "fa-solid fa-award", "label": "Chứng chỉ CEFR QR Code"},
+                        {"icon": "fa-solid fa-shield-check", "label": "Đánh giá năng lực chuẩn hóa"}
+                    ],
+                    "estimated_weeks": "3 - 4 tuần",
+                    "match_reason": "Hoàn thiện kỹ năng đàm thoại chuyên nghiệp và nhận chứng chỉ chính quy."
+                }
+            ]
+
+        # Nếu người dùng có tùy chỉnh hoặc chọn từng giai đoạn cụ thể
+        custom_stages = roadmap_request.get('custom_stages') or []
+        if custom_stages and isinstance(custom_stages, list) and len(custom_stages) > 0:
+            custom_steps = []
+            for idx, stage in enumerate(custom_stages):
+                s_num = stage.get('stage_number', idx + 1)
+                s_title = stage.get('title') or stage.get('choice_label') or f"GIAI ĐOẠN {s_num}"
+                s_custom_input = stage.get('custom_input', '').strip()
+                s_desc = stage.get('desc') or ''
+                if s_custom_input:
+                    s_desc = f"{s_desc}. Nguyện vọng học viên: {s_custom_input}".strip(". ") if s_desc else f"Nguyện vọng học viên: {s_custom_input}"
+                
+                s_tags = stage.get('tags') or [
+                    {"icon": "fa-solid fa-bullseye", "label": stage.get('focus') or "Trọng tâm chặng"},
+                    {"icon": "fa-solid fa-graduation-cap", "label": f"Mục tiêu {target_score}"},
+                    {"icon": "fa-solid fa-sparkles", "label": "Cá nhân hóa AI"}
+                ]
+                
+                custom_steps.append({
+                    "step_number": s_num,
+                    "phase": f"BƯỚC 0{s_num} • {stage.get('level_tag', f'CHẶNG {s_num}')}",
+                    "title": s_title.upper(),
+                    "desc": s_desc or f"Chặng học tập tập trung vào {s_title.lower()} được cá nhân hóa theo đúng lựa chọn và nguyện vọng của học viên.",
+                    "tags": s_tags,
+                    "estimated_weeks": stage.get('estimated_weeks', "3 - 4 tuần"),
+                    "match_reason": f"Khóa học được chọn lọc tối ưu nhằm đáp ứng trực tiếp lựa chọn '{s_title}' của học viên."
+                })
+            steps = custom_steps
+            num_stages = len(steps)
+        elif num_stages == 3:
+            # Cắt bớt nếu người dùng chọn 3 giai đoạn mặc định
+            steps = steps[:3]
+
+        # Gán ID khóa học thực tế từ CSDL cho mỗi bước
+        for step in steps:
+            search_str = f"{step.get('phase', '')} {step.get('title', '')} {step.get('desc', '')}"
+            step['course_ids'] = self._match_courses_for_step(search_str, candidate_courses)
+
+        return {
+            "roadmap_title": title,
+            "roadmap_summary": summary,
+            "target_band": target_score,
+            "total_duration": f"{num_stages * 4} tuần (45 phút/ngày)",
+            "steps": steps
+        }
 
 
 def get_llm_provider() -> BaseLLMProvider:

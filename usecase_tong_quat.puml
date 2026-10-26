@@ -1,0 +1,158 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam handwritten false
+skinparam monochrome false
+skinparam roundcorner 10
+skinparam defaultFontName "Segoe UI", "Arial", "sans-serif"
+skinparam defaultFontSize 12
+
+skinparam package {
+    BackgroundColor #F8FAFC
+    BorderColor #94A3B8
+    FontColor #0F172A
+    FontStyle bold
+    FontSize 13
+}
+
+skinparam actor {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #FFFFFF
+    BorderColor #3B82F6
+    FontColor #0F172A
+    ArrowColor #2563EB
+    ArrowFontColor #475569
+    ArrowFontSize 10
+}
+
+left to right direction
+
+' ================= ACTORS =================
+actor "Khách vãng lai\n(Guest)" as Guest #F1F5F9
+actor "Người dùng\n(User)" as User #E2E8F0
+actor "Học viên\n(Student)" as Student #DBEAFE
+actor "Giảng viên\n(Teacher)" as Teacher #DCFCE7
+actor "Thẩm định viên\n(Reviewer)" as Reviewer #FEF3C7
+actor "Quản trị viên\n(Admin)" as Admin #FEE2E2
+actor "Hệ thống AI / LLM\n(Gemini / Groq)" as AI << System >> #F3E8FF
+
+' Kế thừa Actor
+User <|-- Student
+User <|-- Teacher
+User <|-- Reviewer
+User <|-- Admin
+
+' ================= SUB-SYSTEMS =================
+rectangle "HỆ THỐNG E-LEARNING HỌC TIẾNG ANH TÍCH HỢP TRÍ TUỆ NHÂN TẠO (AI)" {
+
+    package "1. Phân hệ Xác thực & Tài khoản" {
+        usecase "UC01: Đăng ký tài khoản" as UC_Register
+        usecase "Đăng nhập hệ thống (JWT)" as UC_Login
+        usecase "UC02: Quản lý hồ sơ cá nhân\n& Đổi mật khẩu" as UC_Profile
+    }
+
+    package "2. Phân hệ Học tập & Đánh giá (Student)" {
+        usecase "UC03: Tìm kiếm & Xem khóa học" as UC_Browse
+        usecase "UC04: Ghi danh khóa học (Enroll)" as UC_Enroll
+        usecase "UC05: Học bài & Theo dõi tiến độ" as UC_Study
+        usecase "Tính toán tiến độ & XP thực tế" as UC_Progress
+        usecase "UC06: Làm bài kiểm tra (Quiz)" as UC_Quiz
+        usecase "Xem lịch sử thi & phân tích lỗi" as UC_QuizReview
+        usecase "UC09: Học từ vựng Flashcard\n(Spaced Repetition & Speech)" as UC_Flashcard
+        usecase "Cấp & In ấn chứng chỉ điện tử\n(Chuẩn A4 Landscape)" as UC_Cert
+        usecase "Tra cứu & Xác thực chứng chỉ số\n(Public Verification)" as UC_VerifyCert
+    }
+
+    package "3. Phân hệ Trợ giảng AI & Lộ trình thích ứng" {
+        usecase "UC07: Trò chuyện Trợ giảng AI\n(AI English Tutor ngữ cảnh)" as UC_AITutor
+        usecase "UC08: Đánh giá năng lực chẩn đoán\n& Lộ trình thích ứng AI" as UC_AIEval
+        usecase "Phân tích lỗ hổng kiến thức" as UC_Weakness
+    }
+
+    package "4. Phân hệ Giảng dạy & Biên soạn (Teacher)" {
+        usecase "UC10: Tạo khóa học mới\n& Soạn thảo giáo trình (Studio)" as UC_CreateCourse
+        usecase "Kiểm soát Rate Limit & Anti-Spam\n(Max 5 khóa nháp, cách 5 phút)" as UC_RateLimit
+        usecase "UC11: Sinh câu hỏi tự động (AI Quiz)" as UC_GenQuiz
+        usecase "UC12: Import ngân hàng đề thi\n(Word .docx / Excel .xlsx)" as UC_ImportQuiz
+        usecase "UC13: Soạn thảo & Quản lý bộ thẻ Flashcard" as UC_ManageFlashcard
+        usecase "Nộp phê duyệt khóa học (Submit)" as UC_SubmitCourse
+        usecase "Theo dõi sổ điểm học viên" as UC_TeacherGrade
+    }
+
+    package "5. Phân hệ Thẩm định & Phản biện (Reviewer)" {
+        usecase "UC14: Thẩm định & Phản biện khóa học\n(Theo phân công riêng: 1 hoặc Hội đồng)" as UC_ReviewCourse
+        usecase "Phê duyệt xuất bản (Approve)" as UC_ApproveCourse
+        usecase "Từ chối & Ghi chú phản biện (Reject)" as UC_RejectCourse
+        usecase "UC15: Thẩm định bộ Flashcard" as UC_ReviewFlashcard
+    }
+
+    package "6. Phân hệ Quản trị & Vận hành (Admin)" {
+        usecase "UC16.1: Quản trị tài khoản\n& Cấp quyền GV/Thẩm định" as UC_AdminUsers
+        usecase "UC16.2: Quản trị danh mục khóa học" as UC_AdminCategories
+        usecase "UC16.3: Phân công Thẩm định viên riêng\n(1 Thẩm định viên chính hoặc Hội đồng)" as UC_AdminAssign
+        usecase "UC16.4: Giám sát hệ thống & Thống kê" as UC_AdminDashboard
+    }
+}
+
+' ================= LIÊN KẾT TÁC NHÂN VÀ USE CASE =================
+' Guest
+Guest --> UC_Register
+Guest --> UC_Browse
+Guest --> UC_VerifyCert
+
+' User (Base)
+User --> UC_Login
+User --> UC_Profile
+
+' Student
+Student --> UC_Browse
+Student --> UC_Enroll
+Student --> UC_Study
+Student --> UC_Quiz
+Student --> UC_AITutor
+Student --> UC_AIEval
+Student --> UC_Flashcard
+Student --> UC_Cert
+
+' Teacher
+Teacher --> UC_CreateCourse
+Teacher --> UC_GenQuiz
+Teacher --> UC_ImportQuiz
+Teacher --> UC_ManageFlashcard
+Teacher --> UC_TeacherGrade
+
+' Reviewer
+Reviewer --> UC_ReviewCourse
+Reviewer --> UC_ReviewFlashcard
+
+' Admin
+Admin --> UC_AdminUsers
+Admin --> UC_AdminCategories
+Admin --> UC_AdminAssign
+Admin --> UC_AdminDashboard
+
+' AI Engine
+AI --> UC_AITutor
+AI --> UC_AIEval
+AI --> UC_GenQuiz
+
+' ================= QUAN HỆ INCLUDE / EXTEND =================
+UC_Study ..> UC_Progress : <<include>>
+UC_Study <.. UC_Cert : <<extend>>\n(Hoàn thành 100%)
+UC_Quiz <.. UC_QuizReview : <<extend>>
+UC_AIEval ..> UC_Weakness : <<include>>
+
+UC_CreateCourse <.. UC_RateLimit : <<extend>>\n(Kiểm tra tần suất)
+UC_CreateCourse ..> UC_SubmitCourse : <<include>>
+
+UC_ReviewCourse ..> UC_ApproveCourse : <<include>>
+UC_ReviewCourse ..> UC_RejectCourse : <<include>>
+UC_AdminAssign ..> UC_ReviewCourse : <<triggers>>
+
+@enduml

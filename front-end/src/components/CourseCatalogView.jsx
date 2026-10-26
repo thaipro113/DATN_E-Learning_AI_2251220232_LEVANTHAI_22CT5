@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import CourseDetailModal from './CourseDetailModal';
 import Pagination from './Pagination';
+import AIRoadmapView from './AIRoadmapView';
 import { cleanCourseTitle, isCourseEnrolled } from '../utils/media';
 
-export default function CourseCatalogView({ courses = [], myCourses = [], onEnroll, onNavigateToLearning }) {
-  // Tabs: 'ALL' (hiển thị 2 phân khu), 'REGISTERED' (chỉ đã đăng ký), 'UNREGISTERED' (chưa đăng ký)
-  const [activeCatalogTab, setActiveCatalogTab] = useState('ALL');
+export default function CourseCatalogView({
+  courses = [],
+  myCourses = [],
+  onEnroll,
+  onNavigateToLearning,
+  user,
+  isLoggedIn,
+  onOpenAuthModal,
+}) {
+  // Nếu người dùng chưa đăng ký khóa nào hoặc là khách (chưa đăng nhập), ưu tiên mở Lộ trình học trước
+  const isNewOrGuest = !isLoggedIn || !Array.isArray(myCourses) || myCourses.length === 0;
+  const [activeCatalogTab, setActiveCatalogTab] = useState(() => (isNewOrGuest ? 'ROADMAP' : 'ALL'));
   const [selectedLevel, setSelectedLevel] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingCourse, setViewingCourse] = useState(null);
@@ -446,6 +456,92 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
         </div>
       </div>
 
+      {/* Banner chào đón & hướng dẫn học viên mới hoặc guest */}
+      {isNewOrGuest && (
+        <div
+          style={{
+            backgroundColor: '#f0f9ff',
+            border: '1.5px solid #bae6fd',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                backgroundColor: '#0284c7',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.2rem',
+                flexShrink: 0,
+              }}
+            >
+              <i className="fa-solid fa-route"></i>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.96rem', fontWeight: '800', color: '#0369a1', marginBottom: '2px' }}>
+                Khởi đầu học tập: Chọn lộ trình từng giai đoạn cùng Trợ lý AI
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#475569' }}>
+                Hệ thống sẽ dựa vào nguyện vọng cụ thể của bạn qua từng giai đoạn để đề xuất các khóa học thực tế phù hợp nhất.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setActiveCatalogTab('ROADMAP')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '10px',
+                border: 'none',
+                backgroundColor: activeCatalogTab === 'ROADMAP' ? '#0369a1' : '#0284c7',
+                color: '#ffffff',
+                fontWeight: '700',
+                fontSize: '0.84rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+              }}
+            >
+              <i className="fa-solid fa-wand-magic-sparkles"></i>
+              <span>{activeCatalogTab === 'ROADMAP' ? 'Đang ở Lộ trình AI' : 'Khám phá Lộ trình AI'}</span>
+            </button>
+            {activeCatalogTab === 'ROADMAP' && (
+              <button
+                type="button"
+                onClick={() => setActiveCatalogTab('ALL')}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: '#334155',
+                  fontWeight: '600',
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Xem tất cả khóa học
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 2. Main Classification Tabs: Tất cả | Khóa học đã đăng ký | Khóa học chưa đăng ký */}
       <div
         style={{
@@ -557,12 +653,63 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
             {unregisteredCourses.length}
           </span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveCatalogTab('ROADMAP')}
+          style={{
+            padding: '8px 18px',
+            borderRadius: '12px',
+            border: 'none',
+            fontSize: '0.88rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            backgroundColor: activeCatalogTab === 'ROADMAP' ? '#0284c7' : 'transparent',
+            color: activeCatalogTab === 'ROADMAP' ? '#ffffff' : '#64748b',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <i className="fa-solid fa-route" style={{ color: activeCatalogTab === 'ROADMAP' ? '#ffffff' : '#f59e0b' }}></i>
+          <span>Lộ trình học theo từng giai đoạn</span>
+          <span
+            style={{
+              padding: '1px 6px',
+              borderRadius: '10px',
+              fontSize: '0.68rem',
+              fontWeight: '800',
+              backgroundColor: activeCatalogTab === 'ROADMAP' ? '#f59e0b' : '#fef3c7',
+              color: activeCatalogTab === 'ROADMAP' ? '#ffffff' : '#b45309',
+            }}
+          >
+            AI
+          </span>
+        </button>
       </div>
+
+      {/* =========================================================================
+          TAB ĐẶC BIỆT: LỘ TRÌNH THEO TỪNG GIAI ĐOẠN (TÍCH HỢP TRONG KHÓA HỌC)
+          ========================================================================= */}
+      {activeCatalogTab === 'ROADMAP' && (
+        <AIRoadmapView
+          user={user}
+          isLoggedIn={isLoggedIn}
+          myCourses={myCourses}
+          onOpenAuthModal={onOpenAuthModal}
+          onNavigateToCourses={() => setActiveCatalogTab('ALL')}
+          onNavigateToLearning={onNavigateToLearning}
+          onSelectCourse={(course) => setViewingCourse(course)}
+          onEnroll={onEnroll}
+          embedded={true}
+        />
+      )}
 
       {/* =========================================================================
           SECTION 1: KHÓA HỌC BẠN ĐÃ ĐĂNG KÝ
           ========================================================================= */}
-      {(activeCatalogTab === 'ALL' || activeCatalogTab === 'REGISTERED') && (
+      {activeCatalogTab !== 'ROADMAP' && (activeCatalogTab === 'ALL' || activeCatalogTab === 'REGISTERED') && (
         <section
           style={{
             backgroundColor: '#ffffff',
@@ -658,7 +805,7 @@ export default function CourseCatalogView({ courses = [], myCourses = [], onEnro
       {/* =========================================================================
           SECTION 2: KHÓA HỌC CHƯA ĐĂNG KÝ (KHÁM PHÁ THÊM)
           ========================================================================= */}
-      {(activeCatalogTab === 'ALL' || activeCatalogTab === 'UNREGISTERED') && (
+      {activeCatalogTab !== 'ROADMAP' && (activeCatalogTab === 'ALL' || activeCatalogTab === 'UNREGISTERED') && (
         <section
           style={{
             backgroundColor: '#ffffff',

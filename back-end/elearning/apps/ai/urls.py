@@ -7,12 +7,16 @@ from .views import (
     GenerateProgressQuizAPIView,
     GenerateTeacherQuizAPIView,
     GenerateCourseDescriptionAPIView,
-    QuestionAnalysisAPIView
+    QuestionAnalysisAPIView,
+    AIRoadmapGenerateAPIView
 )
 
 app_name = 'ai'
 
 urlpatterns = [
+    # 0. Khởi tạo Lộ trình học tập cá nhân hóa AI (Personalized AI Roadmap)
+    path('roadmap/generate/', AIRoadmapGenerateAPIView.as_view(), name='generate_roadmap'),
+
     # 1. Quản lý Phiên trò chuyện AI (Chat Sessions)
     path('sessions/', ChatSessionListCreateAPIView.as_view(), name='session_list_create'),
     path('sessions/<uuid:session_id>/', ChatSessionDetailAPIView.as_view(), name='session_detail'),

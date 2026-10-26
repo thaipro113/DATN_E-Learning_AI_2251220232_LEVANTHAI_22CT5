@@ -13,8 +13,11 @@ from .views import (
 
 app_name = 'recommendations'
 
+from apps.ai.views import AIRoadmapGenerateAPIView
+
 urlpatterns = [
     # 1. Lộ trình học tập cá nhân hóa (Personalized Learning Path)
+    path('generate-roadmap/', AIRoadmapGenerateAPIView.as_view(), name='generate_roadmap_alias'),
     path('my-learning-path/', MyLearningPathAPIView.as_view(), name='my_learning_path'),
     path('generate-path/', MyLearningPathAPIView.as_view(), name='generate_learning_path'),
     path('steps/<uuid:step_id>/complete/', CompleteLearningPathStepAPIView.as_view(), name='complete_step'),

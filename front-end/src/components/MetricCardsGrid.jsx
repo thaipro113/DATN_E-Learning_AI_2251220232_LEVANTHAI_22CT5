@@ -227,9 +227,9 @@ export default function MetricCardsGrid({
       {/* Card 3: LỘ TRÌNH THÍCH ỨNG AI */}
       <div
         className="metric-card"
-        onClick={() => onSelectTab && onSelectTab('path')}
+        onClick={() => onSelectTab && onSelectTab('ai_roadmap')}
         style={{ cursor: 'pointer' }}
-        title="Xem chi tiết lộ trình thích ứng"
+        title="Xem chi tiết lộ trình thích ứng AI"
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="metric-card-title">LỘ TRÌNH THÍCH ỨNG AI</div>
@@ -238,7 +238,7 @@ export default function MetricCardsGrid({
 
         <div className="calendar-target-box">
           <div className="calendar-icon-soft">
-            <i className="fa-solid fa-route" style={{ color: '#6366f1' }}></i>
+            <i className="fa-solid fa-route" style={{ color: '#0284c7' }}></i>
           </div>
           <span style={{ fontSize: '0.86rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
             {pathTotalSteps > 0
@@ -250,9 +250,9 @@ export default function MetricCardsGrid({
               ? 'AI tự động cá nhân hóa theo tiến độ'
               : 'Khởi tạo theo năng lực thực tế của bạn'}
           </span>
-          <button className="btn-set-date" style={{ backgroundColor: '#6366f1' }}>
-            <i className="fa-solid fa-compass" style={{ marginRight: '6px' }}></i>
-            <span>Vào xem lộ trình</span>
+          <button className="btn-set-date" style={{ backgroundColor: '#0284c7' }}>
+            <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: '6px' }}></i>
+            <span>Vào xem lộ trình AI</span>
           </button>
         </div>
       </div>
