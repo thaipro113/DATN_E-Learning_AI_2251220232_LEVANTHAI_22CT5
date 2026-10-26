@@ -16,6 +16,10 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
   const [completedLessonIds, setCompletedLessonIds] = useState([]);
   const [activeTab, setActiveTab] = useState('content');
   const [userNote, setUserNote] = useState('');
+  const [notesList, setNotesList] = useState([]);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteFilter, setNoteFilter] = useState('current');
+  const [copiedNoteId, setCopiedNoteId] = useState(null);
   const [showCertificate, setShowCertificate] = useState(false);
   const [certificateData, setCertificateData] = useState(null);
   const [showProgressQuizModal, setShowProgressQuizModal] = useState(false);
@@ -100,6 +104,128 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
       return () => clearTimeout(timer);
     }
   }, [toastMsg]);
+
+  // Storage key cho sổ tay ghi chú của học viên
+  const notesStorageKey = useMemo(() => {
+    const uid = user?.id || user?.email || 'guest';
+    const cid = selectedCourse?.id || selectedCourse?.slug || 'common';
+    return `learning_notes_${uid}_${cid}`;
+  }, [user, selectedCourse]);
+
+  // Tải danh sách ghi chú từ localStorage khi đổi khóa học hoặc tài khoản
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(notesStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setNotesList(parsed);
+          return;
+        }
+      }
+      setNotesList([]);
+    } catch (e) {
+      console.error('Error loading notes from localStorage:', e);
+      setNotesList([]);
+    }
+  }, [notesStorageKey]);
+
+  // Lọc ghi chú theo bài học hiện tại hoặc toàn bộ khóa học
+  const currentLessonNotes = useMemo(() => {
+    if (!activeLesson?.id) return notesList;
+    return notesList.filter((n) => String(n.lesson_id) === String(activeLesson.id));
+  }, [notesList, activeLesson]);
+
+  const displayedNotes = noteFilter === 'current' ? currentLessonNotes : notesList;
+
+  // Thêm hoặc Cập nhật bản ghi ghi chú
+  const handleSaveNote = () => {
+    const trimmed = userNote.trim();
+    if (!trimmed) {
+      setToastMsg({ type: 'warning', text: '⚠️ Vui lòng nhập nội dung ghi chú trước khi lưu!' });
+      return;
+    }
+
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} - ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+    let updatedList = [];
+    if (editingNoteId) {
+      updatedList = notesList.map((item) =>
+        item.id === editingNoteId
+          ? {
+              ...item,
+              content: trimmed,
+              lesson_id: activeLesson?.id || item.lesson_id,
+              lesson_title: activeLesson?.title || item.lesson_title,
+              updated_at: timeStr,
+            }
+          : item
+      );
+      setEditingNoteId(null);
+      setToastMsg({ type: 'success', text: '✓ Đã cập nhật bản ghi ghi chú thành công!' });
+    } else {
+      const newNoteRecord = {
+        id: 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        content: trimmed,
+        lesson_id: activeLesson?.id || 'general',
+        lesson_title: activeLesson?.title || 'Bài giảng hiện tại',
+        chapter_title: activeChapter?.title || 'Chương học',
+        course_id: selectedCourse?.id || 'general',
+        course_title: selectedCourse?.title || '',
+        created_at: timeStr,
+      };
+      updatedList = [newNoteRecord, ...notesList];
+      setToastMsg({ type: 'success', text: '✓ Đã tạo bản ghi ghi chú mới thành công!' });
+    }
+
+    setNotesList(updatedList);
+    setUserNote('');
+    try {
+      localStorage.setItem(notesStorageKey, JSON.stringify(updatedList));
+    } catch (e) {
+      console.error('Error saving notes to localStorage:', e);
+    }
+  };
+
+  const handleStartEditNote = (note) => {
+    setEditingNoteId(note.id);
+    setUserNote(note.content);
+    const textareaEl = document.getElementById('lesson-note-textarea');
+    if (textareaEl) {
+      textareaEl.focus();
+      textareaEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleCancelEditNote = () => {
+    setEditingNoteId(null);
+    setUserNote('');
+  };
+
+  const handleDeleteNote = (noteId) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa bản ghi ghi chú này không?')) {
+      const updatedList = notesList.filter((n) => n.id !== noteId);
+      setNotesList(updatedList);
+      try {
+        localStorage.setItem(notesStorageKey, JSON.stringify(updatedList));
+      } catch (e) {}
+      if (editingNoteId === noteId) {
+        setEditingNoteId(null);
+        setUserNote('');
+      }
+      setToastMsg({ type: 'info', text: '✓ Đã xóa bản ghi ghi chú!' });
+    }
+  };
+
+  const handleCopyNote = (note) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(note.content);
+      setCopiedNoteId(note.id);
+      setTimeout(() => setCopiedNoteId(null), 2000);
+      setToastMsg({ type: 'success', text: '✓ Đã sao chép nội dung ghi chú!' });
+    }
+  };
 
   // Load danh sách khóa học học viên đã ghi danh
   const fetchEnrolledCourses = async () => {
@@ -829,7 +955,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
               onClick={() => setActiveTab('notes')}
             >
               <i className="fa-solid fa-pen-to-square"></i>
-              <span>Ghi chú cá nhân</span>
+              <span>Ghi chú cá nhân ({notesList.length})</span>
             </button>
             <button
               className={`tab-pill-btn ${activeTab === 'quizzes' ? 'active' : ''}`}
@@ -982,48 +1108,397 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
 
             {activeTab === 'notes' && (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                    <i className="fa-solid fa-note-sticky" style={{ color: '#059669', marginRight: '8px' }}></i>
-                    SỔ TAY GHI CHÚ BÀI HỌC
-                  </h4>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Tự động lưu vào trình duyệt & tài khoản
-                  </span>
+                {/* 1. Header sổ tay ghi chú */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        backgroundColor: '#ecfdf5',
+                        color: '#059669',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.1rem',
+                      }}
+                    >
+                      <i className="fa-solid fa-note-sticky"></i>
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                        SỔ TAY GHI CHÚ BÀI HỌC
+                      </h4>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Ghi chép kiến thức trọng tâm • Tự động tạo bản ghi lưu theo tài khoản & bài học
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '4px 10px',
+                        borderRadius: 'var(--radius-full)',
+                        backgroundColor: '#f1f5f9',
+                        color: '#475569',
+                        fontWeight: '700',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      <i className="fa-solid fa-clock-rotate-left"></i>
+                      <span>Tổng số: {notesList.length} bản ghi</span>
+                    </span>
+                  </div>
                 </div>
 
-                <textarea
-                  rows={6}
-                  value={userNote}
-                  onChange={(e) => setUserNote(e.target.value)}
-                  placeholder="Ghi chép các mẫu câu, cấu trúc ngữ pháp quan trọng hoặc từ mới..."
+                {/* 2. Khung soạn thảo & Lưu ghi chú */}
+                <div
                   style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-color)',
-                    fontSize: '0.88rem',
-                    lineHeight: 1.6,
-                    backgroundColor: 'var(--bg-subtle)',
-                    color: 'var(--text-main)',
-                    marginBottom: '12px',
-                    outline: 'none',
-                    resize: 'vertical',
+                    backgroundColor: editingNoteId ? '#f0fdf4' : 'var(--bg-subtle, #f8fafc)',
+                    border: editingNoteId ? '1.5px solid #10b981' : '1px solid var(--border-color, #e2e8f0)',
+                    borderRadius: '14px',
+                    padding: '16px',
+                    marginBottom: '24px',
+                    transition: 'all 0.2s ease',
                   }}
-                />
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '700', color: editingNoteId ? '#059669' : '#0284c7', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className={editingNoteId ? 'fa-solid fa-pen' : 'fa-solid fa-feather-pointed'}></i>
+                      <span>
+                        {editingNoteId
+                          ? 'Đang chỉnh sửa bản ghi ghi chú:'
+                          : `Ghi chú cho: ${activeLesson?.title || 'Bài giảng hiện tại'}`}
+                      </span>
+                    </div>
+                    {editingNoteId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditNote}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#ef4444',
+                          fontSize: '0.78rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <i className="fa-solid fa-xmark"></i>
+                        <span>Hủy chỉnh sửa</span>
+                      </button>
+                    )}
+                  </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                    {userNote.length} ký tự
-                  </span>
-                  <button
-                    className="btn-primary"
-                    onClick={() => setToastMsg({ type: 'success', text: '✓ Đã lưu ghi chú bài học thành công!' })}
-                    style={{ fontSize: '0.85rem', padding: '8px 20px', backgroundColor: '#059669' }}
+                  <textarea
+                    id="lesson-note-textarea"
+                    rows={4}
+                    value={userNote}
+                    onChange={(e) => setUserNote(e.target.value)}
+                    placeholder="Ghi chép các mẫu câu, cấu trúc ngữ pháp quan trọng, từ mới hoặc lưu ý của bài học..."
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color, #cbd5e1)',
+                      fontSize: '0.88rem',
+                      lineHeight: 1.6,
+                      backgroundColor: '#ffffff',
+                      color: 'var(--text-main)',
+                      marginBottom: '10px',
+                      outline: 'none',
+                      resize: 'vertical',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      {userNote.length} ký tự
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {editingNoteId && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditNote}
+                          style={{
+                            fontSize: '0.82rem',
+                            padding: '8px 14px',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            backgroundColor: '#ffffff',
+                            color: '#475569',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Hủy
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={handleSaveNote}
+                        style={{
+                          fontSize: '0.86rem',
+                          padding: '8px 20px',
+                          borderRadius: '8px',
+                          backgroundColor: editingNoteId ? '#10b981' : '#059669',
+                          color: '#ffffff',
+                          fontWeight: '700',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
+                        }}
+                      >
+                        <i className={editingNoteId ? 'fa-solid fa-check' : 'fa-solid fa-floppy-disk'}></i>
+                        <span>{editingNoteId ? 'Cập Nhật Bản Ghi' : 'Lưu Ghi Chú (Tạo Bản Ghi)'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Danh sách các bản ghi ghi chú đã tạo */}
+                <div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '14px',
+                      borderBottom: '1px solid var(--border-color, #e2e8f0)',
+                      paddingBottom: '10px',
+                      flexWrap: 'wrap',
+                      gap: '10px',
+                    }}
                   >
-                    <i className="fa-solid fa-floppy-disk"></i>
-                    <span>Lưu Ghi Chú</span>
-                  </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <h5 style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                        DANH SÁCH BẢN GHI GHI CHÚ
+                      </h5>
+                      <span
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.74rem',
+                          fontWeight: '800',
+                          backgroundColor: '#e0f2fe',
+                          color: '#0369a1',
+                        }}
+                      >
+                        {displayedNotes.length} bản ghi
+                      </span>
+                    </div>
+
+                    {/* Bộ lọc bài hiện tại / toàn bộ khóa */}
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setNoteFilter('current')}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: '8px',
+                          fontSize: '0.76rem',
+                          fontWeight: '700',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: noteFilter === 'current' ? '#0284c7' : '#f1f5f9',
+                          color: noteFilter === 'current' ? '#ffffff' : '#475569',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        Bài học này ({currentLessonNotes.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNoteFilter('all')}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: '8px',
+                          fontSize: '0.76rem',
+                          fontWeight: '700',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: noteFilter === 'all' ? '#0284c7' : '#f1f5f9',
+                          color: noteFilter === 'all' ? '#ffffff' : '#475569',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        Toàn bộ khóa ({notesList.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Hiển thị thẻ từng bản ghi */}
+                  {displayedNotes.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '36px 20px',
+                        textAlign: 'center',
+                        backgroundColor: 'var(--bg-subtle, #f8fafc)',
+                        borderRadius: '12px',
+                        border: '1px dashed var(--border-color, #cbd5e1)',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      <i className="fa-solid fa-book-bookmark" style={{ fontSize: '2.2rem', color: '#cbd5e1', marginBottom: '10px', display: 'block' }}></i>
+                      <p style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>
+                        {noteFilter === 'current'
+                          ? 'Chưa có bản ghi ghi chú nào cho bài học này'
+                          : 'Khóa học này chưa có bản ghi ghi chú nào'}
+                      </p>
+                      <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                        Hãy ghi lại các kiến thức trọng tâm ở ô soạn thảo phía trên và nhấn "Lưu Ghi Chú" để tạo bản ghi nhé!
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {displayedNotes.map((note, index) => (
+                        <div
+                          key={note.id || index}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            border: '1px solid var(--border-color, #e2e8f0)',
+                            borderRadius: '12px',
+                            padding: '14px 16px',
+                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {/* Header của từng bản ghi */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              marginBottom: '8px',
+                              flexWrap: 'wrap',
+                              gap: '8px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#ecfdf5',
+                                  color: '#059669',
+                                }}
+                              >
+                                Bản ghi #{displayedNotes.length - index}
+                              </span>
+                              <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                                <i className="fa-solid fa-graduation-cap" style={{ color: '#0284c7', marginRight: '5px' }}></i>
+                                {note.lesson_title || 'Bài học'}
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                                <i className="fa-regular fa-clock" style={{ marginRight: '4px' }}></i>
+                                {note.updated_at ? `Sửa: ${note.updated_at}` : note.created_at}
+                              </span>
+
+                              {/* Nhóm nút thao tác bản ghi */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyNote(note)}
+                                  title="Sao chép nội dung"
+                                  style={{
+                                    background: 'none',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    padding: '4px 8px',
+                                    fontSize: '0.74rem',
+                                    color: copiedNoteId === note.id ? '#059669' : '#64748b',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                >
+                                  <i className={copiedNoteId === note.id ? 'fa-solid fa-check' : 'fa-solid fa-copy'}></i>
+                                  <span>{copiedNoteId === note.id ? 'Đã chép' : 'Chép'}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditNote(note)}
+                                  title="Chỉnh sửa ghi chú"
+                                  style={{
+                                    background: 'none',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    padding: '4px 8px',
+                                    fontSize: '0.74rem',
+                                    color: '#0284c7',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                >
+                                  <i className="fa-solid fa-pen-to-square"></i>
+                                  <span>Sửa</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteNote(note.id)}
+                                  title="Xóa ghi chú"
+                                  style={{
+                                    background: 'none',
+                                    border: '1px solid #fee2e2',
+                                    borderRadius: '6px',
+                                    padding: '4px 8px',
+                                    fontSize: '0.74rem',
+                                    color: '#ef4444',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                >
+                                  <i className="fa-solid fa-trash-can"></i>
+                                  <span>Xóa</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Nội dung bản ghi ghi chú */}
+                          <div
+                            style={{
+                              fontSize: '0.88rem',
+                              lineHeight: 1.65,
+                              color: '#1e293b',
+                              whiteSpace: 'pre-wrap',
+                              backgroundColor: '#f8fafc',
+                              padding: '10px 14px',
+                              borderRadius: '8px',
+                              border: '1px solid #f1f5f9',
+                            }}
+                          >
+                            {note.content}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
