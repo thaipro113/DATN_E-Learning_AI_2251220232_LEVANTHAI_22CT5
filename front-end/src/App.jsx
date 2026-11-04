@@ -485,9 +485,12 @@ export default function App() {
                 <button className={`nav-link ${currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`} onClick={() => handleSelectTab('path')}>
                   <span>Luyện Lỗi Sai AI</span>
                 </button>
+                {/* Tạm thời ẩn nav Giao tiếp AI theo yêu cầu */}
+                {/*
                 <button className={`nav-link ${currentTab === 'ai_coach' ? 'active' : ''}`} onClick={() => handleSelectTab('ai_coach')}>
                   <span>Giao tiếp AI</span>
                 </button>
+                */}
               </>
             )}
 
