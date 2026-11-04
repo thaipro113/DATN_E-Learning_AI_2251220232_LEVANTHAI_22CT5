@@ -131,22 +131,30 @@ export default function Header({
                         onClick={() => onSelectTab('flashcards')}
                       >
                         <span>Flashcards</span>
-                        <span style={{ fontSize: '0.62rem', backgroundColor: '#2563eb', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>TỪ VỰNG</span>
                       </button>
                     </li>
                     {/* Tạm thời ẩn header Trợ lý gia sư AI đàm thoại phản xạ 1-1 (Student) theo yêu cầu */}
                     {/*
                     <li>
                       <button
-                        className={`nav-link ${currentTab === 'ai_coach' ? 'active' : ''}`}
-                        onClick={() => onSelectTab('ai_coach')}
+                        className={`nav-link ${currentTab === 'ai_roadmap' || currentTab === 'roadmap' ? 'active' : ''}`}
+                        onClick={() => onSelectTab('ai_roadmap')}
                         style={{ position: 'relative' }}
                       >
-                        <span>Giao tiếp AI</span>
-                        <span style={{ fontSize: '0.62rem', backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>LIVE</span>
+                        <span>Lộ trình AI</span>
+                        <span style={{ fontSize: '0.62rem', backgroundColor: '#8b5cf6', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>MỚI</span>
                       </button>
                     </li>
                     */}
+                       <li>
+                      <button
+                        className={`nav-link ${currentTab === 'ai_roadmap' || currentTab === 'roadmap' ? 'active' : ''}`}
+                        onClick={() => onSelectTab('ai_roadmap')}
+                        style={{ position: 'relative' }}
+                      >
+                        <span>Lộ trình AI</span>
+                      </button>
+                    </li>
                   </>
                 )}
               </>
