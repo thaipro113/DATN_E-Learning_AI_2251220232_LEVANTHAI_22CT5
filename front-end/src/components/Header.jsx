@@ -106,7 +106,15 @@ export default function Header({
                     <span>Khóa học</span>
                   </button>
                 </li>
-
+              <li>
+                      <button
+                        className={`nav-link ${currentTab === 'ai_roadmap' || currentTab === 'roadmap' ? 'active' : ''}`}
+                        onClick={() => onSelectTab('ai_roadmap')}
+                        style={{ position: 'relative' }}
+                      >
+                        <span>Lộ trình AI</span>
+                      </button>
+                    </li>
                 {isLoggedIn && (
                   <>
                     <li>
@@ -146,15 +154,6 @@ export default function Header({
                       </button>
                     </li>
                     */}
-                       <li>
-                      <button
-                        className={`nav-link ${currentTab === 'ai_roadmap' || currentTab === 'roadmap' ? 'active' : ''}`}
-                        onClick={() => onSelectTab('ai_roadmap')}
-                        style={{ position: 'relative' }}
-                      >
-                        <span>Lộ trình AI</span>
-                      </button>
-                    </li>
                   </>
                 )}
               </>
