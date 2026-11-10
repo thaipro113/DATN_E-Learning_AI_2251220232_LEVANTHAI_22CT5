@@ -16,7 +16,7 @@ export default function PaymentCheckoutModal({ isOpen, onClose, course, user, on
   const BANK_CONFIG = {
     bankId: 'MB', // MBBank - Ngân hàng Quân Đội
     bankName: 'MB Bank (Ngân hàng TMCP Quân Đội)',
-    accountNo: '0386888666',
+    accountNo: '0898165109',
     accountName: 'LE VAN THAI',
   };
 
