@@ -971,6 +971,7 @@ export default function App() {
         isOpen={!!checkoutCourse}
         onClose={() => setCheckoutCourse(null)}
         course={checkoutCourse}
+        user={user}
         onPaymentSuccess={handlePaymentSuccess}
       />
 
