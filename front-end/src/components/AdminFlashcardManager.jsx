@@ -142,11 +142,52 @@ export default function AdminFlashcardManager() {
     });
   }, [activeDeck, wordSearch, typeFilter]);
 
+  // Nhận diện và hiển thị rõ ràng tác giả / giảng viên tạo bộ thẻ
+  const resolveDeckAuthor = (deck) => {
+    if (!deck) return null;
+    // Nếu là Admin
+    if (deck.author === 'Admin' || deck.authorRole === 'ADMIN' || (!deck.author && !deck.authorRole && !deck.category)) {
+      return {
+        name: 'Admin hệ thống',
+        role: 'ADMIN',
+        badgeColor: '#0284c7',
+        badgeBg: '#e0f2fe',
+        badgeBorder: '#bae6fd',
+        icon: 'fa-user-shield',
+      };
+    }
+
+    // Nếu là Giảng viên (xác định chính xác danh tính giảng viên)
+    let authorName = deck.author;
+    if (!authorName || authorName === 'Giảng viên') {
+      if (deck.authorEmail === 'teacher1@gmail.com' || (deck.courseTitle && deck.courseTitle.includes('800')) || (deck.description && deck.description.includes('Trần Thị Mai'))) {
+        authorName = 'Cô Trần Thị Mai';
+      } else if (deck.authorEmail === 'teacher@gmail.com' || (deck.courseTitle && (deck.courseTitle.includes('900') || deck.courseTitle.includes('IELTS'))) || (deck.description && deck.description.includes('Nguyễn Văn An'))) {
+        authorName = 'Thầy Nguyễn Văn An';
+      } else if (deck.id?.includes('mai') || deck.title?.includes('800')) {
+        authorName = 'Cô Trần Thị Mai';
+      } else if (deck.id?.includes('an') || deck.title?.includes('900') || deck.title?.includes('IELTS')) {
+        authorName = 'Thầy Nguyễn Văn An';
+      } else {
+        authorName = 'Giảng viên phụ trách';
+      }
+    }
+
+    return {
+      name: authorName,
+      role: 'TEACHER',
+      badgeColor: '#7c3aed',
+      badgeBg: '#f3e8ff',
+      badgeBorder: '#e9d5ff',
+      icon: 'fa-chalkboard-user',
+    };
+  };
+
   // Thống kê tổng quan
   const totalDecksCount = allDecks.length;
   const totalWordsCount = allDecks.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
-  const adminDecksCount = allDecks.filter((d) => d.author === 'Admin' || !d.author).length;
-  const teacherDecksCount = allDecks.filter((d) => d.author === 'Giảng viên').length;
+  const adminDecksCount = allDecks.filter((d) => d.author === 'Admin' || d.authorRole === 'ADMIN' || (!d.author && !d.authorRole)).length;
+  const teacherDecksCount = totalDecksCount - adminDecksCount;
 
   // Phát âm từ vựng
   const handlePlayAudio = (word) => {
@@ -624,9 +665,9 @@ export default function AdminFlashcardManager() {
             <thead>
               <tr style={{ backgroundColor: 'var(--bg-subtle)', borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
                 <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)', width: '60px' }}>STT</th>
-                <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)', width: '110px' }}>Cấp độ</th>
+                <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)', width: '100px' }}>Cấp độ</th>
                 <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)' }}>Tên Chủ Đề & Mô Tả</th>
-                <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)', width: '120px', textAlign: 'center' }}>Số Từ Vựng</th>
+                <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)', width: '110px', textAlign: 'center' }}>Số Từ Vựng</th>
                 <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)', width: '130px' }}>Phân Loại</th>
                 <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)', width: '220px', textAlign: 'right' }}>Thao Tác</th>
               </tr>
@@ -635,7 +676,7 @@ export default function AdminFlashcardManager() {
               {allDecks.map((deck, idx) => {
                 const isSelected = activeDeckId === deck.id;
                 const wordCount = deck.cards?.length || 0;
-                const isAdminDeck = deck.author === 'Admin' || !deck.author;
+                const authorInfo = resolveDeckAuthor(deck);
 
                 return (
                   <tr
@@ -688,7 +729,7 @@ export default function AdminFlashcardManager() {
                     </td>
 
                     <td style={{ padding: '12px 14px' }}>
-                      {isAdminDeck ? (
+                      {authorInfo.role === 'ADMIN' ? (
                         <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0284c7', backgroundColor: '#e0f2fe', padding: '3px 8px', borderRadius: '6px' }}>
                           <i className="fa-solid fa-user-shield" style={{ marginRight: '4px' }}></i>Admin
                         </span>
@@ -792,6 +833,43 @@ export default function AdminFlashcardManager() {
                 <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
                   Từ Vựng Chủ Đề: {activeDeck.title}
                 </h3>
+                {resolveDeckAuthor(activeDeck) && (
+                  <span
+                    style={{
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      color: resolveDeckAuthor(activeDeck).badgeColor,
+                      backgroundColor: resolveDeckAuthor(activeDeck).badgeBg,
+                      border: `1px solid ${resolveDeckAuthor(activeDeck).badgeBorder}`,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <i className={`fa-solid ${resolveDeckAuthor(activeDeck).icon}`}></i>
+                    <span>Tác giả: {resolveDeckAuthor(activeDeck).name}</span>
+                  </span>
+                )}
+                {activeDeck.courseTitle && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: '700',
+                      color: '#0284c7',
+                      backgroundColor: '#e0f2fe',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <i className="fa-solid fa-graduation-cap"></i>
+                    <span>Khóa: {activeDeck.courseTitle}</span>
+                  </span>
+                )}
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '700' }}>
                   ({filteredWords.length} / {activeDeck.cards?.length || 0} từ)
                 </span>
