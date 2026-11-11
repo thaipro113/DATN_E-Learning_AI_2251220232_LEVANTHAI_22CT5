@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from typing import Tuple, Dict, Any, List, Optional
 from decimal import Decimal
 from django.db import transaction
@@ -224,8 +225,15 @@ class GradingService:
         ).first()
 
         if active_attempt:
-            # Cho phép tiếp tục bài thi đang dở
-            return True, "Tiếp tục bài thi đang làm dở.", active_attempt, quiz
+            # Kiểm tra thời gian: nếu đã quá thời gian làm bài (+15 phút ân hạn) thì tự động hủy lượt thi dở
+            time_limit = quiz.time_limit_minutes or 30
+            if timezone.now() - active_attempt.started_at > timedelta(minutes=time_limit + 15):
+                active_attempt.status = AttemptStatus.ABANDONED
+                active_attempt.save()
+                active_attempt = None
+            else:
+                # Cho phép tiếp tục bài thi đang dở
+                return True, "Tiếp tục bài thi đang làm dở.", active_attempt, quiz
 
         # Tạo lần thi mới
         attempt = QuizAttempt.objects.create(

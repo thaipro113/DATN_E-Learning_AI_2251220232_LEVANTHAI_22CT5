@@ -12,7 +12,12 @@ export default function CourseQuizzesOverviewModal({
   if (!isOpen) return null;
 
   const getQuizAttempt = (quizId) => {
-    const list = attempts.filter((a) => (a.quiz_id || a.quiz?.id || a.quiz) === quizId);
+    // Chỉ lấy các lần thi đã nộp bài hoàn thành (status === 'COMPLETED' hoặc có completed_at)
+    const list = attempts.filter((a) => {
+      const matchQuiz = String(a.quiz_id || a.quiz?.id || a.quiz) === String(quizId);
+      if (!matchQuiz) return false;
+      return a.status === 'COMPLETED' || Boolean(a.completed_at);
+    });
     if (list.length === 0) return null;
     return list.reduce((best, cur) => {
       const curScore = Number(cur.percentage ?? (cur.score != null && cur.max_score ? (cur.score / cur.max_score) * 100 : 0));
@@ -126,7 +131,7 @@ export default function CourseQuizzesOverviewModal({
                 color: 'var(--text-muted)',
               }}
             >
-              Chưa làm
+              {isCourseLevelQuiz ? 'Chưa thi' : 'Chưa làm'}
             </span>
           )}
 
@@ -158,14 +163,24 @@ export default function CourseQuizzesOverviewModal({
                 onSelectQuiz(quiz);
               }}
               style={{
-                padding: '7px 14px',
+                padding: '7px 15px',
                 fontSize: '0.82rem',
-                backgroundColor: isPassed ? '#0284c7' : '#7c3aed',
+                backgroundColor: isCourseLevelQuiz
+                  ? (bestAttempt ? (isPassed ? '#0284c7' : '#7c3aed') : '#16a34a')
+                  : (isPassed ? '#0284c7' : '#7c3aed'),
                 fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: isCourseLevelQuiz && !bestAttempt ? '0 2px 8px rgba(22, 163, 74, 0.25)' : undefined,
               }}
             >
-              <i className="fa-solid fa-pen-to-square"></i>
-              <span>{bestAttempt ? 'Làm lại' : 'Làm bài'}</span>
+              <i className={`fa-solid ${bestAttempt ? 'fa-rotate-left' : (isCourseLevelQuiz ? 'fa-play' : 'fa-pen-to-square')}`}></i>
+              <span>
+                {isCourseLevelQuiz
+                  ? (bestAttempt ? 'Thi lại' : 'Thi ngay')
+                  : (bestAttempt ? 'Làm lại' : 'Làm bài')}
+              </span>
             </button>
           )}
         </div>

@@ -368,9 +368,13 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
     return courseQuizzes.filter((q) => !q.chapter && !q.chapter_id && !q.lesson && !q.lesson_id);
   };
 
-  // Lấy lần làm bài đạt điểm cao nhất của đề thi
+  // Lấy lần làm bài đạt điểm cao nhất của đề thi (chỉ tính lần thi đã hoàn thành nộp bài)
   const getQuizBestAttempt = (quizId) => {
-    const list = studentAttempts.filter((a) => String(a.quiz_id || a.quiz?.id || a.quiz) === String(quizId));
+    const list = studentAttempts.filter((a) => {
+      const matchQuiz = String(a.quiz_id || a.quiz?.id || a.quiz) === String(quizId);
+      if (!matchQuiz) return false;
+      return a.status === 'COMPLETED' || Boolean(a.completed_at);
+    });
     if (list.length === 0) return null;
     return list.reduce((best, cur) => {
       const curScore = Number(cur.percentage ?? (cur.score != null && cur.max_score ? (cur.score / cur.max_score) * 100 : 0));
@@ -1811,9 +1815,12 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                                 fontSize: '0.85rem',
                                 backgroundColor: isPassed ? '#0284c7' : '#7c3aed',
                                 fontWeight: '700',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
                               }}
                             >
-                              <i className="fa-solid fa-pen-to-square"></i>
+                              <i className={`fa-solid ${bestAttempt ? 'fa-rotate-left' : 'fa-pen-to-square'}`}></i>
                               <span>{bestAttempt ? 'Làm lại đề thi' : 'Bắt đầu làm bài'}</span>
                             </button>
                           </div>
@@ -2085,9 +2092,13 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                           backgroundColor: '#16a34a',
                           flexShrink: 0,
                           fontWeight: '700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
                         }}
                       >
-                        {attempt ? `${scorePct}% (Thi lại)` : 'Vào thi'}
+                        <i className={`fa-solid ${attempt ? 'fa-rotate-left' : 'fa-play'}`}></i>
+                        <span>{attempt ? `${scorePct}% (Thi lại)` : 'Thi ngay'}</span>
                       </button>
                     </div>
                   );
