@@ -179,6 +179,8 @@ class Course(BaseModel):
             self.original_price = None
         else:
             self.is_free = False
+            if self.original_price is None or self.original_price <= 0:
+                self.original_price = self.price
 
         super().save(*args, **kwargs)
 

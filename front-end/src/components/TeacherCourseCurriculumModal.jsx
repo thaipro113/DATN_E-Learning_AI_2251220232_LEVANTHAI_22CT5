@@ -190,14 +190,16 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
           setEditStatus(data.status || 'PUBLISHED');
           setEditCategoryId(data.category?.id || data.category || '');
           setEditThumbnailUrl(data.thumbnail_url || '');
-          const p = Number(data.price || 0);
-          const orig = data.original_price ? Number(data.original_price) : null;
+          const p = Number(data.price ?? 0);
+          const orig = (data.original_price !== null && data.original_price !== undefined) ? Number(data.original_price) : null;
           setEditPrice(p);
-          setEditOriginalPrice(orig || p || 599000);
-          const isDisc = Boolean(orig && orig > p);
+          setEditOriginalPrice(orig !== null ? orig : p);
+          const isDisc = Boolean(orig && orig > p && p > 0);
           setHasDiscount(isDisc);
           if (isDisc && orig > 0) {
             setDiscountPercent(Math.round(((orig - p) / orig) * 100));
+          } else {
+            setDiscountPercent(0);
           }
         }
       }
@@ -222,7 +224,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
     e.preventDefault();
     const isFree = Number(editPrice) === 0 && (!hasDiscount || Number(editOriginalPrice) === 0);
     const finalPrice = isFree ? 0 : Number(hasDiscount ? editPrice : (editOriginalPrice || editPrice));
-    const finalOriginalPrice = (!isFree && hasDiscount && Number(editOriginalPrice) > Number(editPrice)) ? Number(editOriginalPrice) : null;
+    const finalOriginalPrice = isFree ? null : Number(editOriginalPrice || editPrice);
 
     const payload = {
       title: editTitle.trim(),
@@ -824,7 +826,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                             setEditPrice(val);
                           }
                         }}
-                        placeholder="VD: 599000 (0 = Free)"
+                        placeholder="VD: 200000 (0 = Miễn phí)"
                         style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
                       />
                     </div>

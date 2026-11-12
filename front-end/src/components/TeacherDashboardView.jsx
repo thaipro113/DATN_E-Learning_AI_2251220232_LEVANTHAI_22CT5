@@ -33,8 +33,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [newStatus, setNewStatus] = useState('PENDING');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80');
-  const [newPrice, setNewPrice] = useState(299000);
-  const [newOriginalPrice, setNewOriginalPrice] = useState(599000);
+  const [newPrice, setNewPrice] = useState(0);
+  const [newOriginalPrice, setNewOriginalPrice] = useState(0);
   const [hasDiscount, setHasDiscount] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(30);
   const [isFree, setIsFree] = useState(true);
@@ -143,7 +143,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         category_id: newCategoryId || null,
         thumbnail_url: newThumbnailUrl.trim(),
         price: isFree ? 0 : Number(hasDiscount ? newPrice : (newOriginalPrice || newPrice)),
-        original_price: (!isFree && hasDiscount && Number(newOriginalPrice) > Number(newPrice)) ? Number(newOriginalPrice) : null,
+        original_price: isFree ? null : Number(newOriginalPrice || newPrice),
         is_free: isFree,
         status: newStatus,
       };
@@ -154,8 +154,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       setNewTitle('');
       setNewSlug('');
       setNewDescription('');
-      setNewPrice(299000);
-      setNewOriginalPrice(599000);
+      setNewPrice(0);
+      setNewOriginalPrice(0);
       setHasDiscount(false);
       setIsFree(true);
       setNewStatus('PENDING');
@@ -1234,7 +1234,7 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                             setNewPrice(val);
                           }
                         }}
-                        placeholder="VD: 599000"
+                        placeholder="VD: 200000 (0 = Miễn phí)"
                         style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                       />
                     </div>
@@ -1260,14 +1260,14 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                           } else if (val === 'custom') {
                             setHasDiscount(true);
                             if (!discountPercent) setDiscountPercent(20);
-                            const base = Number(newOriginalPrice || newPrice || 500000);
+                            const base = Number(newOriginalPrice || newPrice || 200000);
                             if (!newOriginalPrice) setNewOriginalPrice(base);
                             setNewPrice(Math.round(base * (1 - (discountPercent || 20) / 100)));
                           } else {
                             const pct = Number(val);
                             setHasDiscount(true);
                             setDiscountPercent(pct);
-                            const base = Number(newOriginalPrice || newPrice || 500000);
+                            const base = Number(newOriginalPrice || newPrice || 200000);
                             if (!newOriginalPrice) setNewOriginalPrice(base);
                             setNewPrice(Math.round(base * (1 - pct / 100)));
                           }
