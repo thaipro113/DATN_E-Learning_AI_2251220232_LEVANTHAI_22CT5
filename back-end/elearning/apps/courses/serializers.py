@@ -251,6 +251,8 @@ class CourseListSerializer(serializers.ModelSerializer):
             'level_display',
             'thumbnail_url',
             'price',
+            'original_price',
+            'discount_percent',
             'is_free',
             'status',
             'status_display',
@@ -313,6 +315,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'level_display',
             'thumbnail_url',
             'price',
+            'original_price',
+            'discount_percent',
             'is_free',
             'status',
             'status_display',
@@ -407,16 +411,23 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             'level',
             'thumbnail_url',
             'price',
+            'original_price',
             'status'
         ]
         extra_kwargs = {
             'slug': {'required': False, 'allow_blank': True},
             'thumbnail_url': {'required': False, 'allow_blank': True},
             'price': {'required': False, 'default': 0},
+            'original_price': {'required': False, 'allow_null': True, 'default': None},
             'status': {'required': False, 'default': CourseStatus.DRAFT},
         }
 
     def validate_price(self, value):
         if value < 0:
             raise serializers.ValidationError("Học phí không được là số âm.")
+        return value
+
+    def validate_original_price(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Giá gốc không được là số âm.")
         return value

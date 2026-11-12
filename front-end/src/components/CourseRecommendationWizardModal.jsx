@@ -475,9 +475,21 @@ export default function CourseRecommendationWizardModal({
                       </div>
 
                       <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                        <span style={{ fontSize: '1rem', fontWeight: '800', color: enrolled ? '#059669' : isFree ? '#0284c7' : '#ea580c' }}>
-                          {enrolled ? 'Đã đăng ký' : isFree ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          {!enrolled && !isFree && course.original_price && Number(course.original_price) > Number(course.price) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '0.78rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                                {Number(course.original_price).toLocaleString('vi-VN')} đ
+                              </span>
+                              <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#dc2626', backgroundColor: '#fee2e2', padding: '1px 5px', borderRadius: '4px' }}>
+                                -{Math.round(((Number(course.original_price) - Number(course.price)) / Number(course.original_price)) * 100)}%
+                              </span>
+                            </div>
+                          )}
+                          <span style={{ fontSize: '1rem', fontWeight: '800', color: enrolled ? '#059669' : isFree ? '#0284c7' : '#ea580c' }}>
+                            {enrolled ? 'Đã đăng ký' : isFree ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                          </span>
+                        </div>
 
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button

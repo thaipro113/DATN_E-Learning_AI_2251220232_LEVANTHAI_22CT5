@@ -82,6 +82,15 @@ class Course(BaseModel):
         help_text=_('Đường dẫn ảnh đại diện hoặc dữ liệu Base64')
     )
     price = models.DecimalField(_('Học phí (VND)'), max_digits=12, decimal_places=0, default=0)
+    original_price = models.DecimalField(
+        _('Giá niêm yết gốc trước giảm (VND)'),
+        max_digits=12,
+        decimal_places=0,
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_('Giá cũ trước khi giảm giá (được gạch ngang khi hiển thị)')
+    )
     is_free = models.BooleanField(_('Khóa học miễn phí'), default=True)
     co_teachers = models.ManyToManyField(
         'accounts.CustomUser',
@@ -167,10 +176,17 @@ class Course(BaseModel):
 
         if self.price == 0:
             self.is_free = True
+            self.original_price = None
         else:
             self.is_free = False
 
         super().save(*args, **kwargs)
+
+    @property
+    def discount_percent(self):
+        if self.original_price and self.price and self.original_price > self.price:
+            return round(((self.original_price - self.price) / self.original_price) * 100)
+        return 0
 
     @property
     def total_chapters(self):

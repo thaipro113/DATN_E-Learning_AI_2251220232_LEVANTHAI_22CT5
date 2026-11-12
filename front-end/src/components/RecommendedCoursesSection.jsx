@@ -253,15 +253,30 @@ export default function RecommendedCoursesSection({
                         position: 'absolute',
                         top: '10px',
                         right: '10px',
-                        padding: '2px 8px',
+                        padding: '3px 8px',
                         borderRadius: '4px',
-                        backgroundColor: isFree ? '#10b981' : '#f59e0b',
+                        backgroundColor: isFree ? '#10b981' : (course.original_price && Number(course.original_price) > Number(course.price) ? '#dc2626' : '#f59e0b'),
                         color: 'white',
                         fontSize: '0.72rem',
                         fontWeight: '800',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
                       }}
                     >
-                      {isFree ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                      {isFree ? (
+                        'Miễn phí'
+                      ) : course.original_price && Number(course.original_price) > Number(course.price) ? (
+                        <>
+                          <span>{Number(course.price || 0).toLocaleString('vi-VN')} đ</span>
+                          <span style={{ backgroundColor: 'rgba(255,255,255,0.28)', padding: '0 4px', borderRadius: '3px', fontSize: '0.68rem' }}>
+                            -{Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
+                          </span>
+                        </>
+                      ) : (
+                        `${Number(course.price || 0).toLocaleString('vi-VN')} đ`
+                      )}
                     </span>
                   </div>
 
@@ -281,9 +296,25 @@ export default function RecommendedCoursesSection({
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>
                           Học phí:
                         </span>
-                        <strong style={{ fontSize: '1rem', color: isFree ? '#059669' : '#ea580c' }}>
-                          {isFree ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-                        </strong>
+                        {isFree ? (
+                          <strong style={{ fontSize: '1rem', color: '#059669' }}>Miễn phí 100%</strong>
+                        ) : course.original_price && Number(course.original_price) > Number(course.price) ? (
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: '0.98rem', color: '#dc2626', fontWeight: '800' }}>
+                              {Number(course.price || 0).toLocaleString('vi-VN')} đ
+                            </strong>
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                              {Number(course.original_price).toLocaleString('vi-VN')} đ
+                            </span>
+                            <span style={{ fontSize: '0.66rem', fontWeight: '800', color: '#b91c1c', backgroundColor: '#fee2e2', padding: '1px 4px', borderRadius: '3px' }}>
+                              -{Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
+                            </span>
+                          </div>
+                        ) : (
+                          <strong style={{ fontSize: '1rem', color: '#ea580c' }}>
+                            {`${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                          </strong>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', gap: '6px' }}>

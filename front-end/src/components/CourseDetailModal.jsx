@@ -490,11 +490,25 @@ export default function CourseDetailModal({ isOpen, onClose, course, onEnroll, o
         >
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Học phí khóa học:</span>
-            <strong style={{ fontSize: '1.15rem', color: isFree ? '#059669' : '#ea580c' }}>
-              {isFree
-                ? 'Miễn phí 100%'
-                : `${Number(currentData.price || 0).toLocaleString('vi-VN')} đ`}
-            </strong>
+            {isFree ? (
+              <strong style={{ fontSize: '1.15rem', color: '#059669' }}>Miễn phí 100%</strong>
+            ) : currentData.original_price && Number(currentData.original_price) > Number(currentData.price) ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: '1.25rem', color: '#dc2626', fontWeight: '800' }}>
+                  {Number(currentData.price || 0).toLocaleString('vi-VN')} đ
+                </strong>
+                <span style={{ fontSize: '0.88rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                  {Number(currentData.original_price).toLocaleString('vi-VN')} đ
+                </span>
+                <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#b91c1c', backgroundColor: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
+                  Tiết kiệm {Math.round(((currentData.original_price - currentData.price) / currentData.original_price) * 100)}%
+                </span>
+              </div>
+            ) : (
+              <strong style={{ fontSize: '1.15rem', color: '#ea580c' }}>
+                {`${Number(currentData.price || 0).toLocaleString('vi-VN')} đ`}
+              </strong>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

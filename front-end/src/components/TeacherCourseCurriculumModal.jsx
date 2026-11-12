@@ -42,6 +42,9 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [categories, setCategories] = useState([]);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState('');
   const [editPrice, setEditPrice] = useState(0);
+  const [editOriginalPrice, setEditOriginalPrice] = useState(null);
+  const [hasDiscount, setHasDiscount] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState(30);
 
   // Tự động sinh mô tả khóa học chi tiết bằng AI
   const handleGenerateAIDescription = async () => {
@@ -187,7 +190,15 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
           setEditStatus(data.status || 'PUBLISHED');
           setEditCategoryId(data.category?.id || data.category || '');
           setEditThumbnailUrl(data.thumbnail_url || '');
-          setEditPrice(Number(data.price || 0));
+          const p = Number(data.price || 0);
+          const orig = data.original_price ? Number(data.original_price) : null;
+          setEditPrice(p);
+          setEditOriginalPrice(orig || p || 599000);
+          const isDisc = Boolean(orig && orig > p);
+          setHasDiscount(isDisc);
+          if (isDisc && orig > 0) {
+            setDiscountPercent(Math.round(((orig - p) / orig) * 100));
+          }
         }
       }
     } catch (e) {
@@ -209,6 +220,10 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   // ==================== 1. COURSE ACTIONS ====================
   const handleSaveCourseInfo = async (e) => {
     e.preventDefault();
+    const isFree = Number(editPrice) === 0 && (!hasDiscount || Number(editOriginalPrice) === 0);
+    const finalPrice = isFree ? 0 : Number(hasDiscount ? editPrice : (editOriginalPrice || editPrice));
+    const finalOriginalPrice = (!isFree && hasDiscount && Number(editOriginalPrice) > Number(editPrice)) ? Number(editOriginalPrice) : null;
+
     const payload = {
       title: editTitle.trim(),
       slug: editSlug.trim() || generateSlug(editTitle),
@@ -217,7 +232,9 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
       status: editStatus,
       category_id: editCategoryId || null,
       thumbnail_url: editThumbnailUrl.trim(),
-      price: Number(editPrice),
+      price: finalPrice,
+      original_price: finalOriginalPrice,
+      is_free: isFree,
     };
     try {
       await courseAPI.updateCourse(course.slug || course.id, payload);
@@ -516,8 +533,24 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                 <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: '#0284c7', color: 'white', fontSize: '0.72rem', fontWeight: '800' }}>
                   CEFR {courseDetail?.level || 'B1'}
                 </span>
-                <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: courseDetail?.is_free ? '#dcfce7' : '#fef3c7', color: courseDetail?.is_free ? '#15803d' : '#d97706', fontSize: '0.72rem', fontWeight: '800' }}>
-                  {courseDetail?.is_free ? 'Miễn phí' : `${Number(courseDetail?.price || 0).toLocaleString()} đ`}
+                <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: courseDetail?.is_free ? '#dcfce7' : '#fef3c7', color: courseDetail?.is_free ? '#15803d' : '#b45309', fontSize: '0.72rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  {courseDetail?.is_free ? (
+                    'Miễn phí'
+                  ) : courseDetail?.original_price && Number(courseDetail?.original_price) > Number(courseDetail?.price) ? (
+                    <>
+                      <span style={{ textDecoration: 'line-through', opacity: 0.75 }}>
+                        {Number(courseDetail.original_price).toLocaleString('vi-VN')} đ
+                      </span>
+                      <strong style={{ color: '#dc2626' }}>
+                        {Number(courseDetail.price).toLocaleString('vi-VN')} đ
+                      </strong>
+                      <span style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '0 4px', borderRadius: '3px' }}>
+                        -{Math.round(((courseDetail.original_price - courseDetail.price) / courseDetail.original_price) * 100)}%
+                      </span>
+                    </>
+                  ) : (
+                    `${Number(courseDetail?.price || 0).toLocaleString()} đ`
+                  )}
                 </span>
               </div>
               <h4 style={{ fontSize: '1.05rem', fontWeight: '800', margin: '2px 0 4px', color: 'var(--text-main)' }}>
@@ -701,7 +734,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '12px' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                     <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>Thumbnail (Ảnh đại diện):</label>
@@ -745,30 +778,178 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                     placeholder="URL ảnh hoặc bấm nút 'Chọn ảnh từ máy'..."
                     value={editThumbnailUrl}
                     onChange={(e) => setEditThumbnailUrl(e.target.value)}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                    style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
                   />
                   {editThumbnailUrl && (
-                    <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <img
                         src={editThumbnailUrl}
                         alt="Preview"
-                        style={{ width: '70px', height: '45px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                        style={{ width: '60px', height: '38px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                         onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />
-                      <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: '700' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#15803d', fontWeight: '700' }}>
                         ✓ Đã nạp ảnh thumbnail
                       </span>
                     </div>
                   )}
                 </div>
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '2px' }}>Học phí (VND):</label>
-                  <input
-                    type="number"
-                    value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                  />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>Học phí & Giảm giá:</label>
+                    {Number(editPrice) === 0 && Number(editOriginalPrice) === 0 && (
+                      <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: '700' }}>Miễn phí 100%</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '8px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
+                        Giá gốc niêm yết:
+                      </span>
+                      <input
+                        type="number"
+                        value={editOriginalPrice !== null && editOriginalPrice !== undefined ? editOriginalPrice : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+                          setEditOriginalPrice(val);
+                          if (val === 0 || val === '') {
+                            setEditPrice(0);
+                            setDiscountPercent(0);
+                            setHasDiscount(false);
+                          } else if (hasDiscount && discountPercent > 0) {
+                            setEditPrice(Math.round(val * (1 - discountPercent / 100)));
+                          } else {
+                            setEditPrice(val);
+                          }
+                        }}
+                        placeholder="VD: 599000 (0 = Free)"
+                        style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
+                        Mức giảm giá:
+                      </span>
+                      <select
+                        value={
+                          !hasDiscount || Number(discountPercent) === 0
+                            ? '0'
+                            : [10, 20, 30, 40, 50, 60, 70].includes(Number(discountPercent))
+                              ? String(discountPercent)
+                              : 'custom'
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '0') {
+                            setHasDiscount(false);
+                            setDiscountPercent(0);
+                            setEditPrice(editOriginalPrice || 0);
+                          } else if (val === 'custom') {
+                            setHasDiscount(true);
+                            if (!discountPercent) setDiscountPercent(20);
+                            const base = Number(editOriginalPrice || editPrice || 500000);
+                            if (!editOriginalPrice) setEditOriginalPrice(base);
+                            setEditPrice(Math.round(base * (1 - (discountPercent || 20) / 100)));
+                          } else {
+                            const pct = Number(val);
+                            setHasDiscount(true);
+                            setDiscountPercent(pct);
+                            const base = Number(editOriginalPrice || editPrice || 500000);
+                            if (!editOriginalPrice) setEditOriginalPrice(base);
+                            setEditPrice(Math.round(base * (1 - pct / 100)));
+                          }
+                        }}
+                        disabled={Number(editOriginalPrice) === 0}
+                        style={{
+                          width: '100%',
+                          padding: '7px 8px',
+                          borderRadius: '4px',
+                          border: hasDiscount ? '1px solid #c084fc' : '1px solid var(--border-color)',
+                          fontSize: '0.82rem',
+                          fontWeight: hasDiscount ? '700' : '500',
+                          color: hasDiscount ? '#7c3aed' : 'var(--text-main)',
+                          backgroundColor: hasDiscount ? '#faf5ff' : 'var(--bg-surface)',
+                          cursor: Number(editOriginalPrice) === 0 ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        <option value="0">Không giảm (0%)</option>
+                        <option value="10">Giảm 10%</option>
+                        <option value="20">Giảm 20%</option>
+                        <option value="30">Giảm 30%</option>
+                        <option value="40">Giảm 40%</option>
+                        <option value="50">Giảm 50%</option>
+                        <option value="60">Giảm 60%</option>
+                        <option value="70">Giảm 70%</option>
+                        <option value="custom">Tùy chỉnh...</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Dòng giá bán sau giảm & Preview (chỉ hiện khi có áp dụng giảm giá) */}
+                  {hasDiscount && Number(editOriginalPrice) > 0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '5px 8px',
+                        backgroundColor: '#f5f3ff',
+                        borderRadius: '4px',
+                        border: '1px solid #ddd6fe',
+                        marginTop: '2px',
+                        gap: '6px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#15803d' }}>Giá bán:</span>
+                        <input
+                          type="number"
+                          value={editPrice}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setEditPrice(val);
+                            if (editOriginalPrice && Number(editOriginalPrice) > 0) {
+                              const pct = Math.round(((Number(editOriginalPrice) - val) / Number(editOriginalPrice)) * 100);
+                              setDiscountPercent(pct > 0 ? pct : 0);
+                            }
+                          }}
+                          style={{
+                            width: '85px',
+                            padding: '2px 5px',
+                            borderRadius: '3px',
+                            border: '1px solid #86efac',
+                            fontSize: '0.8rem',
+                            fontWeight: '800',
+                            color: '#15803d',
+                            backgroundColor: '#ffffff',
+                          }}
+                        />
+                        <span style={{ fontSize: '0.72rem', color: '#15803d', fontWeight: '700' }}>đ</span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontSize: '0.7rem', textDecoration: 'line-through', color: '#94a3b8' }}>
+                          {Number(editOriginalPrice).toLocaleString('vi-VN')} đ
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: '800',
+                            color: '#dc2626',
+                            backgroundColor: '#fee2e2',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                          }}
+                        >
+                          -{discountPercent || Math.round(((Number(editOriginalPrice) - Number(editPrice)) / Number(editOriginalPrice)) * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

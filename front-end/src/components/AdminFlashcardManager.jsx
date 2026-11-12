@@ -14,6 +14,7 @@ import {
   getDeletedWordIds,
   saveDeletedWordIds,
   speakWord,
+  syncFlashcardsFromDatabase,
 } from '../utils/flashcardStorage';
 
 export default function AdminFlashcardManager() {
@@ -70,6 +71,17 @@ export default function AdminFlashcardManager() {
   useEffect(() => saveDeletedDeckIds(deletedDeckIds), [deletedDeckIds]);
   useEffect(() => saveWordOverrides(wordOverrides), [wordOverrides]);
   useEffect(() => saveDeletedWordIds(deletedWordIds), [deletedWordIds]);
+
+  // Tự động đồng bộ với cơ sở dữ liệu khi mở trang
+  useEffect(() => {
+    syncFlashcardsFromDatabase();
+    const handleSync = () => {
+      setCustomDecks(getStoredCustomDecks());
+      setCustomWords(getStoredCustomWords());
+    };
+    window.addEventListener('elearning_flashcards_db_synced', handleSync);
+    return () => window.removeEventListener('elearning_flashcards_db_synced', handleSync);
+  }, []);
 
   // Danh sách tất cả các chủ đề (Toàn bộ 3 bộ ban đầu gán quyền sở hữu cho Admin quản lý 100%)
   const allDecks = useMemo(() => {
@@ -294,6 +306,21 @@ export default function AdminFlashcardManager() {
     showToast(`Đã xóa chủ đề "${deckTitle}" thành công!`);
   };
 
+  // Khôi phục tất cả các bộ thẻ mặc định của hệ thống
+  const handleRestoreSystemDecks = () => {
+    if (window.confirm('Khôi phục toàn bộ các chủ đề và từ vựng mặc định chuẩn hệ thống?')) {
+      setDeletedDeckIds([]);
+      setDeletedWordIds([]);
+      setDeckOverrides({});
+      setWordOverrides({});
+      localStorage.removeItem('elearning_deleted_decks');
+      localStorage.removeItem('elearning_deleted_words');
+      localStorage.removeItem('elearning_deck_overrides');
+      localStorage.removeItem('elearning_word_overrides');
+      showToast('Đã khôi phục toàn bộ các chủ đề mặc định của hệ thống!');
+    }
+  };
+
   // Mở modal thêm từ vựng
   const handleOpenAddWord = (defaultDeckId) => {
     setWordModal({
@@ -478,6 +505,29 @@ export default function AdminFlashcardManager() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handleRestoreSystemDecks}
+            title="Khôi phục các chủ đề hệ thống chuẩn CEFR ban đầu"
+            style={{
+              padding: '9px 14px',
+              borderRadius: '8px',
+              backgroundColor: '#f1f5f9',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              fontSize: '0.86rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <i className="fa-solid fa-rotate-left"></i>
+            <span>Khôi phục mặc định</span>
+          </button>
+
           <button
             type="button"
             onClick={handleOpenCreateDeck}

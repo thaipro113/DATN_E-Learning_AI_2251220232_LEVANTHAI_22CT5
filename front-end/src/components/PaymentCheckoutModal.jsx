@@ -230,9 +230,21 @@ export default function PaymentCheckoutModal({ isOpen, onClose, course, user, on
             >
               {course.title}
             </strong>
-            <span style={{ fontSize: '0.92rem', fontWeight: '800', color: '#ea580c' }}>
-              {formattedPrice}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.95rem', fontWeight: '800', color: '#ea580c' }}>
+                {formattedPrice}
+              </span>
+              {course.original_price && Number(course.original_price) > priceNum && (
+                <>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                    {Number(course.original_price).toLocaleString('vi-VN')} đ
+                  </span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#dc2626', backgroundColor: '#fee2e2', padding: '1px 5px', borderRadius: '4px' }}>
+                    -{Math.round(((course.original_price - priceNum) / course.original_price) * 100)}%
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -380,10 +392,31 @@ export default function PaymentCheckoutModal({ isOpen, onClose, course, user, on
                   </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#64748b' }}>Số tiền thanh toán:</span>
-                <strong style={{ color: '#ea580c', fontSize: '0.92rem' }}>{formattedPrice}</strong>
-              </div>
+              {course.original_price && Number(course.original_price) > priceNum ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b' }}>Học phí gốc:</span>
+                    <span style={{ color: '#94a3b8', textDecoration: 'line-through' }}>
+                      {Number(course.original_price).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#16a34a' }}>Ưu đãi giảm giá:</span>
+                    <strong style={{ color: '#16a34a' }}>
+                      -{(Number(course.original_price) - priceNum).toLocaleString('vi-VN')} đ (-{Math.round(((course.original_price - priceNum) / course.original_price) * 100)}%)
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
+                    <span style={{ color: '#0f172a', fontWeight: '700' }}>Số tiền thanh toán:</span>
+                    <strong style={{ color: '#ea580c', fontSize: '1rem' }}>{formattedPrice}</strong>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748b' }}>Số tiền thanh toán:</span>
+                  <strong style={{ color: '#ea580c', fontSize: '0.92rem' }}>{formattedPrice}</strong>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#64748b' }}>Nội dung chuyển khoản:</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -452,10 +485,31 @@ export default function PaymentCheckoutModal({ isOpen, onClose, course, user, on
                 <span style={{ color: '#64748b' }}>Chủ tài khoản:</span>
                 <strong>{BANK_CONFIG.accountName}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b' }}>Số tiền:</span>
-                <strong style={{ color: '#ea580c', fontSize: '0.95rem' }}>{formattedPrice}</strong>
-              </div>
+              {course.original_price && Number(course.original_price) > priceNum ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Học phí gốc:</span>
+                    <span style={{ color: '#94a3b8', textDecoration: 'line-through' }}>
+                      {Number(course.original_price).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#16a34a' }}>Ưu đãi giảm giá:</span>
+                    <strong style={{ color: '#16a34a' }}>
+                      -{(Number(course.original_price) - priceNum).toLocaleString('vi-VN')} đ (-{Math.round(((course.original_price - priceNum) / course.original_price) * 100)}%)
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
+                    <span style={{ color: '#0f172a', fontWeight: '700' }}>Số tiền cần chuyển:</span>
+                    <strong style={{ color: '#ea580c', fontSize: '1rem' }}>{formattedPrice}</strong>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Số tiền:</span>
+                  <strong style={{ color: '#ea580c', fontSize: '0.95rem' }}>{formattedPrice}</strong>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#64748b' }}>Nội dung bắt buộc:</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

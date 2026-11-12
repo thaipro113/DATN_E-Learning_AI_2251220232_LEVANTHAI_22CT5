@@ -400,9 +400,31 @@ export default function CourseDetailFullView({
             <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               HỌC PHÍ KHÓA HỌC
             </span>
-            <div style={{ fontSize: '1.6rem', fontWeight: '900', color: isFree ? '#059669' : '#ea580c', margin: '4px 0 16px 0' }}>
-              {isFree ? 'Miễn phí 100%' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-            </div>
+            {isFree ? (
+              <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#059669', margin: '4px 0 16px 0' }}>
+                Miễn phí 100%
+              </div>
+            ) : course.original_price && Number(course.original_price) > Number(course.price) ? (
+              <div style={{ margin: '4px 0 16px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.75rem', fontWeight: '900', color: '#dc2626' }}>
+                    {Number(course.price || 0).toLocaleString('vi-VN')} đ
+                  </span>
+                  <span style={{ fontSize: '1.05rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                    {Number(course.original_price).toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+                <div style={{ marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#b91c1c', backgroundColor: '#fee2e2', padding: '2px 8px', borderRadius: '4px' }}>
+                    Ưu đãi giảm {Math.round(((course.original_price - course.price) / course.original_price) * 100)}% (Tiết kiệm {(Number(course.original_price) - Number(course.price)).toLocaleString('vi-VN')} đ)
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#ea580c', margin: '4px 0 16px 0' }}>
+                {`${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+              </div>
+            )}
 
             {isEnrolled ? (
               <button

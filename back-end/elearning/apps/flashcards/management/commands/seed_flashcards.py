@@ -63,7 +63,7 @@ class Command(BaseCommand):
             for idx, c in enumerate(cards_list):
                 Flashcard.objects.update_or_create(
                     deck=deck,
-                    code=c.get('id', f"{deck.code}_{idx+1}"),
+                    code=str(c.get('id', f"{deck.code}_{idx+1}")),
                     defaults={
                         'word': c['word'],
                         'ipa': c.get('ipa', ''),

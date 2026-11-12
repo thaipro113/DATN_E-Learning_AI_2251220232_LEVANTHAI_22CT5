@@ -33,7 +33,10 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
   const [newStatus, setNewStatus] = useState('PENDING');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [newThumbnailUrl, setNewThumbnailUrl] = useState('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80');
-  const [newPrice, setNewPrice] = useState(0);
+  const [newPrice, setNewPrice] = useState(299000);
+  const [newOriginalPrice, setNewOriginalPrice] = useState(599000);
+  const [hasDiscount, setHasDiscount] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState(30);
   const [isFree, setIsFree] = useState(true);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
@@ -139,7 +142,8 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
         level: newLevel,
         category_id: newCategoryId || null,
         thumbnail_url: newThumbnailUrl.trim(),
-        price: isFree ? 0 : Number(newPrice),
+        price: isFree ? 0 : Number(hasDiscount ? newPrice : (newOriginalPrice || newPrice)),
+        original_price: (!isFree && hasDiscount && Number(newOriginalPrice) > Number(newPrice)) ? Number(newOriginalPrice) : null,
         is_free: isFree,
         status: newStatus,
       };
@@ -150,6 +154,10 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
       setNewTitle('');
       setNewSlug('');
       setNewDescription('');
+      setNewPrice(299000);
+      setNewOriginalPrice(599000);
+      setHasDiscount(false);
+      setIsFree(true);
       setNewStatus('PENDING');
       setShowCreateModal(false);
       fetchTeacherCourses();
@@ -1178,28 +1186,179 @@ export default function TeacherDashboardView({ onOpenQuizImport, user, onBackToD
                 />
               </div>
 
-              {/* Price & Free toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700' }}>
-                  <input
-                    type="checkbox"
-                    checked={isFree}
-                    onChange={(e) => setIsFree(e.target.checked)}
-                  />
-                  <span>Khóa học Miễn phí 100%</span>
-                </label>
+              {/* Price & Discount Section (Compact with Select) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '700' }}>
+                    <input
+                      type="checkbox"
+                      checked={isFree}
+                      onChange={(e) => {
+                        setIsFree(e.target.checked);
+                        if (e.target.checked) {
+                          setHasDiscount(false);
+                          setNewPrice(0);
+                          setNewOriginalPrice(0);
+                        }
+                      }}
+                    />
+                    <span>Khóa học Miễn phí 100%</span>
+                  </label>
+                  {!isFree && hasDiscount && (
+                    <span style={{ fontSize: '0.74rem', color: '#7c3aed', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <i className="fa-solid fa-tags"></i>
+                      <span>Đang áp dụng khuyến mãi</span>
+                    </span>
+                  )}
+                </div>
 
                 {!isFree && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: '700' }}>Học phí:</span>
-                    <input
-                      type="number"
-                      value={newPrice}
-                      onChange={(e) => setNewPrice(e.target.value)}
-                      placeholder="299000"
-                      style={{ width: '120px', padding: '6px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
-                    />
-                    <span style={{ fontSize: '0.82rem' }}>VNĐ</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '4px', color: 'var(--text-main)' }}>
+                        Giá gốc niêm yết (VNĐ):
+                      </label>
+                      <input
+                        type="number"
+                        value={newOriginalPrice !== null && newOriginalPrice !== undefined ? newOriginalPrice : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+                          setNewOriginalPrice(val);
+                          if (val === 0 || val === '') {
+                            setNewPrice(0);
+                            setDiscountPercent(0);
+                            setHasDiscount(false);
+                          } else if (hasDiscount && discountPercent > 0) {
+                            setNewPrice(Math.round(val * (1 - discountPercent / 100)));
+                          } else {
+                            setNewPrice(val);
+                          }
+                        }}
+                        placeholder="VD: 599000"
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '4px', color: 'var(--text-main)' }}>
+                        Mức giảm giá:
+                      </label>
+                      <select
+                        value={
+                          !hasDiscount || Number(discountPercent) === 0
+                            ? '0'
+                            : [10, 20, 30, 40, 50, 60, 70].includes(Number(discountPercent))
+                              ? String(discountPercent)
+                              : 'custom'
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '0') {
+                            setHasDiscount(false);
+                            setDiscountPercent(0);
+                            setNewPrice(newOriginalPrice || 0);
+                          } else if (val === 'custom') {
+                            setHasDiscount(true);
+                            if (!discountPercent) setDiscountPercent(20);
+                            const base = Number(newOriginalPrice || newPrice || 500000);
+                            if (!newOriginalPrice) setNewOriginalPrice(base);
+                            setNewPrice(Math.round(base * (1 - (discountPercent || 20) / 100)));
+                          } else {
+                            const pct = Number(val);
+                            setHasDiscount(true);
+                            setDiscountPercent(pct);
+                            const base = Number(newOriginalPrice || newPrice || 500000);
+                            if (!newOriginalPrice) setNewOriginalPrice(base);
+                            setNewPrice(Math.round(base * (1 - pct / 100)));
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 10px',
+                          borderRadius: '6px',
+                          border: hasDiscount ? '1px solid #c084fc' : '1px solid var(--border-color)',
+                          fontSize: '0.85rem',
+                          fontWeight: hasDiscount ? '700' : '500',
+                          color: hasDiscount ? '#7c3aed' : 'var(--text-main)',
+                          backgroundColor: hasDiscount ? '#faf5ff' : 'var(--bg-surface)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="0">Không giảm giá (0%)</option>
+                        <option value="10">Giảm 10%</option>
+                        <option value="20">Giảm 20%</option>
+                        <option value="30">Giảm 30%</option>
+                        <option value="40">Giảm 40%</option>
+                        <option value="50">Giảm 50%</option>
+                        <option value="60">Giảm 60%</option>
+                        <option value="70">Giảm 70%</option>
+                        <option value="custom">Tùy chỉnh...</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dòng giá bán thực tế & Preview (khi có giảm giá) */}
+                {!isFree && hasDiscount && Number(newOriginalPrice) > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      backgroundColor: '#f5f3ff',
+                      borderRadius: '6px',
+                      border: '1px solid #ddd6fe',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#15803d' }}>
+                        Học phí sau giảm:
+                      </span>
+                      <input
+                        type="number"
+                        value={newPrice}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setNewPrice(val);
+                          if (newOriginalPrice && Number(newOriginalPrice) > 0) {
+                            const pct = Math.round(((Number(newOriginalPrice) - val) / Number(newOriginalPrice)) * 100);
+                            setDiscountPercent(pct > 0 ? pct : 0);
+                          }
+                        }}
+                        style={{
+                          width: '110px',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid #86efac',
+                          fontSize: '0.88rem',
+                          fontWeight: '800',
+                          color: '#15803d',
+                          backgroundColor: '#ffffff',
+                        }}
+                      />
+                      <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#15803d' }}>VNĐ</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.78rem', textDecoration: 'line-through', color: '#94a3b8' }}>
+                        {Number(newOriginalPrice).toLocaleString('vi-VN')} đ
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: '800',
+                          color: '#dc2626',
+                          backgroundColor: '#fee2e2',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        Tiết kiệm {discountPercent || Math.round(((Number(newOriginalPrice) - Number(newPrice)) / Number(newOriginalPrice)) * 100)}%
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

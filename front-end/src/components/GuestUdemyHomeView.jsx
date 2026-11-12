@@ -609,9 +609,21 @@ export default function GuestUdemyHomeView({
                       {course.is_free ? (
                         <span className="price-tag-free">Miễn phí</span>
                       ) : (
-                        <span className="price-tag-amount">
-                          {Number(course.price || 299000).toLocaleString('vi-VN')} đ
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
+                          <span className="price-tag-amount" style={{ color: course.original_price && Number(course.original_price) > Number(course.price) ? '#dc2626' : undefined }}>
+                            {Number(course.price || 299000).toLocaleString('vi-VN')} đ
+                          </span>
+                          {course.original_price && Number(course.original_price) > Number(course.price) && (
+                            <>
+                              <span style={{ fontSize: '0.78rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                                {Number(course.original_price).toLocaleString('vi-VN')} đ
+                              </span>
+                              <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#b91c1c', backgroundColor: '#fee2e2', padding: '1px 5px', borderRadius: '4px' }}>
+                                -{Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
+                              </span>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                     <button

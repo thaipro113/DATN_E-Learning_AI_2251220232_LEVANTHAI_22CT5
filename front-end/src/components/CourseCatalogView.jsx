@@ -198,15 +198,30 @@ export default function CourseCatalogView({
                 position: 'absolute',
                 top: '10px',
                 right: '10px',
-                padding: '2px 8px',
+                padding: '3px 8px',
                 borderRadius: '4px',
-                backgroundColor: isFree ? '#10b981' : '#f59e0b',
+                backgroundColor: isFree ? '#10b981' : (course.original_price && Number(course.original_price) > Number(course.price) ? '#dc2626' : '#f59e0b'),
                 color: 'white',
                 fontSize: '0.72rem',
                 fontWeight: '800',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
               }}
             >
-              {isFree ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+              {isFree ? (
+                'Miễn phí'
+              ) : course.original_price && Number(course.original_price) > Number(course.price) ? (
+                <>
+                  <span>{Number(course.price || 0).toLocaleString('vi-VN')} đ</span>
+                  <span style={{ backgroundColor: 'rgba(255,255,255,0.28)', padding: '0 4px', borderRadius: '3px', fontSize: '0.68rem' }}>
+                    -{Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
+                  </span>
+                </>
+              ) : (
+                `${Number(course.price || 0).toLocaleString('vi-VN')} đ`
+              )}
             </span>
           )}
         </div>
@@ -307,22 +322,35 @@ export default function CourseCatalogView({
               gap: '8px',
             }}
           >
-            <span
-              className="course-price-text"
-              style={{
-                color: isCompleted ? '#059669' : isEnrolled ? '#0284c7' : isFree ? '#0284c7' : 'var(--text-main)',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-              }}
-            >
-              {isCompleted
-                ? 'Đã hoàn thành'
-                : isEnrolled
-                ? 'Đang theo học'
-                : isFree
-                ? 'Miễn phí 100%'
-                : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-            </span>
+            {isCompleted ? (
+              <span className="course-price-text" style={{ color: '#059669', fontSize: '0.8rem', fontWeight: '700' }}>
+                Đã hoàn thành
+              </span>
+            ) : isEnrolled ? (
+              <span className="course-price-text" style={{ color: '#0284c7', fontSize: '0.8rem', fontWeight: '700' }}>
+                Đang theo học
+              </span>
+            ) : isFree ? (
+              <span className="course-price-text" style={{ color: '#0284c7', fontSize: '0.8rem', fontWeight: '700' }}>
+                Miễn phí 100%
+              </span>
+            ) : course.original_price && Number(course.original_price) > Number(course.price) ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', flexWrap: 'wrap' }}>
+                <strong style={{ color: '#dc2626', fontSize: '0.92rem', fontWeight: '800' }}>
+                  {Number(course.price || 0).toLocaleString('vi-VN')} đ
+                </strong>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                  {Number(course.original_price).toLocaleString('vi-VN')} đ
+                </span>
+                <span style={{ fontSize: '0.68rem', fontWeight: '800', color: '#b91c1c', backgroundColor: '#fee2e2', padding: '1px 4px', borderRadius: '3px' }}>
+                  -{Math.round(((course.original_price - course.price) / course.original_price) * 100)}%
+                </span>
+              </div>
+            ) : (
+              <span className="course-price-text" style={{ color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: '800' }}>
+                {Number(course.price || 0).toLocaleString('vi-VN')} đ
+              </span>
+            )}
 
             <div style={{ display: 'flex', gap: '6px' }}>
               <button

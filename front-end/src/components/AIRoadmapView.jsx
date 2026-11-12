@@ -1530,15 +1530,29 @@ export default function AIRoadmapView({
                                       </span>
                                     )}
 
-                                    <span
-                                      style={{
-                                        fontSize: '0.74rem',
-                                        fontWeight: '800',
-                                        color: isFree ? '#10b981' : '#f59e0b',
-                                      }}
-                                    >
-                                      {isFree ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      {course.original_price && Number(course.original_price) > Number(course.price) && !isFree && (
+                                        <span
+                                          style={{
+                                            fontSize: '0.68rem',
+                                            color: '#94a3b8',
+                                            textDecoration: 'line-through',
+                                            fontWeight: '500',
+                                          }}
+                                        >
+                                          {Number(course.original_price).toLocaleString('vi-VN')} đ
+                                        </span>
+                                      )}
+                                      <span
+                                        style={{
+                                          fontSize: '0.74rem',
+                                          fontWeight: '800',
+                                          color: isFree ? '#10b981' : '#f59e0b',
+                                        }}
+                                      >
+                                        {isFree ? 'Miễn phí' : `${Number(course.price || 0).toLocaleString('vi-VN')} đ`}
+                                      </span>
+                                    </div>
                                   </div>
 
                                   {/* Thumbnail & Title */}

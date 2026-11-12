@@ -92,6 +92,11 @@ export default function FlashcardStudyView({
       setSelectedDeckId(allDecks[0].id);
     }
   }, [initialDeckId, allDecks, selectedDeckId]);
+
+  // Quản lý hiển thị danh mục chủ đề: mặc định thu gọn (false) để giao diện học từ vựng hiển thị ngay lập tức
+  const [isDecksExpanded, setIsDecksExpanded] = useState(false);
+  const studySectionRef = useRef(null);
+
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0); // 1.0x hoặc 0.8x
@@ -463,38 +468,23 @@ export default function FlashcardStudyView({
 
   return (
     <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '24px 16px', color: '#1e293b' }}>
-      {/* Banner Giới thiệu Flashcards */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)',
-          borderRadius: '20px',
-          padding: '26px 30px',
-          color: '#ffffff',
-          marginBottom: '24px',
-          boxShadow: '0 10px 25px -5px rgba(37, 99, 235, 0.3)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
+      {/* Header Giới thiệu Flashcards - Chuẩn hóa thiết kế đơn giản, đồng bộ với toàn hệ thống */}
+      <div className="page-header-box" style={{ flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
         <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderRadius: '20px', backgroundColor: 'rgba(255, 255, 255, 0.2)', fontSize: '0.78rem', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '8px' }}>
-            <i className="fa-solid fa-volume-high" style={{ color: '#fef08a' }}></i>
-            <span>HỌC TỪ VỰNG TƯƠNG TÁC & PHÁT ÂM CHUẨN IPA</span>
-          </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: '900', margin: '0 0 6px 0', letterSpacing: '-0.5px' }}>
-            Thẻ Ghi Nhớ Thông Minh (Smart Flashcards)
-          </h1>
-          <p style={{ margin: 0, fontSize: '0.92rem', color: '#bfdbfe', maxWidth: '650px', lineHeight: '1.5' }}>
+          <h2 className="page-title" style={{ margin: 0, fontSize: '1.35rem' }}>
+            <i className="fa-solid fa-layer-group" style={{ color: '#0284c7' }}></i>
+            <span>THẺ GHI NHỚ THÔNG MINH (SMART FLASHCARDS)</span>
+          </h2>
+          <p className="page-subtitle" style={{ margin: '4px 0 0 0', maxWidth: '680px' }}>
             Luyện trí nhớ dài hạn với phương pháp lật thẻ (Active Recall) kết hợp giọng phát âm bản xứ (Audio Speech) và kiểm tra phản xạ tức thì.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Nút Tạo Chủ Đề / Bộ Thẻ Mới (Dành cho Giáo viên & Admin) */}
           <button
+            type="button"
+            className="btn-outline"
             onClick={() => {
               setNewDeckForm({
                 title: '',
@@ -506,28 +496,28 @@ export default function FlashcardStudyView({
               setIsCreateDeckModalOpen(true);
             }}
             style={{
-              padding: '10px 18px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-              border: 'none',
-              color: '#ffffff',
-              fontSize: '0.88rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: 'flex',
+              padding: '8px 14px',
+              fontSize: '0.84rem',
+              fontWeight: '700',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
-              transition: 'transform 0.15s ease',
+              gap: '6px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#ffffff',
+              color: '#334155',
+              cursor: 'pointer',
             }}
             title="Tạo chủ đề / bộ thẻ từ vựng mới (Giáo viên & Admin)"
           >
-            <i className="fa-solid fa-folder-plus"></i>
-            <span>+ Tạo chủ đề mới</span>
+            <i className="fa-solid fa-folder-plus" style={{ color: '#0284c7' }}></i>
+            <span>+ Tạo chủ đề</span>
           </button>
 
-          {/* Nút Thêm Từ Vựng Mới (Có dropdown chọn chủ đề muốn thêm vào) */}
+          {/* Nút Thêm Từ Vựng Mới */}
           <button
+            type="button"
+            className="btn-primary"
             onClick={() => {
               setNewWordForm({
                 deckId: selectedDeckId,
@@ -544,380 +534,499 @@ export default function FlashcardStudyView({
               setIsAddWordModalOpen(true);
             }}
             style={{
-              padding: '10px 18px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#0284c7',
               border: 'none',
               color: '#ffffff',
-              fontSize: '0.88rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: 'flex',
+              fontSize: '0.84rem',
+              fontWeight: '700',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)',
-              transition: 'transform 0.15s ease',
+              gap: '6px',
+              cursor: 'pointer',
             }}
             title="Thêm từ vựng mới vào chủ đề đã chọn"
           >
             <i className="fa-solid fa-plus-circle"></i>
-            <span>+ Thêm từ vựng mới</span>
+            <span>+ Thêm từ vựng</span>
           </button>
 
           {!isQuizMode && (
             <button
+              type="button"
               onClick={handleStartMiniQuiz}
               disabled={cards.length === 0}
               style={{
-                padding: '10px 18px',
-                borderRadius: '12px',
-                backgroundColor: cards.length === 0 ? '#94a3b8' : '#f59e0b',
-                border: 'none',
-                color: '#ffffff',
-                fontSize: '0.88rem',
-                fontWeight: '800',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                backgroundColor: cards.length === 0 ? '#f8fafc' : '#fff7ed',
+                border: cards.length === 0 ? '1px solid #e2e8f0' : '1px solid #fed7aa',
+                color: cards.length === 0 ? '#94a3b8' : '#c2410c',
+                fontSize: '0.84rem',
+                fontWeight: '700',
                 cursor: cards.length === 0 ? 'not-allowed' : 'pointer',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                boxShadow: cards.length === 0 ? 'none' : '0 4px 12px rgba(245, 158, 11, 0.4)',
+                gap: '6px',
               }}
+              title="Kiểm tra nhanh 5 câu phản xạ"
             >
-              <i className="fa-solid fa-bolt"></i>
-              <span>Kiểm tra nhanh 5 câu</span>
+              <i className="fa-solid fa-bolt" style={{ color: cards.length === 0 ? '#94a3b8' : '#ea580c' }}></i>
+              <span>Kiểm tra 5 câu</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Thanh Điều Hướng Danh Mục & Bộ Lọc Tác Giả (Admin / Giảng Viên / Khóa Học / Cá Nhân) */}
+      {/* 1. THANH ĐIỀU HƯỚNG BỘ THẺ ĐANG HỌC & CHỌN NHANH CHỦ ĐỀ (Thiết kế tinh gọn, vào là học ngay) */}
       <div
         style={{
+          backgroundColor: 'var(--bg-surface, #ffffff)',
+          borderRadius: '14px',
+          border: '1px solid var(--border-card, #e2e8f0)',
+          padding: '12px 18px',
+          marginBottom: '14px',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '18px',
-          padding: '12px 16px',
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+          flexDirection: 'column',
+          gap: '10px',
         }}
       >
-        {/* Pills chuyển danh mục */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => { setDeckCategoryFilter('ALL'); setTeacherFilter('ALL'); }}
-            style={{
-              padding: '7px 14px',
-              borderRadius: '20px',
-              border: 'none',
-              backgroundColor: deckCategoryFilter === 'ALL' ? '#0284c7' : '#f1f5f9',
-              color: deckCategoryFilter === 'ALL' ? '#ffffff' : '#475569',
-              fontSize: '0.82rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <span>Tất Cả Bộ Thẻ ({allDecks.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setDeckCategoryFilter('system'); setTeacherFilter('ALL'); }}
-            style={{
-              padding: '7px 14px',
-              borderRadius: '20px',
-              border: 'none',
-              backgroundColor: deckCategoryFilter === 'system' ? '#0284c7' : '#f1f5f9',
-              color: deckCategoryFilter === 'system' ? '#ffffff' : '#475569',
-              fontSize: '0.82rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <i className="fa-solid fa-shield-halved" style={{ color: deckCategoryFilter === 'system' ? '#ffffff' : '#0284c7' }}></i>
-            <span>Chuẩn Hệ Thống CEFR ({allDecks.filter((d) => d.category === 'system' || d.authorRole === 'ADMIN').length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setDeckCategoryFilter('teacher'); }}
-            style={{
-              padding: '7px 14px',
-              borderRadius: '20px',
-              border: 'none',
-              backgroundColor: deckCategoryFilter === 'teacher' ? '#ea580c' : '#f1f5f9',
-              color: deckCategoryFilter === 'teacher' ? '#ffffff' : '#475569',
-              fontSize: '0.82rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <i className="fa-solid fa-chalkboard-user" style={{ color: deckCategoryFilter === 'teacher' ? '#ffffff' : '#ea580c' }}></i>
-            <span>Từ Vựng Giảng Viên & Khóa Học ({allDecks.filter((d) => d.category === 'teacher' || d.authorRole === 'TEACHER').length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setDeckCategoryFilter('personal'); setTeacherFilter('ALL'); }}
-            style={{
-              padding: '7px 14px',
-              borderRadius: '20px',
-              border: 'none',
-              backgroundColor: deckCategoryFilter === 'personal' ? '#8b5cf6' : '#f1f5f9',
-              color: deckCategoryFilter === 'personal' ? '#ffffff' : '#475569',
-              fontSize: '0.82rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <i className="fa-solid fa-book-bookmark" style={{ color: deckCategoryFilter === 'personal' ? '#ffffff' : '#8b5cf6' }}></i>
-            <span>Sổ Tay Cá Nhân ({allDecks.filter((d) => d.category === 'personal' || d.id === 'custom_personal' || d.authorRole === 'STUDENT').length})</span>
-          </button>
-        </div>
-
-        {/* Cụm lọc chi tiết bên phải */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Dropdown lọc theo giảng viên nếu có giảng viên */}
-          {availableTeachers.length > 0 && (
-            <select
-              value={teacherFilter}
-              onChange={(e) => {
-                setTeacherFilter(e.target.value);
-                if (e.target.value !== 'ALL') setDeckCategoryFilter('teacher');
-              }}
+        {/* Dòng 1: Thông tin bộ thẻ đang chọn + Bộ chọn dropdown + Nút mở rộng lưới */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span
               style={{
-                height: '34px',
-                padding: '0 10px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-                color: '#334155',
-                cursor: 'pointer',
-                outline: 'none',
+                fontSize: '0.78rem',
+                fontWeight: '800',
+                color: currentDeck.color,
+                backgroundColor: `${currentDeck.color}15`,
+                padding: '3px 9px',
+                borderRadius: '6px',
               }}
             >
-              <option value="ALL">Tất cả giảng viên</option>
-              {availableTeachers.map((teachName, idx) => (
-                <option key={idx} value={teachName}>
-                  {teachName}
-                </option>
-              ))}
-            </select>
-          )}
+              {currentDeck.level}
+            </span>
 
-          {/* Ô tìm kiếm bộ thẻ */}
-          <div style={{ position: 'relative', width: '220px' }}>
-            <i
-              className="fa-solid fa-magnifying-glass"
-              style={{
-                position: 'absolute',
-                left: '10px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '0.75rem',
-                color: '#94a3b8',
-              }}
-            ></i>
-            <input
-              type="text"
-              placeholder="Tìm bộ thẻ, khóa học..."
-              value={deckSearchQuery}
-              onChange={(e) => setDeckSearchQuery(e.target.value)}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: '#0f172a' }}>
+                  {currentDeck.title}
+                </h3>
+                {currentDeck.courseTitle && (
+                  <span style={{ fontSize: '0.72rem', color: '#0284c7', backgroundColor: '#e0f2fe', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                    Khóa: {currentDeck.courseTitle}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                Đã thuộc {deckMasteredCount}/{allDeckCards.length} từ ({progressPercent}%) • {currentDeck.authorRole === 'TEACHER' ? `GV ${currentDeck.author}` : currentDeck.authorRole === 'ADMIN' ? 'Hệ thống chuẩn CEFR' : 'Sổ tay cá nhân'}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Dropdown chuyển nhanh bộ thẻ */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600' }}>Đổi chủ đề:</span>
+              <select
+                value={selectedDeckId}
+                onChange={(e) => {
+                  setSelectedDeckId(e.target.value);
+                  setIsDecksExpanded(false);
+                }}
+                style={{
+                  height: '34px',
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  color: '#334155',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  maxWidth: '220px',
+                }}
+              >
+                {allDecks.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    [{d.level}] {d.title} ({d.cards?.length || 0} từ)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Nút Mở rộng / Thu gọn lưới danh mục chủ đề */}
+            <button
+              type="button"
+              onClick={() => setIsDecksExpanded((prev) => !prev)}
               style={{
                 height: '34px',
-                width: '100%',
-                padding: '0 10px 0 28px',
+                padding: '0 12px',
                 borderRadius: '8px',
                 border: '1px solid #cbd5e1',
+                backgroundColor: isDecksExpanded ? '#0284c7' : '#f8fafc',
+                color: isDecksExpanded ? '#ffffff' : '#334155',
                 fontSize: '0.8rem',
-                outline: 'none',
-                boxSizing: 'border-box',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease',
               }}
-            />
+              title={isDecksExpanded ? 'Thu gọn danh sách để quay lại học thẻ' : 'Mở danh mục đầy đủ các chủ đề'}
+            >
+              <i className={isDecksExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-table-cells-large'}></i>
+              <span>{isDecksExpanded ? 'Thu gọn' : `Xem tất cả chủ đề (${allDecks.length})`}</span>
+            </button>
           </div>
+        </div>
+
+        {/* Dòng 2: Dải chip cuộn ngang các chủ đề (Bấm vào là đổi từ vựng ngay tức thì) */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            paddingBottom: '4px',
+            scrollbarWidth: 'thin',
+          }}
+        >
+          {allDecks.map((d) => {
+            const isSel = d.id === selectedDeckId;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => {
+                  setSelectedDeckId(d.id);
+                  setIsDecksExpanded(false);
+                }}
+                style={{
+                  flexShrink: 0,
+                  padding: '5px 12px',
+                  borderRadius: '20px',
+                  border: isSel ? `1.5px solid ${d.color}` : '1px solid #e2e8f0',
+                  backgroundColor: isSel ? `${d.color}15` : '#ffffff',
+                  color: isSel ? d.color : '#475569',
+                  fontSize: '0.78rem',
+                  fontWeight: isSel ? '800' : '600',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    fontWeight: '800',
+                    backgroundColor: isSel ? d.color : '#f1f5f9',
+                    color: isSel ? '#ffffff' : '#64748b',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                  }}
+                >
+                  {d.level}
+                </span>
+                <span>{d.title}</span>
+                <span style={{ fontSize: '0.72rem', opacity: 0.75 }}>({d.cards?.length || 0})</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Tabs chọn Chủ đề / Bộ thẻ (bao gồm các bộ CEFR & các bộ Giảng viên/Khóa học) */}
-      {filteredDecks.length === 0 ? (
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '40px 20px', textAlign: 'center', border: '1px dashed #cbd5e1', color: '#64748b', marginBottom: '22px' }}>
-          <i className="fa-solid fa-folder-open" style={{ fontSize: '2.5rem', color: '#cbd5e1', marginBottom: '12px' }}></i>
-          <h4 style={{ fontSize: '1rem', fontWeight: '800', color: '#1e293b', margin: '0 0 6px 0' }}>
-            {deckCategoryFilter === 'teacher' ? 'Chưa có bộ thẻ từ vựng giảng viên nào được mở khóa' : 'Không tìm thấy bộ thẻ nào phù hợp'}
-          </h4>
-          <p style={{ fontSize: '0.85rem', margin: '0 0 14px 0', maxWidth: '500px', marginLeft: 'auto', marginRight: 'auto' }}>
-            {deckCategoryFilter === 'teacher'
-              ? 'Các bộ thẻ này gắn liền với từng khóa học độc quyền. Chỉ học viên đã đăng ký khóa học (hoặc bộ thẻ được giảng viên chọn tự do/public) mới hiển thị tại đây.'
-              : 'Hãy thử chọn danh mục khác hoặc xóa bộ lọc tìm kiếm.'}
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => { setDeckCategoryFilter('ALL'); setTeacherFilter('ALL'); setDeckSearchQuery(''); }}
-              style={{ fontSize: '0.82rem', padding: '6px 14px' }}
-            >
-              Xem tất cả bộ thẻ
-            </button>
-            {deckCategoryFilter === 'teacher' && onNavigateToCourse && (
+      {/* 2. KHỐI LƯỚI DANH MỤC ĐẦY ĐỦ (Chỉ hiển thị khi người dùng bấm "Xem tất cả chủ đề") */}
+      {isDecksExpanded && (
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            padding: '16px 20px',
+            marginBottom: '20px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+          }}
+        >
+          {/* Thanh tiêu đề mở rộng + Lọc danh mục */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              marginBottom: '16px',
+              paddingBottom: '12px',
+              borderBottom: '1px solid #f1f5f9',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                className="btn-primary"
-                onClick={onNavigateToCourse}
-                style={{ fontSize: '0.82rem', padding: '6px 14px', backgroundColor: '#0284c7' }}
-              >
-                <i className="fa-solid fa-graduation-cap" style={{ marginRight: '6px' }}></i>
-                Khám phá khóa học
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', marginBottom: '22px' }}>
-          {filteredDecks.map((deck) => {
-            const isSelected = selectedDeckId === deck.id;
-            const totalInDeck = deck.cards?.length || 0;
-            const masteredInDeck = (deck.cards || []).filter((c) => masteredWordIds.includes(c.id)).length;
-            const percent = totalInDeck > 0 ? Math.round((masteredInDeck / totalInDeck) * 100) : 0;
-
-            return (
-              <div
-                key={deck.id}
-                onClick={() => setSelectedDeckId(deck.id)}
+                onClick={() => { setDeckCategoryFilter('ALL'); setTeacherFilter('ALL'); }}
                 style={{
-                  backgroundColor: '#ffffff',
+                  padding: '5px 12px',
                   borderRadius: '16px',
-                  padding: '16px 18px',
-                  border: isSelected ? `2px solid ${deck.color}` : '1px solid #e2e8f0',
-                  boxShadow: isSelected ? `0 6px 20px -2px ${deck.color}30` : '0 2px 4px rgba(0,0,0,0.02)',
+                  border: 'none',
+                  backgroundColor: deckCategoryFilter === 'ALL' ? '#0284c7' : '#f1f5f9',
+                  color: deckCategoryFilter === 'ALL' ? '#ffffff' : '#475569',
+                  fontSize: '0.78rem',
+                  fontWeight: '700',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
                 }}
               >
-                <div>
-                  {/* Hàng 1: Trình độ + Badge nhận diện Tác giả */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.74rem', fontWeight: '800', color: deck.color, backgroundColor: `${deck.color}15`, padding: '2px 8px', borderRadius: '6px' }}>
-                        {deck.level}
-                      </span>
-                      {deck.authorRole === 'ADMIN' ? (
-                        <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#0284c7', backgroundColor: '#e0f2fe', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <i className="fa-solid fa-shield-halved"></i> Hệ thống
-                        </span>
-                      ) : deck.authorRole === 'TEACHER' ? (
-                        <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#ea580c', backgroundColor: '#fff7ed', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #ffedd5' }}>
-                          <i className="fa-solid fa-chalkboard-user"></i> {deck.author}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#8b5cf6', backgroundColor: '#f3e8ff', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <i className="fa-solid fa-user-pen"></i> Cá nhân
-                        </span>
-                      )}
-                    </div>
+                <span>Tất Cả ({allDecks.length})</span>
+              </button>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>
-                        {masteredInDeck}/{totalInDeck} từ
-                      </span>
+              <button
+                type="button"
+                onClick={() => { setDeckCategoryFilter('system'); setTeacherFilter('ALL'); }}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '16px',
+                  border: 'none',
+                  backgroundColor: deckCategoryFilter === 'system' ? '#0284c7' : '#f1f5f9',
+                  color: deckCategoryFilter === 'system' ? '#ffffff' : '#475569',
+                  fontSize: '0.78rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <i className="fa-solid fa-shield-halved"></i>
+                <span>Chuẩn CEFR ({allDecks.filter((d) => d.category === 'system' || d.authorRole === 'ADMIN').length})</span>
+              </button>
 
-                      {deck.isCustomDeck && (deck.authorRole === 'STUDENT' || deck.id === 'custom_personal') && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteDeck(deck.id, deck.title, e)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#94a3b8',
-                            cursor: 'pointer',
-                            padding: '2px 4px',
-                            fontSize: '0.8rem',
-                            transition: 'color 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
-                          title="Xóa chủ đề tự tạo này"
-                        >
-                          <i className="fa-solid fa-trash-can"></i>
-                        </button>
-                      )}
-                    </div>
-                  </div>
+              <button
+                type="button"
+                onClick={() => { setDeckCategoryFilter('teacher'); }}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '16px',
+                  border: 'none',
+                  backgroundColor: deckCategoryFilter === 'teacher' ? '#0284c7' : '#f1f5f9',
+                  color: deckCategoryFilter === 'teacher' ? '#ffffff' : '#475569',
+                  fontSize: '0.78rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <i className="fa-solid fa-chalkboard-user"></i>
+                <span>Giảng viên ({allDecks.filter((d) => d.category === 'teacher' || d.authorRole === 'TEACHER').length})</span>
+              </button>
 
-                  {/* Hàng 2: Tiêu đề bộ thẻ */}
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: '800', color: '#0f172a', lineHeight: '1.3' }}>
-                    {deck.title}
-                  </h4>
+              <button
+                type="button"
+                onClick={() => { setDeckCategoryFilter('personal'); setTeacherFilter('ALL'); }}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '16px',
+                  border: 'none',
+                  backgroundColor: deckCategoryFilter === 'personal' ? '#0284c7' : '#f1f5f9',
+                  color: deckCategoryFilter === 'personal' ? '#ffffff' : '#475569',
+                  fontSize: '0.78rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <i className="fa-solid fa-book-bookmark"></i>
+                <span>Sổ tay ({allDecks.filter((d) => d.category === 'personal' || d.id === 'custom_personal' || d.authorRole === 'STUDENT').length})</span>
+              </button>
+            </div>
 
-                  {/* Hàng 3: Khóa học liên kết (Course Badge nếu có) & Huy hiệu quyền truy cập */}
-                  {deck.courseTitle && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '6px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#475569', fontWeight: '700', marginBottom: '8px', flexWrap: 'wrap' }}>
-                      <i className="fa-solid fa-graduation-cap" style={{ color: '#0284c7' }}></i>
-                      <span>Khóa: {deck.courseTitle}</span>
-                      {deck.accessScope === 'PUBLIC' || deck.isPublic ? (
-                        <span style={{ fontSize: '0.68rem', color: '#059669', backgroundColor: '#ecfdf5', padding: '1px 6px', borderRadius: '4px', marginLeft: '2px', border: '1px solid #d1fae5' }}>
-                          <i className="fa-solid fa-globe"></i> Tự do / Public
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.68rem', color: '#16a34a', backgroundColor: '#f0fdf4', padding: '1px 6px', borderRadius: '4px', marginLeft: '2px', border: '1px solid #bbf7d0' }}>
-                          <i className="fa-solid fa-circle-check"></i> Đã đăng ký
-                        </span>
-                      )}
-                    </div>
-                  )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Dropdown giảng viên */}
+              {availableTeachers.length > 0 && (
+                <select
+                  value={teacherFilter}
+                  onChange={(e) => {
+                    setTeacherFilter(e.target.value);
+                    if (e.target.value !== 'ALL') setDeckCategoryFilter('teacher');
+                  }}
+                  style={{
+                    height: '32px',
+                    padding: '0 8px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.78rem',
+                    color: '#334155',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="ALL">Tất cả giảng viên</option>
+                  {availableTeachers.map((t, idx) => (
+                    <option key={idx} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
 
-                  {/* Hàng 4: Mô tả */}
-                  <p style={{ margin: '0 0 12px 0', fontSize: '0.78rem', color: '#64748b', lineHeight: '1.4' }}>
-                    {deck.description}
-                  </p>
-                </div>
-
-                {/* Hàng 5: Thanh tiến độ ghi nhớ */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', marginBottom: '3px', fontWeight: '700' }}>
-                    <span>Tiến độ ghi nhớ</span>
-                    <span>{percent}%</span>
-                  </div>
-                  <div style={{ width: '100%', height: '5px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${percent}%`, height: '100%', backgroundColor: deck.color, borderRadius: '4px', transition: 'width 0.3s' }}></div>
-                  </div>
-                </div>
+              {/* Ô tìm kiếm */}
+              <div style={{ position: 'relative', width: '200px' }}>
+                <i
+                  className="fa-solid fa-magnifying-glass"
+                  style={{
+                    position: 'absolute',
+                    left: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '0.72rem',
+                    color: '#94a3b8',
+                  }}
+                ></i>
+                <input
+                  type="text"
+                  placeholder="Tìm chủ đề..."
+                  value={deckSearchQuery}
+                  onChange={(e) => setDeckSearchQuery(e.target.value)}
+                  style={{
+                    height: '32px',
+                    width: '100%',
+                    padding: '0 8px 0 26px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.78rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
               </div>
-            );
-          })}
+
+              {/* Nút đóng */}
+              <button
+                type="button"
+                onClick={() => setIsDecksExpanded(false)}
+                style={{
+                  height: '32px',
+                  padding: '0 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#f1f5f9',
+                  color: '#475569',
+                  fontSize: '0.78rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <i className="fa-solid fa-xmark"></i>
+                <span>Đóng</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Lưới các card chủ đề */}
+          {filteredDecks.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px 20px', color: '#64748b' }}>
+              <p style={{ margin: 0, fontSize: '0.85rem' }}>Không tìm thấy bộ thẻ nào phù hợp.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+              {filteredDecks.map((deck) => {
+                const isSelected = selectedDeckId === deck.id;
+                const totalInDeck = deck.cards?.length || 0;
+                const masteredInDeck = (deck.cards || []).filter((c) => masteredWordIds.includes(c.id)).length;
+                const percent = totalInDeck > 0 ? Math.round((masteredInDeck / totalInDeck) * 100) : 0;
+
+                return (
+                  <div
+                    key={deck.id}
+                    onClick={() => {
+                      setSelectedDeckId(deck.id);
+                      setIsDecksExpanded(false);
+                      setTimeout(() => {
+                        studySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    style={{
+                      backgroundColor: isSelected ? '#f0f9ff' : '#ffffff',
+                      borderRadius: '12px',
+                      padding: '14px 16px',
+                      border: isSelected ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                    }}
+                    title="Nhấp để học ngay bộ thẻ này"
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '800', color: deck.color, backgroundColor: `${deck.color}15`, padding: '2px 6px', borderRadius: '4px' }}>
+                            {deck.level}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600' }}>
+                            {deck.authorRole === 'TEACHER' ? deck.author : deck.authorRole === 'ADMIN' ? 'Hệ thống' : 'Cá nhân'}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.74rem', fontWeight: '700', color: '#64748b' }}>
+                          {masteredInDeck}/{totalInDeck} từ
+                        </span>
+                      </div>
+
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '0.92rem', fontWeight: '800', color: '#0f172a' }}>
+                        {deck.title}
+                      </h4>
+
+                      <p style={{ margin: '0 0 10px 0', fontSize: '0.75rem', color: '#64748b', lineHeight: '1.4' }}>
+                        {deck.description}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                      <span style={{ fontSize: '0.72rem', color: isSelected ? '#0284c7' : '#94a3b8', fontWeight: '700' }}>
+                        {isSelected ? '✓ Đang học' : `${percent}% hoàn thành`}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: '700',
+                          color: '#0284c7',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <span>Học ngay</span>
+                        <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.65rem' }}></i>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* =========================================================================
           CHẾ ĐỘ 1: HỌC THẺ TƯƠNG TÁC (FLASHCARD STUDY MODE)
          ========================================================================= */}
+      <div ref={studySectionRef} id="flashcard-study-container">
       {!isQuizMode ? (
         allDeckCards.length === 0 ? (
           <div
@@ -969,18 +1078,17 @@ export default function FlashcardStudyView({
                 setIsAddWordModalOpen(true);
               }}
               style={{
-                padding: '12px 24px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                padding: '10px 22px',
+                borderRadius: '10px',
+                backgroundColor: '#0284c7',
                 border: 'none',
                 color: '#ffffff',
-                fontSize: '0.92rem',
-                fontWeight: '800',
+                fontSize: '0.9rem',
+                fontWeight: '700',
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)',
               }}
             >
               <i className="fa-solid fa-plus-circle"></i>
@@ -1844,6 +1952,7 @@ export default function FlashcardStudyView({
           )}
         </div>
       )}
+      </div>
 
       {/* =========================================================================
           MODAL: THÊM THẺ TỪ VỰNG MỚI (Học viên, Giáo viên & Admin đều có thể thêm)
@@ -1880,12 +1989,12 @@ export default function FlashcardStudyView({
             {/* Modal Header */}
             <div
               style={{
-                padding: '22px 24px',
+                padding: '20px 24px',
                 borderBottom: '1px solid #e2e8f0',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'flex-start',
-                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                backgroundColor: '#f8fafc',
                 borderTopLeftRadius: '24px',
                 borderTopRightRadius: '24px',
               }}
@@ -2185,15 +2294,14 @@ export default function FlashcardStudyView({
                 <button
                   type="submit"
                   style={{
-                    padding: '10px 24px',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                    padding: '10px 22px',
+                    borderRadius: '10px',
+                    backgroundColor: '#0284c7',
                     border: 'none',
                     color: '#ffffff',
                     fontSize: '0.88rem',
-                    fontWeight: '800',
+                    fontWeight: '700',
                     cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
@@ -2243,12 +2351,12 @@ export default function FlashcardStudyView({
             {/* Header */}
             <div
               style={{
-                padding: '22px 24px',
+                padding: '20px 24px',
                 borderBottom: '1px solid #e2e8f0',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'flex-start',
-                background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                backgroundColor: '#f8fafc',
                 borderTopLeftRadius: '24px',
                 borderTopRightRadius: '24px',
               }}
@@ -2438,15 +2546,14 @@ export default function FlashcardStudyView({
                 <button
                   type="submit"
                   style={{
-                    padding: '10px 24px',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    padding: '10px 22px',
+                    borderRadius: '10px',
+                    backgroundColor: '#0284c7',
                     border: 'none',
                     color: '#ffffff',
                     fontSize: '0.88rem',
-                    fontWeight: '800',
+                    fontWeight: '700',
                     cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',

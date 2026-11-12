@@ -1751,8 +1751,19 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                               {c.level || 'B1'}
                             </span>
                           </td>
-                          <td style={{ padding: '12px', fontWeight: '700', color: parseFloat(c.price) > 0 ? '#b91c1c' : '#15803d' }}>
-                            {parseFloat(c.price) > 0 ? `${parseFloat(c.price).toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+                          <td style={{ padding: '12px', fontWeight: '700' }}>
+                            {parseFloat(c.price) > 0 ? (
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                                <span style={{ color: '#dc2626' }}>{parseFloat(c.price).toLocaleString('vi-VN')} đ</span>
+                                {c.original_price && parseFloat(c.original_price) > parseFloat(c.price) && (
+                                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                                    {parseFloat(c.original_price).toLocaleString('vi-VN')} đ
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#15803d' }}>Miễn phí</span>
+                            )}
                           </td>
                           <td style={{ padding: '12px' }}>
                             <span style={{ padding: '3px 8px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: '800', fontSize: '0.78rem' }}>
@@ -2187,8 +2198,19 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                                 </span>
                               )}
                             </td>
-                            <td style={{ padding: '12px 10px', fontWeight: '700', color: parseFloat(c.price) > 0 ? '#b91c1c' : '#15803d' }}>
-                              {parseFloat(c.price) > 0 ? `${parseFloat(c.price).toLocaleString('vi-VN')} đ` : 'Miễn phí'}
+                            <td style={{ padding: '12px 10px', fontWeight: '700' }}>
+                              {parseFloat(c.price) > 0 ? (
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                                  <span style={{ color: '#dc2626' }}>{parseFloat(c.price).toLocaleString('vi-VN')} đ</span>
+                                  {c.original_price && parseFloat(c.original_price) > parseFloat(c.price) && (
+                                    <span style={{ fontSize: '0.74rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                                      {parseFloat(c.original_price).toLocaleString('vi-VN')} đ
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#15803d' }}>Miễn phí</span>
+                              )}
                             </td>
                             <td style={{ padding: '12px 10px', textAlign: 'right' }}>
                               <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
