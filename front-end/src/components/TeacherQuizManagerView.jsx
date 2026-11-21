@@ -47,6 +47,9 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
   const [quizCourseId, setQuizCourseId] = useState('');
   const [quizChapterId, setQuizChapterId] = useState('');
   const [quizLessonId, setQuizLessonId] = useState('');
+  const [editChapters, setEditChapters] = useState([]);
+  const [editLessons, setEditLessons] = useState([]);
+  const [isLoadingCourseDetail, setIsLoadingCourseDetail] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   // Question Management Modal State (Quản lý các câu hỏi trong 1 đề thi)
@@ -121,8 +124,62 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
     fetchQuizzesAndCourses();
   }, []);
 
+  // Load chi tiết khóa học cho modal Sửa / Tạo đề thi
+  const loadEditCourseDetail = async (cId, preselectChapterId = null, preselectLessonId = null) => {
+    if (!cId) {
+      setEditChapters([]);
+      setEditLessons([]);
+      setQuizChapterId('');
+      setQuizLessonId('');
+      return;
+    }
+    setIsLoadingCourseDetail(true);
+    try {
+      const res = await courseAPI.getCourseDetail(cId);
+      const data = res.data?.data || res.data || {};
+      const chList = data.chapters || [];
+      setEditChapters(chList);
+
+      const chId = preselectChapterId !== null ? preselectChapterId : '';
+      setQuizChapterId(chId);
+
+      if (chId) {
+        const curCh = chList.find((c) => String(c.id) === String(chId));
+        const lesList = curCh?.lessons || [];
+        setEditLessons(lesList);
+        setQuizLessonId(preselectLessonId !== null ? preselectLessonId : '');
+      } else {
+        setEditLessons([]);
+        setQuizLessonId('');
+      }
+    } catch (e) {
+      console.warn('Could not load course detail for edit quiz:', e);
+      setEditChapters([]);
+      setEditLessons([]);
+    } finally {
+      setIsLoadingCourseDetail(false);
+    }
+  };
+
+  const handleEditCourseChange = async (newCId) => {
+    setQuizCourseId(newCId);
+    await loadEditCourseDetail(newCId, '', '');
+  };
+
+  const handleEditChapterChange = (newChId) => {
+    setQuizChapterId(newChId);
+    if (!newChId) {
+      setEditLessons([]);
+      setQuizLessonId('');
+      return;
+    }
+    const curCh = editChapters.find((c) => String(c.id) === String(newChId));
+    setEditLessons(curCh?.lessons || []);
+    setQuizLessonId('');
+  };
+
   // Mở modal tạo đề thi mới
-  const handleOpenCreateQuiz = () => {
+  const handleOpenCreateQuiz = async () => {
     setEditingQuiz(null);
     setQuizTitle('');
     setQuizDescription('');
@@ -131,14 +188,21 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
     setQuizTimeLimit(15);
     setQuizPassingScore(70);
     setQuizIsPublished(true);
-    setQuizCourseId(courses[0]?.id || '');
+    const firstCourseId = courses[0]?.id || '';
+    setQuizCourseId(firstCourseId);
     setQuizChapterId('');
     setQuizLessonId('');
     setIsQuizModalOpen(true);
+    if (firstCourseId) {
+      await loadEditCourseDetail(firstCourseId, '', '');
+    } else {
+      setEditChapters([]);
+      setEditLessons([]);
+    }
   };
 
-  // Mở modal sửa đề thi
-  const handleOpenEditQuiz = (quiz) => {
+  // Mở modal sửa đề thi (tự động load chính xác Chương và Bài học đã liên kết)
+  const handleOpenEditQuiz = async (quiz) => {
     setEditingQuiz(quiz);
     setQuizTitle(quiz.title || '');
     setQuizDescription(quiz.description || '');
@@ -147,10 +211,22 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
     setQuizTimeLimit(quiz.time_limit_minutes || 15);
     setQuizPassingScore(Math.round(Number(quiz.passing_score || 70)));
     setQuizIsPublished(quiz.is_published !== false);
-    setQuizCourseId(quiz.course || quiz.course_id || '');
-    setQuizChapterId(quiz.chapter || quiz.chapter_id || '');
-    setQuizLessonId(quiz.lesson || quiz.lesson_id || '');
+
+    const cId = quiz.course || quiz.course_id || '';
+    const chId = quiz.chapter || quiz.chapter_id || '';
+    const lId = quiz.lesson || quiz.lesson_id || '';
+
+    setQuizCourseId(cId);
+    setQuizChapterId(chId);
+    setQuizLessonId(lId);
     setIsQuizModalOpen(true);
+
+    if (cId) {
+      await loadEditCourseDetail(cId, chId, lId);
+    } else {
+      setEditChapters([]);
+      setEditLessons([]);
+    }
   };
 
   // Lưu tạo mới / cập nhật đề thi
@@ -776,21 +852,68 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
               {/* Course link */}
               <div>
                 <label style={{ fontSize: '0.82rem', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                  Gắn vào Khóa học (Tùy chọn):
+                  Gắn vào Khóa học:
                 </label>
                 <select
                   value={quizCourseId}
-                  onChange={(e) => setQuizCourseId(e.target.value)}
+                  onChange={(e) => handleEditCourseChange(e.target.value)}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
                 >
-                  <option value="">-- Đề thi tự do (Công khai) --</option>
+                  <option value="">-- Đề thi tự do (Công khai / Toàn hệ thống) --</option>
                   {courses.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.title}
+                      {c.title} (CEFR {c.level || 'B1'})
                     </option>
                   ))}
                 </select>
               </div>
+
+              {/* Cascading Chapter & Lesson dropdowns khi chọn Khóa học */}
+              {quizCourseId && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '12px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  {/* Chapter Selector */}
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <i className="fa-solid fa-folder-open" style={{ color: '#d97706' }}></i>
+                      <span>Gắn vào Chương học:</span>
+                    </label>
+                    <select
+                      value={quizChapterId}
+                      onChange={(e) => handleEditChapterChange(e.target.value)}
+                      disabled={isLoadingCourseDetail}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    >
+                      <option value="">-- Toàn bộ Khóa học (Không theo chương) --</option>
+                      {editChapters.map((ch, idx) => (
+                        <option key={ch.id || idx} value={ch.id}>
+                          {ch.title || `Chương ${idx + 1}`} ({(ch.lessons || []).length} bài học)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Lesson Selector */}
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <i className="fa-solid fa-circle-play" style={{ color: '#15803d' }}></i>
+                      <span>Gắn vào Bài học (Lesson):</span>
+                    </label>
+                    <select
+                      value={quizLessonId}
+                      onChange={(e) => setQuizLessonId(e.target.value)}
+                      disabled={!quizChapterId || editLessons.length === 0}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    >
+                      <option value="">-- Toàn bộ Chương (Không theo bài) --</option>
+                      {editLessons.map((les, idx) => (
+                        <option key={les.id || idx} value={les.id}>
+                          {les.title || `Bài ${idx + 1}`} ({les.duration_minutes || 15} phút)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {/* Published checkbox */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1152,13 +1275,13 @@ export default function TeacherQuizManagerView({ user, onOpenQuizImport }) {
         </div>
       )}
 
-      {/* AI Quiz Modal */}
+      {/* AI & Manual Quiz Modal */}
       <TeacherAIQuizModal
         isOpen={showAIQuizModal}
         onClose={() => setShowAIQuizModal(false)}
-        onSaveSuccess={() => {
+        onSaveSuccess={(msg) => {
           fetchQuizzesAndCourses();
-          setToastMsg('Đã tạo và lưu đề thi AI vào CSDL thành công!');
+          setToastMsg(msg || 'Đã tạo và lưu đề thi vào CSDL thành công!');
         }}
         courses={courses}
       />

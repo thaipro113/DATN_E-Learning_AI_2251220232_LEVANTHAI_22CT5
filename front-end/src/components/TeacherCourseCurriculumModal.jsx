@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { courseAPI, aiAPI } from '../services/api';
+import { courseAPI, aiAPI, assessmentAPI } from '../services/api';
 import { getYouTubeEmbedUrl, isYouTubeUrl, generateSlug, cleanCourseTitle } from '../utils/media';
 import ConfirmModal from './ConfirmModal';
 import TeacherAIQuizModal from './TeacherAIQuizModal';
@@ -164,19 +164,45 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
 
   // Preview Video Player
   const [previewingVideoUrl, setPreviewingVideoUrl] = useState(null);
+  const [previewingVideoLessonId, setPreviewingVideoLessonId] = useState(null);
+
+  // Quizzes list linked to this course
+  const [courseQuizzes, setCourseQuizzes] = useState([]);
+
+  const fetchQuizzesForCourse = async (cId) => {
+    if (!cId) return;
+    try {
+      const res = await assessmentAPI.getQuizzes({ course_id: cId });
+      const qList = res.data?.results || res.data?.data?.results || res.data?.data || res.data || [];
+      if (Array.isArray(qList)) {
+        setCourseQuizzes(qList);
+      }
+    } catch (e) {
+      console.warn('Could not fetch course quizzes:', e);
+    }
+  };
 
   const fetchDetail = async () => {
     if (!course) return;
     setIsLoading(true);
     try {
-      const [res, catsRes] = await Promise.allSettled([
+      const targetCourseId = course.id || course.slug;
+      const [res, catsRes, quizzesRes] = await Promise.allSettled([
         courseAPI.getCourseDetail(course.slug || course.id),
         courseAPI.getCategories(),
+        assessmentAPI.getQuizzes({ course_id: targetCourseId }),
       ]);
 
       if (catsRes.status === 'fulfilled' && catsRes.value.data) {
         const cList = catsRes.value.data.data || catsRes.value.data.results || catsRes.value.data;
         if (Array.isArray(cList)) setCategories(cList);
+      }
+
+      if (quizzesRes.status === 'fulfilled' && quizzesRes.value?.data) {
+        const qList = quizzesRes.value.data?.results || quizzesRes.value.data?.data?.results || quizzesRes.value.data?.data || quizzesRes.value.data || [];
+        if (Array.isArray(qList)) {
+          setCourseQuizzes(qList);
+        }
       }
 
       if (res.status === 'fulfilled') {
@@ -996,6 +1022,82 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
             </form>
           )}
 
+          {/* ĐỀ THI ĐÁNH GIÁ TOÀN KHÓA HỌC */}
+          {(() => {
+            const courseLevelQuizzes = courseQuizzes.filter(
+              (q) => (!q.chapter && !q.chapter_id) && (!q.lesson && !q.lesson_id)
+            );
+            if (courseLevelQuizzes.length === 0) return null;
+            return (
+              <div
+                style={{
+                  padding: '14px 18px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: '#f5f3ff',
+                  border: '1px solid #ddd6fe',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h5 style={{ fontSize: '0.9rem', fontWeight: '800', color: '#6b21a8', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <i className="fa-solid fa-graduation-cap"></i>
+                    <span>Đề thi đánh giá toàn khóa học ({courseLevelQuizzes.length} đề thi)</span>
+                  </h5>
+                  <span style={{ fontSize: '0.74rem', color: '#7c3aed', fontWeight: '700' }}>
+                    Đề thi tổng kết toàn bộ khóa học
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: courseLevelQuizzes.length > 1 ? '1fr 1fr' : '1fr', gap: '8px' }}>
+                  {courseLevelQuizzes.map((q) => (
+                    <div
+                      key={q.id}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #c4b5fd',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '6px',
+                            backgroundColor: '#7c3aed',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.95rem',
+                          }}
+                        >
+                          <i className="fa-solid fa-file-signature"></i>
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: '0.85rem', color: '#0f172a', display: 'block' }}>{q.title}</strong>
+                          <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                            {q.total_questions || 10} câu hỏi · {q.time_limit_minutes || 15} phút · Điểm đạt: {Math.round(Number(q.passing_score || 70))}%
+                          </span>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: '#ede9fe', color: '#6d28d9', fontWeight: '800' }}>
+                        Đề Toàn Khóa
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* SECTION 2: CHAPTERS & LESSONS TREE (CÂY GIÁO TRÌNH) */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -1190,6 +1292,36 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                         </button>
                       </div>
                     </div>
+
+                    {/* Đề kiểm tra định kỳ của Chương */}
+                    {(() => {
+                      const chQuizzes = courseQuizzes.filter(
+                        (q) => (String(q.chapter) === String(ch.id) || String(q.chapter_id) === String(ch.id)) && (!q.lesson && !q.lesson_id)
+                      );
+                      if (chQuizzes.length === 0) return null;
+                      return (
+                        <div style={{ padding: '8px 16px', backgroundColor: '#fdf4ff', borderBottom: '1px dashed #f0abfc', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <span style={{ fontSize: '0.76rem', fontWeight: '800', color: '#a21caf', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <i className="fa-solid fa-clipboard-check"></i>
+                            <span>Đề kiểm tra định kỳ của chương này ({chQuizzes.length}):</span>
+                          </span>
+                          {chQuizzes.map((q) => (
+                            <div key={q.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', backgroundColor: '#ffffff', borderRadius: '4px', border: '1px solid #f0abfc' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <i className="fa-solid fa-file-pen" style={{ color: '#c026d3', fontSize: '0.85rem' }}></i>
+                                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#1e293b' }}>{q.title}</span>
+                                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                  ({q.total_questions || 10} câu hỏi · {q.time_limit_minutes || 15} phút · Đạt: {Math.round(Number(q.passing_score || 70))}%)
+                                </span>
+                              </div>
+                              <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '3px', backgroundColor: '#fae8ff', color: '#86198f', fontWeight: '700' }}>
+                                Đề Chương
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
 
                     {/* ADD / EDIT LESSON FORM FOR THIS CHAPTER */}
                     {(addingLessonChapterId === ch.id || (editingLessonId && ch.lessons?.some(l => l.id === editingLessonId))) && (
@@ -1410,9 +1542,22 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                               {les.video_url && (
                                 <button
                                   className="btn-outline"
-                                  onClick={() => setPreviewingVideoUrl(les.video_url)}
-                                  style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                                  title="Xem trước Video"
+                                  onClick={() => {
+                                    if (previewingVideoLessonId === les.id) {
+                                      setPreviewingVideoLessonId(null);
+                                      setPreviewingVideoUrl(null);
+                                    } else {
+                                      setPreviewingVideoLessonId(les.id);
+                                      setPreviewingVideoUrl(les.video_url);
+                                    }
+                                  }}
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    padding: '4px 8px',
+                                    backgroundColor: previewingVideoLessonId === les.id ? '#0284c7' : 'transparent',
+                                    color: previewingVideoLessonId === les.id ? '#ffffff' : 'inherit',
+                                  }}
+                                  title={previewingVideoLessonId === les.id ? "Đóng xem trước video" : "Xem trước Video"}
                                 >
                                   <i className="fa-solid fa-play"></i>
                                 </button>
@@ -1421,13 +1566,23 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                               <button
                                 className="btn-outline"
                                 onClick={() => {
-                                  setAddingMaterialLessonId(les.id);
-                                  setMaterialTitle('');
-                                  setMaterialUrl('');
-                                  setMaterialFileName('');
+                                  if (addingMaterialLessonId === les.id) {
+                                    setAddingMaterialLessonId(null);
+                                    setMaterialFileName('');
+                                  } else {
+                                    setAddingMaterialLessonId(les.id);
+                                    setMaterialTitle('');
+                                    setMaterialUrl('');
+                                    setMaterialFileName('');
+                                  }
                                 }}
-                                style={{ fontSize: '0.75rem', padding: '4px 8px', backgroundColor: '#fef3c7', color: '#d97706' }}
-                                title="Thêm tài liệu PDF/Word"
+                                style={{
+                                  fontSize: '0.75rem',
+                                  padding: '4px 8px',
+                                  backgroundColor: addingMaterialLessonId === les.id ? '#d97706' : '#fef3c7',
+                                  color: addingMaterialLessonId === les.id ? '#ffffff' : '#d97706',
+                                }}
+                                title={addingMaterialLessonId === les.id ? "Đóng form tài liệu" : "Thêm tài liệu PDF/Word"}
                               >
                                 <i className="fa-solid fa-paperclip"></i>
                               </button>
@@ -1459,6 +1614,45 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                                 <i className="fa-solid fa-trash-can"></i>
                               </button>
                             </div>
+
+                            {/* Attached Quizzes List under Lesson (Đề thi / Bài tập của bài học) */}
+                            {(() => {
+                              const lesQuizzes = courseQuizzes.filter(
+                                (q) => String(q.lesson) === String(les.id) || String(q.lesson_id) === String(les.id)
+                              );
+                              if (lesQuizzes.length === 0) return null;
+                              return (
+                                <div style={{ width: '100%', marginTop: '6px', paddingLeft: '28px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  {lesQuizzes.map((q) => (
+                                    <div
+                                      key={q.id}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '5px 10px',
+                                        backgroundColor: '#f5f3ff',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd6fe',
+                                        fontSize: '0.75rem',
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <i className="fa-solid fa-clipboard-question" style={{ color: '#7c3aed' }}></i>
+                                        <strong style={{ color: '#5b21b6' }}>Bài tập trắc nghiệm:</strong>
+                                        <span style={{ color: '#1e293b', fontWeight: '600' }}>{q.title}</span>
+                                        <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
+                                          ({q.total_questions || 10} câu · {q.time_limit_minutes || 15} phút · Đạt: {Math.round(Number(q.passing_score || 70))}%)
+                                        </span>
+                                      </div>
+                                      <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '3px', backgroundColor: '#ede9fe', color: '#6d28d9', fontWeight: '700' }}>
+                                        Đề Bài Học
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
 
                             {/* Attached Materials List under Lesson */}
                             {les.materials && les.materials.length > 0 && (
@@ -1499,6 +1693,166 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                                 ))}
                               </div>
                             )}
+
+                            {/* INLINE VIDEO PREVIEW PLAYER (HIỂN THỊ TRỰC TIẾP DƯỚI BÀI HỌC) */}
+                            {previewingVideoLessonId === les.id && previewingVideoUrl && (
+                              <div
+                                style={{
+                                  width: '100%',
+                                  marginTop: '10px',
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  backgroundColor: '#0f172a',
+                                  color: 'white',
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                  <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <i className="fa-solid fa-circle-play"></i>
+                                    <span>Xem trước Video: "{les.title}"</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPreviewingVideoLessonId(null);
+                                      setPreviewingVideoUrl(null);
+                                    }}
+                                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem' }}
+                                  >
+                                    <i className="fa-solid fa-xmark"></i>
+                                  </button>
+                                </div>
+                                <div style={{ position: 'relative', paddingBottom: '52%', height: 0, overflow: 'hidden', borderRadius: '6px' }}>
+                                  {isYouTubeUrl(previewingVideoUrl) ? (
+                                    <iframe
+                                      src={getYouTubeEmbedUrl(previewingVideoUrl)}
+                                      title="Preview"
+                                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                      allowFullScreen
+                                    />
+                                  ) : (
+                                    <video
+                                      src={previewingVideoUrl}
+                                      controls
+                                      playsInline
+                                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: '#000' }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* INLINE ADD MATERIAL FORM (HIỂN THỊ TRỰC TIẾP DƯỚI BÀI HỌC ĐANG CHỌN) */}
+                            {addingMaterialLessonId === les.id && (
+                              <div
+                                style={{
+                                  width: '100%',
+                                  marginTop: '10px',
+                                  padding: '14px',
+                                  borderRadius: '8px',
+                                  backgroundColor: '#fef3c7',
+                                  border: '1px solid #fde68a',
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                  <h5 style={{ fontSize: '0.88rem', fontWeight: '800', color: '#92400e', margin: 0 }}>
+                                    <i className="fa-solid fa-paperclip" style={{ marginRight: '6px' }}></i>
+                                    Thêm Tài Liệu Đính Kèm Cho: <span style={{ color: '#b45309', textDecoration: 'underline' }}>"{les.title}"</span>
+                                  </h5>
+
+                                  <label
+                                    htmlFor={`lesson-material-file-upload-${les.id}`}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      padding: '4px 10px',
+                                      backgroundColor: '#d97706',
+                                      color: 'white',
+                                      borderRadius: '4px',
+                                      fontSize: '0.78rem',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <i className="fa-solid fa-folder-open"></i>
+                                    <span>Tải tệp từ máy tính</span>
+                                  </label>
+                                  <input
+                                    id={`lesson-material-file-upload-${les.id}`}
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.ppt,.pptx,.mp3,.mp4,.zip"
+                                    style={{ display: 'none' }}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        setMaterialFileName(file.name);
+                                        if (!materialTitle.trim()) {
+                                          setMaterialTitle(file.name.replace(/\.[^/.]+$/, ''));
+                                        }
+                                        const ext = file.name.split('.').pop().toUpperCase();
+                                        if (ext === 'PDF') setMaterialType('PDF');
+                                        else if (['DOC', 'DOCX'].includes(ext)) setMaterialType('DOCX');
+                                        else if (['MP3', 'WAV', 'M4A'].includes(ext)) setMaterialType('MP3');
+                                        
+                                        setMaterialSizeBytes(file.size);
+
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                          setMaterialUrl(event.target.result);
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                </div>
+
+                                {materialFileName && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', backgroundColor: '#fffbeb', borderRadius: '4px', border: '1px solid #fcd34d', marginBottom: '8px', fontSize: '0.8rem', color: '#92400e' }}>
+                                    <i className="fa-solid fa-file-circle-check"></i>
+                                    <span>Đã chọn tệp: <strong>{materialFileName}</strong> ({Math.round(materialSizeBytes / 1024)} KB)</span>
+                                  </div>
+                                )}
+
+                                <form onSubmit={handleSaveMaterial} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
+                                    <input
+                                      type="text"
+                                      placeholder="Tên tài liệu (VD: Slide bài giảng Ngữ pháp B1)..."
+                                      value={materialTitle}
+                                      onChange={(e) => setMaterialTitle(e.target.value)}
+                                      style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
+                                      required
+                                    />
+                                    <select
+                                      value={materialType}
+                                      onChange={(e) => setMaterialType(e.target.value)}
+                                      style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
+                                    >
+                                      <option value="PDF">Tệp PDF</option>
+                                      <option value="DOCX">Tệp Word (DOCX)</option>
+                                      <option value="MP3">Tệp Audio (MP3)</option>
+                                    </select>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    placeholder="URL tệp hoặc bấm 'Tải tệp từ máy tính' ở trên..."
+                                    value={materialUrl.startsWith('data:') ? `[Dữ liệu tệp cục bộ từ máy: ${materialFileName || 'Tệp tải lên'}]` : materialUrl}
+                                    onChange={(e) => setMaterialUrl(e.target.value)}
+                                    style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
+                                    required
+                                  />
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                                    <button type="button" className="btn-outline" onClick={() => {
+                                      setAddingMaterialLessonId(null);
+                                      setMaterialFileName('');
+                                    }}>Hủy</button>
+                                    <button type="submit" className="btn-primary" style={{ backgroundColor: '#d97706' }}>Lưu Tài Liệu</button>
+                                  </div>
+                                </form>
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
@@ -1508,149 +1862,6 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
               </div>
             )}
           </div>
-
-          {/* ADD MATERIAL FORM */}
-          {addingMaterialLessonId && (
-            <div
-              style={{
-                padding: '16px',
-                borderRadius: '8px',
-                backgroundColor: '#fef3c7',
-                border: '1px solid #fde68a',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h5 style={{ fontSize: '0.92rem', fontWeight: '800', color: '#92400e', margin: 0 }}>
-                  <i className="fa-solid fa-paperclip" style={{ marginRight: '6px' }}></i>
-                  Thêm Tài Liệu Đính Kèm Cho Bài Học: <span style={{ color: '#b45309', textDecoration: 'underline' }}>"{chapters.flatMap(ch => ch.lessons || []).find(l => l.id === addingMaterialLessonId)?.title || 'Bài giảng'}"</span>
-                </h5>
-
-                <label
-                  htmlFor="lesson-material-file-upload"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    backgroundColor: '#d97706',
-                    color: 'white',
-                    borderRadius: '4px',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <i className="fa-solid fa-folder-open"></i>
-                  <span>Tải tệp từ máy tính</span>
-                </label>
-                <input
-                  id="lesson-material-file-upload"
-                  type="file"
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.mp3,.mp4,.zip"
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setMaterialFileName(file.name);
-                      if (!materialTitle.trim()) {
-                        setMaterialTitle(file.name.replace(/\.[^/.]+$/, ''));
-                      }
-                      const ext = file.name.split('.').pop().toUpperCase();
-                      if (ext === 'PDF') setMaterialType('PDF');
-                      else if (['DOC', 'DOCX'].includes(ext)) setMaterialType('DOCX');
-                      else if (['MP3', 'WAV', 'M4A'].includes(ext)) setMaterialType('MP3');
-                      
-                      setMaterialSizeBytes(file.size);
-
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        setMaterialUrl(event.target.result);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-              </div>
-
-              {materialFileName && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', backgroundColor: '#fffbeb', borderRadius: '4px', border: '1px solid #fcd34d', marginBottom: '8px', fontSize: '0.8rem', color: '#92400e' }}>
-                  <i className="fa-solid fa-file-circle-check"></i>
-                  <span>Đã chọn tệp: <strong>{materialFileName}</strong> ({Math.round(materialSizeBytes / 1024)} KB)</span>
-                </div>
-              )}
-
-              <form onSubmit={handleSaveMaterial} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="Tên tài liệu (VD: Slide bài giảng Ngữ pháp B1)..."
-                    value={materialTitle}
-                    onChange={(e) => setMaterialTitle(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
-                    required
-                  />
-                  <select
-                    value={materialType}
-                    onChange={(e) => setMaterialType(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
-                  >
-                    <option value="PDF">Tệp PDF</option>
-                    <option value="DOCX">Tệp Word (DOCX)</option>
-                    <option value="MP3">Tệp Audio (MP3)</option>
-                  </select>
-                </div>
-                <input
-                  type="text"
-                  placeholder="URL tệp hoặc bấm 'Tải tệp từ máy tính' ở trên..."
-                  value={materialUrl.startsWith('data:') ? `[Dữ liệu tệp cục bộ từ máy: ${materialFileName || 'Tệp tải lên'}]` : materialUrl}
-                  onChange={(e) => setMaterialUrl(e.target.value)}
-                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
-                  <button type="button" className="btn-outline" onClick={() => {
-                    setAddingMaterialLessonId(null);
-                    setMaterialFileName('');
-                  }}>Hủy</button>
-                  <button type="submit" className="btn-primary" style={{ backgroundColor: '#d97706' }}>Lưu Tài Liệu</button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* PREVIEW VIDEO MODAL / BOX */}
-          {previewingVideoUrl && (
-            <div
-              style={{
-                padding: '16px',
-                borderRadius: '8px',
-                backgroundColor: '#0f172a',
-                color: 'white',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <strong style={{ fontSize: '0.88rem' }}>Xem trước video bài giảng</strong>
-                <button onClick={() => setPreviewingVideoUrl(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
-                  <i className="fa-solid fa-xmark"></i>
-                </button>
-              </div>
-              {isYouTubeUrl(previewingVideoUrl) ? (
-                <iframe
-                  src={getYouTubeEmbedUrl(previewingVideoUrl)}
-                  title="Preview"
-                  style={{ width: '100%', height: '320px', border: 'none', borderRadius: '6px' }}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <video
-                  src={previewingVideoUrl}
-                  controls
-                  playsInline
-                  style={{ width: '100%', height: '320px', backgroundColor: '#000', borderRadius: '6px' }}
-                />
-              )}
-            </div>
-          )}
         </div>
 
         {/* Modal Footer */}
@@ -1713,9 +1924,10 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
         <TeacherAIQuizModal
           isOpen={Boolean(aiQuizConfig)}
           onClose={() => setAiQuizConfig(null)}
-          onSaveSuccess={() => {
-            setToastMsg('Đã tạo và lưu đề thi trắc nghiệm AI vào CSDL thành công!');
+          onSaveSuccess={(msg) => {
+            setToastMsg(msg || 'Đã tạo và lưu đề thi trắc nghiệm vào CSDL thành công!');
             setAiQuizConfig(null);
+            fetchQuizzesForCourse(course?.id || courseDetail?.id);
           }}
           courses={courseDetail ? [courseDetail] : []}
           initialCourse={aiQuizConfig.course}
