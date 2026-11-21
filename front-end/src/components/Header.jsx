@@ -141,19 +141,15 @@ export default function Header({
                         <span>Flashcards</span>
                       </button>
                     </li>
-                    {/* Tạm thời ẩn header Trợ lý gia sư AI đàm thoại phản xạ 1-1 (Student) theo yêu cầu */}
-                    {/*
                     <li>
                       <button
-                        className={`nav-link ${currentTab === 'ai_roadmap' || currentTab === 'roadmap' ? 'active' : ''}`}
-                        onClick={() => onSelectTab('ai_roadmap')}
+                        className={`nav-link ${currentTab === 'ai_coach' ? 'active' : ''}`}
+                        onClick={() => onSelectTab('ai_coach')}
                         style={{ position: 'relative' }}
                       >
-                        <span>Lộ trình AI</span>
-                        <span style={{ fontSize: '0.62rem', backgroundColor: '#8b5cf6', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>MỚI</span>
+                        <span>Giao tiếp AI</span>
                       </button>
                     </li>
-                    */}
                   </>
                 )}
               </>
