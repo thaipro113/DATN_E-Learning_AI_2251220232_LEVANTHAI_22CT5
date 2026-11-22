@@ -55,12 +55,18 @@ export default function WordScrambleGameModal({
   lessonTitle = 'Bài học',
   onComplete,
 }) {
+  const MAX_HEARTS = 3;
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedWords, setSelectedWords] = useState([]);
   const [availableWords, setAvailableWords] = useState([]);
   const [status, setStatus] = useState('answering'); // 'answering' | 'correct' | 'wrong'
   const [score, setScore] = useState(0);
+  const [hearts, setHearts] = useState(MAX_HEARTS);
+  const [wrongQueue, setWrongQueue] = useState([]);
+  const [isReviewMode, setIsReviewMode] = useState(false);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [isOutOfHearts, setIsOutOfHearts] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -74,6 +80,11 @@ export default function WordScrambleGameModal({
       setAvailableWords([]);
       setStatus('answering');
       setScore(0);
+      setHearts(MAX_HEARTS);
+      setWrongQueue([]);
+      setIsReviewMode(false);
+      setReviewIndex(0);
+      setIsOutOfHearts(false);
       setIsFinished(false);
       setIsLoading(false);
       return;
@@ -82,6 +93,12 @@ export default function WordScrambleGameModal({
     const loadQuizData = async () => {
       setIsLoading(true);
       setErrorMsg('');
+      setHearts(MAX_HEARTS);
+      setWrongQueue([]);
+      setIsReviewMode(false);
+      setReviewIndex(0);
+      setIsOutOfHearts(false);
+      setIsFinished(false);
       try {
         const detailRes = await assessmentAPI.getQuizDetail(quiz.id);
         const data = detailRes.data?.data || detailRes.data;
@@ -128,12 +145,18 @@ export default function WordScrambleGameModal({
             distractorWords = Array.from(new Set(distractorWords)).slice(0, 3);
           }
 
+          // Chuẩn hóa gợi ý đề bài, tránh các chuỗi thô của AI
+          let cleanPrompt = q.content || 'Sắp xếp các thẻ từ để tạo thành câu hoàn chỉnh:';
+          if (cleanPrompt.toLowerCase().includes('rearrange') || cleanPrompt.toLowerCase().includes('apple / an')) {
+            cleanPrompt = 'Sắp xếp các thẻ từ để tạo thành câu hoàn chỉnh đúng ngữ pháp:';
+          }
+
           // Fallback nếu câu tiếng Anh chuẩn bị rỗng
           if (correctWords.length === 0 && q.content) {
             const fallbackWords = q.content.replace(/[.!?;]/g, '').split(/\s+/).filter((w) => w.length > 0);
             return {
               id: q.id,
-              prompt: 'Sắp xếp các thẻ từ thành câu hoàn chỉnh:',
+              prompt: cleanPrompt,
               targetSentence: q.content,
               correctWords: fallbackWords,
               allWords: fallbackWords,
@@ -143,11 +166,11 @@ export default function WordScrambleGameModal({
 
           return {
             id: q.id,
-            prompt: q.content || 'Sắp xếp các thẻ từ để tạo thành câu hoàn chỉnh:',
+            prompt: cleanPrompt,
             targetSentence: targetSentence,
             correctWords: correctWords,
             allWords: [...correctWords, ...distractorWords],
-            explanation: q.explanation || `Đáp án chính xác: "${targetSentence}"`,
+            explanation: q.explanation || '',
           };
         });
 
@@ -226,41 +249,94 @@ export default function WordScrambleGameModal({
 
   // Kiểm tra đáp án
   const handleCheck = () => {
-    if (selectedWords.length === 0) return;
+    if (selectedWords.length === 0 || !currentQ) return;
 
-    const currentQ = questions[currentIndex];
     const studentSentence = selectedWords.map((w) => w.text).join(' ');
-
     const isMatch = normalizeSentence(studentSentence) === normalizeSentence(currentQ.targetSentence);
 
     if (isMatch) {
       playChime('correct');
       setStatus('correct');
-      setScore((prev) => prev + 1);
+      if (!isReviewMode) {
+        setScore((prev) => prev + 1);
+      }
       // Tự động phát âm câu đúng để học viên nghe ngữ điệu chuẩn
       handleSpeak(currentQ.targetSentence);
     } else {
       playChime('wrong');
       setStatus('wrong');
+      // Trừ 1 tim
+      setHearts((prev) => Math.max(0, prev - 1));
+
+      // Thêm câu này vào hàng đợi ôn lại nếu chưa có
+      if (!isReviewMode) {
+        setWrongQueue((prev) => {
+          if (prev.some((item) => item.id === currentQ.id)) return prev;
+          return [...prev, currentQ];
+        });
+      }
     }
   };
 
   // Chuyển sang câu tiếp theo
   const handleNext = () => {
-    if (currentIndex + 1 < questions.length) {
-      const nextIdx = currentIndex + 1;
-      setCurrentIndex(nextIdx);
-      setupQuestion(questions[nextIdx]);
+    // Nếu vừa trả lời sai và đã hết tim (hearts === 0)
+    if (status === 'wrong' && hearts <= 0) {
+      setIsOutOfHearts(true);
+      return;
+    }
+
+    if (!isReviewMode) {
+      // Vòng làm bài ban đầu
+      if (currentIndex + 1 < questions.length) {
+        const nextIdx = currentIndex + 1;
+        setCurrentIndex(nextIdx);
+        setupQuestion(questions[nextIdx]);
+      } else {
+        // Đã hoàn thành hết danh sách câu hỏi ban đầu
+        if (wrongQueue.length > 0) {
+          // Bắt đầu vòng ôn lại các câu đã làm sai
+          setIsReviewMode(true);
+          setReviewIndex(0);
+          setupQuestion(wrongQueue[0]);
+        } else {
+          setIsFinished(true);
+          if (onComplete) onComplete(score);
+        }
+      }
     } else {
-      setIsFinished(true);
-      if (onComplete) onComplete(score);
+      // Vòng ôn lại các câu sai
+      if (status === 'correct') {
+        // Giải đúng câu sai này -> loại bỏ khỏi hàng đợi
+        const updatedQueue = wrongQueue.filter((_, idx) => idx !== reviewIndex);
+        setWrongQueue(updatedQueue);
+
+        if (updatedQueue.length === 0) {
+          // Đã hoàn thành toàn bộ các câu sai!
+          setIsFinished(true);
+          if (onComplete) onComplete(score);
+          return;
+        }
+
+        const nextRevIdx = reviewIndex >= updatedQueue.length ? 0 : reviewIndex;
+        setReviewIndex(nextRevIdx);
+        setupQuestion(updatedQueue[nextRevIdx]);
+      } else {
+        // Vẫn sai -> tiếp tục chuyển sang câu sai kế tiếp
+        const nextRevIdx = (reviewIndex + 1) % wrongQueue.length;
+        setReviewIndex(nextRevIdx);
+        setupQuestion(wrongQueue[nextRevIdx]);
+      }
     }
   };
 
   if (!isOpen) return null;
 
-  const currentQ = questions[currentIndex];
-  const progressPercent = questions.length > 0 ? Math.round(((currentIndex + (status !== 'answering' ? 1 : 0)) / questions.length) * 100) : 0;
+  const currentQ = isReviewMode ? wrongQueue[reviewIndex] : questions[currentIndex];
+  const totalQuestions = questions.length || 1;
+  const progressPercent = isReviewMode
+    ? Math.round((1 - wrongQueue.length / totalQuestions) * 100)
+    : Math.round(((currentIndex + (status !== 'answering' ? 1 : 0)) / totalQuestions) * 100);
 
   return (
     <div
@@ -313,9 +389,32 @@ export default function WordScrambleGameModal({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', fontWeight: '800', color: '#e11d48' }}>
-              <i className="fa-solid fa-heart"></i>
-              <span>{score}/{questions.length}</span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 12px',
+                backgroundColor: hearts > 0 ? '#fff1f2' : '#f1f5f9',
+                borderRadius: '20px',
+                border: hearts > 0 ? '1px solid #fecdd3' : '1px solid #e2e8f0',
+              }}
+              title={`Số tim còn lại: ${hearts}/${MAX_HEARTS}`}
+            >
+              {Array.from({ length: MAX_HEARTS }).map((_, i) => (
+                <i
+                  key={i}
+                  className="fa-solid fa-heart"
+                  style={{
+                    color: i < hearts ? '#ef4444' : '#cbd5e1',
+                    fontSize: '1rem',
+                    transition: 'all 0.2s ease',
+                  }}
+                ></i>
+              ))}
+              <span style={{ fontSize: '0.84rem', fontWeight: '800', color: hearts > 0 ? '#e11d48' : '#94a3b8', marginLeft: '3px' }}>
+                {hearts}/{MAX_HEARTS}
+              </span>
             </div>
             <button
               type="button"
@@ -346,7 +445,7 @@ export default function WordScrambleGameModal({
             style={{
               height: '100%',
               width: `${progressPercent}%`,
-              backgroundColor: '#0284c7',
+              backgroundColor: isReviewMode ? '#f97316' : '#0284c7',
               transition: 'width 0.3s ease',
             }}
           />
@@ -366,6 +465,81 @@ export default function WordScrambleGameModal({
               <button type="button" className="btn-outline" onClick={onClose} style={{ marginTop: '10px' }}>
                 Quay lại bài học
               </button>
+            </div>
+          ) : isOutOfHearts ? (
+            /* Out of Hearts / Game Over Screen */
+            <div style={{ textAlign: 'center', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '90px',
+                  height: '90px',
+                  borderRadius: '50%',
+                  backgroundColor: '#fee2e2',
+                  border: '4px solid #f87171',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '2.8rem',
+                  color: '#ef4444',
+                  boxShadow: '0 10px 25px rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                💔
+              </div>
+
+              <h3 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#0f172a', margin: 0 }}>
+                Bạn Đã Hết Tim!
+              </h3>
+
+              <p style={{ fontSize: '0.92rem', color: '#475569', margin: 0, maxWidth: '440px', lineHeight: '1.6' }}>
+                Đừng nản lòng nhé! Bạn có thể xem lại video bài giảng để củng cố ngữ pháp, hoặc nhấn nút bên dưới để hồi phục tim và làm lại từ đầu.
+              </p>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={onClose}
+                  style={{
+                    padding: '12px 24px',
+                    fontSize: '0.95rem',
+                    fontWeight: '700',
+                    borderRadius: '12px',
+                  }}
+                >
+                  <i className="fa-solid fa-book-open" style={{ marginRight: '6px' }}></i>
+                  Ôn lại bài giảng
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => {
+                    setHearts(MAX_HEARTS);
+                    setIsOutOfHearts(false);
+                    setStatus('answering');
+                    setCurrentIndex(0);
+                    setIsReviewMode(false);
+                    setWrongQueue([]);
+                    setScore(0);
+                    if (questions.length > 0) {
+                      setupQuestion(questions[0]);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#0284c7',
+                    borderColor: '#0284c7',
+                    padding: '12px 28px',
+                    fontSize: '0.95rem',
+                    fontWeight: '800',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
+                  }}
+                >
+                  <i className="fa-solid fa-heart" style={{ marginRight: '6px', color: '#ffffff' }}></i>
+                  Hồi phục 3 tim & Thử lại
+                </button>
+              </div>
             </div>
           ) : isFinished ? (
             /* Celebration Screen */
@@ -430,9 +604,18 @@ export default function WordScrambleGameModal({
             <>
               {/* Question Prompt */}
               <div>
-                <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Câu {currentIndex + 1} / {questions.length} • Sắp xếp các thẻ từ thành câu đúng:
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: isReviewMode ? '#c2410c' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {isReviewMode
+                      ? `🔄 Ôn tập câu sai (${reviewIndex + 1}/${wrongQueue.length}) • Hãy sắp xếp lại thật chuẩn:`
+                      : `Câu ${currentIndex + 1} / ${questions.length} • Sắp xếp các thẻ từ thành câu đúng:`}
+                  </span>
+                  {isReviewMode && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: '800', backgroundColor: '#ffedd5', color: '#c2410c', padding: '2px 8px', borderRadius: '4px' }}>
+                      Cơ hội gỡ điểm
+                    </span>
+                  )}
+                </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
                   <button
@@ -547,7 +730,7 @@ export default function WordScrambleGameModal({
         </div>
 
         {/* Footer: Result Banner & Actions */}
-        {!isFinished && !isLoading && !errorMsg && (
+        {!isFinished && !isLoading && !errorMsg && !isOutOfHearts && (
           <div
             style={{
               padding: '16px 24px',
@@ -582,15 +765,12 @@ export default function WordScrambleGameModal({
                     <i className="fa-solid fa-xmark"></i>
                   </div>
                   <div>
-                    <strong style={{ fontSize: '0.95rem', color: '#b91c1c', display: 'block' }}>Chưa chính xác!</strong>
-                    <span style={{ fontSize: '0.82rem', color: '#7f1d1d', display: 'block', fontWeight: '700', marginTop: '2px' }}>
-                      Đáp án đúng: "{currentQ?.targetSentence}"
+                    <strong style={{ fontSize: '0.95rem', color: '#b91c1c', display: 'block' }}>
+                      Chưa chính xác! {hearts <= 0 ? '(Đã hết tim!)' : '(-1 ❤️)'}
+                    </strong>
+                    <span style={{ fontSize: '0.86rem', color: '#7f1d1d', display: 'block', fontWeight: '700', marginTop: '2px' }}>
+                      Đáp án chính xác: "{currentQ?.targetSentence}"
                     </span>
-                    {currentQ?.explanation && (
-                      <span style={{ fontSize: '0.76rem', color: '#991b1b', display: 'block', marginTop: '2px' }}>
-                        {currentQ.explanation}
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
