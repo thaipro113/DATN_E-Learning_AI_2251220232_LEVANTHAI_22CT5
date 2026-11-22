@@ -3,6 +3,7 @@ import { courseAPI, aiAPI, assessmentAPI } from '../services/api';
 import { getYouTubeEmbedUrl, isYouTubeUrl, generateSlug, cleanCourseTitle } from '../utils/media';
 import ConfirmModal from './ConfirmModal';
 import TeacherAIQuizModal from './TeacherAIQuizModal';
+import TeacherWordScrambleModal from './TeacherWordScrambleModal';
 
 export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, onCourseUpdated, user }) {
   const [courseDetail, setCourseDetail] = useState(null);
@@ -11,6 +12,7 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
   const [isGeneratingChapterDesc, setIsGeneratingChapterDesc] = useState(false);
   const [isGeneratingLessonContent, setIsGeneratingLessonContent] = useState(false);
   const [aiQuizConfig, setAiQuizConfig] = useState(null);
+  const [managingScrambleLesson, setManagingScrambleLesson] = useState(null);
 
   // Confirm Modal State
   const [confirmModal, setConfirmModal] = useState({
@@ -1539,6 +1541,15 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
                                 <i className="fa-solid fa-wand-magic-sparkles"></i>
                               </button>
 
+                              <button
+                                className="btn-outline"
+                                onClick={() => setManagingScrambleLesson({ course: courseDetail, chapter: ch, lesson: les })}
+                                style={{ fontSize: '0.75rem', padding: '4px 8px', backgroundColor: '#ecfdf5', color: '#059669', borderColor: '#a7f3d0' }}
+                                title="Thử thách Sắp xếp thẻ từ (Word Scramble)"
+                              >
+                                <i className="fa-solid fa-puzzle-piece"></i>
+                              </button>
+
                               {les.video_url && (
                                 <button
                                   className="btn-outline"
@@ -1934,6 +1945,22 @@ export default function TeacherCourseCurriculumModal({ isOpen, onClose, course, 
           initialChapter={aiQuizConfig.chapter}
           initialLesson={aiQuizConfig.lesson}
           initialScope={aiQuizConfig.scope}
+        />
+      )}
+
+      {/* Embedded TeacherWordScrambleModal for sentence scramble challenges */}
+      {managingScrambleLesson && (
+        <TeacherWordScrambleModal
+          isOpen={Boolean(managingScrambleLesson)}
+          onClose={() => setManagingScrambleLesson(null)}
+          course={managingScrambleLesson.course}
+          chapter={managingScrambleLesson.chapter}
+          lesson={managingScrambleLesson.lesson}
+          onSaveSuccess={(msg) => {
+            setToastMsg(msg || 'Đã lưu thử thách ghép thẻ thành công!');
+            setManagingScrambleLesson(null);
+            fetchQuizzesForCourse(course?.id || courseDetail?.id);
+          }}
         />
       )}
     </div>

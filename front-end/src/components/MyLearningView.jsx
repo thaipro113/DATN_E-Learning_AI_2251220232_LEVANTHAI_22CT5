@@ -4,6 +4,7 @@ import CertificateModal from './CertificateModal';
 import StudentProgressQuizModal from './StudentProgressQuizModal';
 import CourseQuizTakingModal from './CourseQuizTakingModal';
 import CourseQuizzesOverviewModal from './CourseQuizzesOverviewModal';
+import WordScrambleGameModal from './WordScrambleGameModal';
 import { learningAPI, courseAPI, assessmentAPI } from '../services/api';
 import { isYouTubeUrl, getYouTubeEmbedUrl, cleanCourseTitle } from '../utils/media';
 
@@ -30,6 +31,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
   const [courseQuizzes, setCourseQuizzes] = useState([]);
   const [studentAttempts, setStudentAttempts] = useState([]);
   const [takingQuiz, setTakingQuiz] = useState(null);
+  const [playingScrambleQuiz, setPlayingScrambleQuiz] = useState(null);
   const [showCourseQuizzesOverview, setShowCourseQuizzesOverview] = useState(false);
 
   // Dữ liệu Flashcards gắn theo Khóa học của Giảng viên
@@ -383,11 +385,33 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
     }, list[0]);
   };
 
+  const [quizTypeFilter, setQuizTypeFilter] = useState('ALL'); // 'ALL' | 'SCRAMBLE' | 'STANDARD'
   const currentLessonQuizzes = getLessonQuizzes(activeLesson?.id);
+  const currentLessonScrambles = useMemo(() => {
+    return currentLessonQuizzes.filter(
+      (q) => (q.description && q.description.includes('[WORD_SCRAMBLE]')) || (q.title && q.title.includes('[Ghép thẻ]'))
+    );
+  }, [currentLessonQuizzes]);
+  const currentLessonStandardQuizzes = useMemo(() => {
+    return currentLessonQuizzes.filter(
+      (q) => !(q.description && q.description.includes('[WORD_SCRAMBLE]')) && !(q.title && q.title.includes('[Ghép thẻ]'))
+    );
+  }, [currentLessonQuizzes]);
+  const filteredCurrentLessonQuizzes = useMemo(() => {
+    if (quizTypeFilter === 'SCRAMBLE') return currentLessonScrambles;
+    if (quizTypeFilter === 'STANDARD') return currentLessonStandardQuizzes;
+    return currentLessonQuizzes;
+  }, [quizTypeFilter, currentLessonQuizzes, currentLessonScrambles, currentLessonStandardQuizzes]);
   const currentLessonBestAttempt = currentLessonQuizzes.length > 0 ? getQuizBestAttempt(currentLessonQuizzes[0].id) : null;
 
   const handleOpenQuiz = (quiz) => {
-    setTakingQuiz(quiz);
+    if (!quiz) return;
+    const isScramble = (quiz.description && quiz.description.includes('[WORD_SCRAMBLE]')) || (quiz.title && quiz.title.includes('[Ghép thẻ]'));
+    if (isScramble) {
+      setPlayingScrambleQuiz(quiz);
+    } else {
+      setTakingQuiz(quiz);
+    }
   };
 
   const handleStartGeneratedQuiz = (generatedQuiz) => {
@@ -899,7 +923,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                 <span>{completedLessonIds.includes(activeLesson?.id) ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}</span>
               </button>
 
-              {/* Nút Làm Đề Thi Của Bài Học Hiện Tại (nếu có đề thi) */}
+              {/* Nút Làm Bài Tập Của Bài Học Hiện Tại (gồm cả Trắc nghiệm & Ghép thẻ) */}
               {currentLessonQuizzes.length > 0 && (
                 <button
                   className="btn-primary"
@@ -916,10 +940,10 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                   }}
                   title={currentLessonQuizzes[0].title}
                 >
-                  <i className="fa-solid fa-pen-to-square"></i>
+                  <i className="fa-solid fa-clipboard-question"></i>
                   <span>
                     {currentLessonBestAttempt
-                      ? `Làm lại đề bài học (${currentLessonBestAttempt.percentage ?? Math.round((currentLessonBestAttempt.score / currentLessonBestAttempt.max_score) * 100)}%)`
+                      ? `Làm lại bài tập (${currentLessonBestAttempt.percentage ?? Math.round((currentLessonBestAttempt.score / currentLessonBestAttempt.max_score) * 100)}%)`
                       : `Làm bài tập bài học (${currentLessonQuizzes.length})`}
                   </span>
                 </button>
@@ -1700,17 +1724,80 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
 
             {activeTab === 'quizzes' && (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-                  <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                    <i className="fa-solid fa-clipboard-question" style={{ color: '#7c3aed', marginRight: '8px' }}></i>
-                    BÀI TẬP & ĐỀ THI CỦA BÀI HỌC
-                  </h4>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    {activeLesson?.title}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                      <i className="fa-solid fa-clipboard-question" style={{ color: '#0284c7', marginRight: '8px' }}></i>
+                      BÀI TẬP & ĐỀ THI CỦA BÀI HỌC
+                    </h4>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {activeLesson?.title}
+                    </span>
+                  </div>
+
+                  {/* Thanh phân loại loại hình bài tập (Tất cả / Ghép thẻ / Trắc nghiệm) */}
+                  {currentLessonQuizzes.length > 0 && (
+                    <div style={{ display: 'flex', gap: '6px', backgroundColor: 'var(--bg-subtle)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setQuizTypeFilter('ALL')}
+                        style={{
+                          padding: '4px 12px',
+                          fontSize: '0.78rem',
+                          fontWeight: '700',
+                          borderRadius: '6px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: quizTypeFilter === 'ALL' ? '#0284c7' : 'transparent',
+                          color: quizTypeFilter === 'ALL' ? '#ffffff' : 'var(--text-secondary)',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        Tất cả ({currentLessonQuizzes.length})
+                      </button>
+                      {currentLessonScrambles.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setQuizTypeFilter('SCRAMBLE')}
+                          style={{
+                            padding: '4px 12px',
+                            fontSize: '0.78rem',
+                            fontWeight: '700',
+                            borderRadius: '6px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: quizTypeFilter === 'SCRAMBLE' ? '#059669' : 'transparent',
+                            color: quizTypeFilter === 'SCRAMBLE' ? '#ffffff' : 'var(--text-secondary)',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          🧩 Ghép thẻ ({currentLessonScrambles.length})
+                        </button>
+                      )}
+                      {currentLessonStandardQuizzes.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setQuizTypeFilter('STANDARD')}
+                          style={{
+                            padding: '4px 12px',
+                            fontSize: '0.78rem',
+                            fontWeight: '700',
+                            borderRadius: '6px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: quizTypeFilter === 'STANDARD' ? '#7c3aed' : 'transparent',
+                            color: quizTypeFilter === 'STANDARD' ? '#ffffff' : 'var(--text-secondary)',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          📝 Trắc nghiệm ({currentLessonStandardQuizzes.length})
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {currentLessonQuizzes.length === 0 ? (
+                {filteredCurrentLessonQuizzes.length === 0 ? (
                   <div
                     style={{
                       textAlign: 'center',
@@ -1722,55 +1809,59 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                   >
                     <i className="fa-solid fa-file-circle-question" style={{ fontSize: '2.2rem', color: 'var(--text-light)', marginBottom: '10px' }}></i>
                     <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-secondary)', margin: '0' }}>
-                      Bài học này hiện chưa có bài tập trắc nghiệm riêng. Vui lòng tiếp tục các bài học tiếp theo hoặc vào mục "Luyện Lỗi Sai AI" để củng cố kiến thức!
+                      {currentLessonQuizzes.length === 0
+                        ? 'Bài học này hiện chưa có bài tập riêng. Vui lòng tiếp tục các bài học tiếp theo hoặc vào mục "Luyện Lỗi Sai AI" để củng cố kiến thức!'
+                        : 'Không có bài tập nào phù hợp với bộ lọc đã chọn.'}
                     </p>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {currentLessonQuizzes.map((quiz) => {
+                    {filteredCurrentLessonQuizzes.map((quiz) => {
                       const bestAttempt = getQuizBestAttempt(quiz.id);
                       const scorePct = bestAttempt ? Number(bestAttempt.percentage ?? Math.round((bestAttempt.score / bestAttempt.max_score) * 100)) : null;
                       const isPassed = bestAttempt?.is_passed ?? (scorePct != null && scorePct >= (quiz.passing_score || 70));
+                      const isScramble = (quiz.description && quiz.description.includes('[WORD_SCRAMBLE]')) || (quiz.title && quiz.title.includes('[Ghép thẻ]'));
 
                       return (
                         <div
                           key={quiz.id}
                           style={{
-                            padding: '16px',
+                            padding: '16px 20px',
                             borderRadius: 'var(--radius-md)',
-                            backgroundColor: 'var(--bg-subtle)',
-                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-card)',
+                            border: isScramble ? '2px solid #a7f3d0' : '1px solid var(--border-color)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             flexWrap: 'wrap',
-                            gap: '12px',
+                            gap: '14px',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
                           }}
                         >
-                          <div>
+                          <div style={{ flex: 1, minWidth: '220px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                               <span
                                 style={{
                                   fontSize: '0.72rem',
                                   fontWeight: '800',
-                                  padding: '2px 6px',
+                                  padding: '2px 8px',
                                   borderRadius: '4px',
-                                  backgroundColor: '#ede9fe',
-                                  color: '#6d28d9',
+                                  backgroundColor: isScramble ? '#d1fae5' : '#ede9fe',
+                                  color: isScramble ? '#059669' : '#6d28d9',
                                 }}
                               >
-                                CEFR {quiz.level || 'B1'}
+                                {isScramble ? '🧩 THỬ THÁCH GHÉP THẺ TỪ' : `📝 CEFR ${quiz.level || 'B1'}`}
                               </span>
                               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                                 {quiz.total_questions || 5} câu hỏi · {quiz.time_limit_minutes || 15} phút · Điểm đạt: {quiz.passing_score || 70}%
                               </span>
                             </div>
-                            <h5 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px' }}>
+                            <h5 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: '0 0 4px' }}>
                               {quiz.title}
                             </h5>
                             {quiz.description && (
                               <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                {quiz.description}
+                                {quiz.description.replace('[WORD_SCRAMBLE]', '').trim()}
                               </p>
                             )}
                           </div>
@@ -1799,7 +1890,7 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                                   fontWeight: '700',
                                   padding: '4px 10px',
                                   borderRadius: 'var(--radius-full)',
-                                  backgroundColor: 'var(--bg-surface)',
+                                  backgroundColor: 'var(--bg-subtle)',
                                   color: 'var(--text-muted)',
                                 }}
                               >
@@ -1808,20 +1899,25 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
                             )}
 
                             <button
+                              type="button"
                               className="btn-primary"
                               onClick={() => handleOpenQuiz(quiz)}
                               style={{
-                                padding: '8px 18px',
-                                fontSize: '0.85rem',
-                                backgroundColor: isPassed ? '#0284c7' : '#7c3aed',
-                                fontWeight: '700',
+                                padding: '9px 20px',
+                                fontSize: '0.86rem',
+                                backgroundColor: isScramble ? '#059669' : (isPassed ? '#0284c7' : '#7c3aed'),
+                                fontWeight: '800',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '6px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                boxShadow: isScramble ? '0 2px 8px rgba(5, 150, 105, 0.25)' : '0 2px 8px rgba(124, 58, 237, 0.25)',
                               }}
                             >
-                              <i className={`fa-solid ${bestAttempt ? 'fa-rotate-left' : 'fa-pen-to-square'}`}></i>
-                              <span>{bestAttempt ? 'Làm lại đề thi' : 'Bắt đầu làm bài'}</span>
+                              <i className={`fa-solid ${isScramble ? 'fa-puzzle-piece' : (bestAttempt ? 'fa-rotate-left' : 'fa-pen-to-square')}`}></i>
+                              <span>{isScramble ? (bestAttempt ? 'Luyện lại Ghép thẻ' : 'Vào Ghép thẻ') : (bestAttempt ? 'Làm lại đề thi' : 'Bắt đầu làm bài')}</span>
                             </button>
                           </div>
                         </div>
@@ -2147,6 +2243,21 @@ export default function MyLearningView({ user, currentCourse, onSelectCourseToLe
         onSelectQuiz={handleOpenQuiz}
         isEligibleForFinalExam={isEligibleForFinalExam}
       />
+
+      {/* Modal 5: Thử thách Sắp xếp thẻ từ TL-English (Word Scramble) */}
+      {playingScrambleQuiz && (
+        <WordScrambleGameModal
+          isOpen={Boolean(playingScrambleQuiz)}
+          onClose={() => setPlayingScrambleQuiz(null)}
+          quiz={playingScrambleQuiz}
+          lessonTitle={activeLesson?.title || 'Bài học'}
+          onComplete={(scorePct) => {
+            if (courseDetail?.id) {
+              fetchCourseQuizzes(courseDetail.id);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

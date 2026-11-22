@@ -153,7 +153,7 @@ export default function StudentBentoDashboard({
     daysSinceLastStudy,
   } = realStreak;
 
-  // Quản lý trạng thái Nudge thu nhỏ (Duolingo Style Mascot Nudge)
+  // Quản lý trạng thái Nudge thu nhỏ (TL-English Mascot Nudge)
   const [isNudgeDismissed, setIsNudgeDismissed] = React.useState(() => {
     try {
       return sessionStorage.getItem('bird_nudge_dismissed') === 'true';
@@ -205,7 +205,7 @@ export default function StudentBentoDashboard({
   return (
     <section className="student-bento-section" style={{ margin: '20px 0 28px 0' }}>
       {/* =========================================================================
-          LINH VẬT ĐỒNG HÀNH & CÚ HUÝCH HỌC TẬP HÀNG NGÀY (DUOLINGO STYLE MASCOT NUDGE)
+          LINH VẬT ĐỒNG HÀNH & CÚ HUÝCH HỌC TẬP HÀNG NGÀY (TL-ENGLISH MASCOT NUDGE)
          ========================================================================= */}
       {!isNudgeDismissed ? (
         <div
