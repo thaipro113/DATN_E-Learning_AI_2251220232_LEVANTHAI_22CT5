@@ -136,7 +136,7 @@ export default function TeacherWordScrambleModal({
       .filter((w) => w.length > 0);
   };
 
-  // AI tự động sinh 3 câu ghép thẻ theo chủ đề bài học
+  // AI tự động sinh 5 câu ghép thẻ theo chủ đề bài học
   const handleAiGenerateSentences = async () => {
     setIsAiGenerating(true);
     setErrorMsg('');
@@ -144,11 +144,11 @@ export default function TeacherWordScrambleModal({
       const lessonTitle = lesson.title || 'Bài học tiếng Anh';
       const promptTopic = `Tạo bài tập sắp xếp thẻ từ thành câu hoàn chỉnh (Sentence Scramble) cho bài học: "${lessonTitle}". Khóa học: "${course?.title || 'Tiếng Anh'}".`;
       
-      const res = await aiAPI.generateTeacherQuiz(promptTopic, course?.level || 'B1', 3, 'GRAMMAR');
+      const res = await aiAPI.generateTeacherQuiz(promptTopic, course?.level || 'B1', 5, 'GRAMMAR');
       const aiData = res.data?.data || res.data || [];
 
       if (Array.isArray(aiData) && aiData.length > 0) {
-        const generated = aiData.slice(0, 3).map((item) => {
+        const generated = aiData.slice(0, 5).map((item) => {
           const correctOpt = (item.options || []).find((o) => o.is_correct) || item.options?.[0];
           const wrongOpts = (item.options || []).filter((o) => !o.is_correct).map((o) => o.content);
 
@@ -194,7 +194,7 @@ export default function TeacherWordScrambleModal({
       }
     } catch (err) {
       console.warn('AI Word Scramble generation fallback:', err);
-      // Fallback 3 câu chuẩn mực theo bài giảng
+      // Fallback 5 câu chuẩn mực theo bài giảng
       setSentences([
         {
           vietnamese_prompt: `Họ đã hoàn thành dự án trước thời hạn vào hôm qua.`,
@@ -213,6 +213,18 @@ export default function TeacherWordScrambleModal({
           english_sentence: `Could you please explain this grammar rule again?`,
           distractors: `explaining, explained`,
           explanation: `Sau động từ khuyết thiếu 'Could you' sử dụng động từ nguyên thể không 'to' (explain).`,
+        },
+        {
+          vietnamese_prompt: `Cô ấy đã sống và làm việc tại thành phố này được năm năm.`,
+          english_sentence: `She has lived and worked in this city for five years.`,
+          distractors: `living, lives`,
+          explanation: `Thì Hiện tại hoàn thành diễn tả hành động bắt đầu ở quá khứ và vẫn tiếp diễn đến hiện tại.`,
+        },
+        {
+          vietnamese_prompt: `Chúng tôi rất mong chờ được gặp lại bạn vào tuần tới.`,
+          english_sentence: `We are looking forward to seeing you again next week.`,
+          distractors: `see, look`,
+          explanation: `Cấu trúc 'look forward to' đi kèm với danh động từ V-ing (seeing).`,
         },
       ]);
     } finally {
@@ -435,12 +447,12 @@ export default function TeacherWordScrambleModal({
               {isAiGenerating ? (
                 <>
                   <i className="fa-solid fa-circle-notch fa-spin"></i>
-                  <span>AI đang soạn 3 câu...</span>
+                  <span>AI đang soạn 5 câu...</span>
                 </>
               ) : (
                 <>
                   <i className="fa-solid fa-wand-magic-sparkles"></i>
-                  <span>AI Gợi Ý 3 Câu Ghép Thẻ</span>
+                  <span>AI Gợi Ý 5 Câu Ghép Thẻ</span>
                 </>
               )}
             </button>
