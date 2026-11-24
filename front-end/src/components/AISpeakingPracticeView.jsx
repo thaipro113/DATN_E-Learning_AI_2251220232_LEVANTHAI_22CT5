@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { recommendationAPI } from '../services/api';
-import { getSpeakingSentences } from '../utils/speakingStorage';
+import { getSpeakingSentences, getSpeakingTopics } from '../utils/speakingStorage';
 
 // Danh mục các chủ đề luyện nói chuẩn theo CEFR
 const SPEAKING_TOPICS = [
@@ -152,6 +152,7 @@ export default function AISpeakingPracticeView({
 }) {
   const [activeTopic, setActiveTopic] = useState('ALL');
   const [sentences, setSentences] = useState(() => getSpeakingSentences());
+  const [topics, setTopics] = useState(() => getSpeakingTopics());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -170,14 +171,19 @@ export default function AISpeakingPracticeView({
   const recognitionRef = useRef(null);
   const latestTranscriptRef = useRef('');
 
-  // Lắng nghe cập nhật danh sách câu từ Admin hoặc LocalStorage
+  // Lắng nghe cập nhật danh sách câu & chủ đề từ Admin hoặc LocalStorage
   useEffect(() => {
     const handleStorageUpdate = () => {
       setSentences(getSpeakingSentences());
     };
+    const handleTopicsUpdate = () => {
+      setTopics(getSpeakingTopics());
+    };
     window.addEventListener('tl_speaking_sentences_updated', handleStorageUpdate);
+    window.addEventListener('tl_speaking_topics_updated', handleTopicsUpdate);
     return () => {
       window.removeEventListener('tl_speaking_sentences_updated', handleStorageUpdate);
+      window.removeEventListener('tl_speaking_topics_updated', handleTopicsUpdate);
     };
   }, []);
 
@@ -563,7 +569,7 @@ export default function AISpeakingPracticeView({
           marginBottom: '16px',
         }}
       >
-        {SPEAKING_TOPICS.map((t) => {
+        {[{ id: 'ALL', name: 'Tất cả câu', icon: 'fa-layer-group', level: 'Mọi cấp độ' }, ...topics].map((t) => {
           const isActive = activeTopic === t.id;
           return (
             <button
@@ -588,7 +594,7 @@ export default function AISpeakingPracticeView({
                 transition: 'all 0.15s ease',
               }}
             >
-              <i className={`fa-solid ${t.icon}`} style={{ color: isActive ? '#0284c7' : '#94a3b8' }}></i>
+              <i className={`fa-solid ${t.icon || 'fa-tag'}`} style={{ color: isActive ? '#0284c7' : '#94a3b8' }}></i>
               <span>{t.name}</span>
               <span
                 style={{
@@ -643,7 +649,9 @@ export default function AISpeakingPracticeView({
                 borderRadius: '6px',
               }}
             >
-              {currentSentence?.topic === 'MISTAKES' ? '🎯 Câu ôn tập lỗi sai' : 'Chủ đề: ' + (currentSentence?.topic || 'DAILY')}
+              {currentSentence?.topic === 'MISTAKES'
+                ? '🎯 Câu ôn tập lỗi sai'
+                : 'Chủ đề: ' + (topics.find((tp) => tp.id === currentSentence?.topic)?.name || currentSentence?.topic || 'DAILY')}
             </span>
           </div>
 

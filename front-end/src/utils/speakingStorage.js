@@ -1,5 +1,14 @@
-// Quản lý kho câu luyện nói & phát âm AI cho hệ thống TL-English
+// Quản lý kho câu luyện nói & phát âm AI và danh mục chủ đề cho hệ thống TL-English
 const STORAGE_KEY = 'tl_speaking_sentences_v1';
+const TOPICS_STORAGE_KEY = 'tl_speaking_topics_v1';
+
+export const DEFAULT_SPEAKING_TOPICS = [
+  { id: 'DAILY', name: 'Giao tiếp hàng ngày', level: 'A1 - A2', icon: 'fa-mug-hot', color: '#0284c7', bg: '#e0f2fe', isDefault: true },
+  { id: 'WORKPLACE', name: 'Công sở & Phỏng vấn', level: 'B1 - B2', icon: 'fa-briefcase', color: '#059669', bg: '#ecfdf5', isDefault: true },
+  { id: 'TRAVEL', name: 'Du lịch & Ẩm thực', level: 'A2 - B1', icon: 'fa-plane-departure', color: '#d97706', bg: '#fef3c7', isDefault: true },
+  { id: 'ACADEMIC', name: 'Học thuật & Thuyết trình', level: 'B2 - C1', icon: 'fa-graduation-cap', color: '#7c3aed', bg: '#ede9fe', isDefault: true },
+  { id: 'MISTAKES', name: 'Khắc phục lỗi sai', level: 'Cá nhân hóa', icon: 'fa-rotate-right', color: '#dc2626', bg: '#fee2e2', isDefault: true },
+];
 
 export const DEFAULT_SPEAKING_SENTENCES = [
   {
@@ -92,6 +101,76 @@ export const DEFAULT_SPEAKING_SENTENCES = [
   },
 ];
 
+// ==================== QUẢN LÝ CHỦ ĐỀ (TOPICS) ====================
+export function getSpeakingTopics() {
+  try {
+    const raw = localStorage.getItem(TOPICS_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(TOPICS_STORAGE_KEY, JSON.stringify(DEFAULT_SPEAKING_TOPICS));
+      return DEFAULT_SPEAKING_TOPICS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_SPEAKING_TOPICS;
+  } catch (err) {
+    console.warn('Lỗi đọc speaking topics từ localStorage:', err);
+    return DEFAULT_SPEAKING_TOPICS;
+  }
+}
+
+export function saveSpeakingTopics(topicsList) {
+  try {
+    localStorage.setItem(TOPICS_STORAGE_KEY, JSON.stringify(topicsList));
+    window.dispatchEvent(new Event('tl_speaking_topics_updated'));
+    return true;
+  } catch (err) {
+    console.error('Lỗi lưu speaking topics:', err);
+    return false;
+  }
+}
+
+export function addSpeakingTopic(topicObj) {
+  const current = getSpeakingTopics();
+  // Chuẩn hóa ID
+  let customId = (topicObj.id || topicObj.name || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .trim();
+  
+  if (!customId) {
+    customId = `TOPIC_${Date.now()}`;
+  }
+
+  // Tránh trùng ID
+  if (current.some((t) => t.id === customId)) {
+    customId = `${customId}_${Date.now().toString().slice(-4)}`;
+  }
+
+  const newTopic = {
+    id: customId,
+    name: topicObj.name.trim(),
+    level: topicObj.level || 'A1 - B2',
+    icon: topicObj.icon || 'fa-folder-plus',
+    color: topicObj.color || '#0284c7',
+    bg: topicObj.bg || '#e0f2fe',
+    isDefault: false,
+  };
+
+  const updated = [...current, newTopic];
+  saveSpeakingTopics(updated);
+  return newTopic;
+}
+
+export function deleteSpeakingTopic(topicId) {
+  const current = getSpeakingTopics();
+  const updated = current.filter((t) => t.id !== topicId || t.isDefault);
+  saveSpeakingTopics(updated);
+  return updated;
+}
+
+// ==================== QUẢN LÝ CÂU LUYỆN NÓI (SENTENCES) ====================
 export function getSpeakingSentences() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -155,5 +234,6 @@ export function deleteSpeakingSentence(id) {
 
 export function resetSpeakingSentences() {
   saveSpeakingSentences(DEFAULT_SPEAKING_SENTENCES);
+  saveSpeakingTopics(DEFAULT_SPEAKING_TOPICS);
   return DEFAULT_SPEAKING_SENTENCES;
 }

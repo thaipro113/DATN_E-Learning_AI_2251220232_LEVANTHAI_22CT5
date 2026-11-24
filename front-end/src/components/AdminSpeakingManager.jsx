@@ -5,27 +5,23 @@ import {
   updateSpeakingSentence,
   deleteSpeakingSentence,
   resetSpeakingSentences,
+  getSpeakingTopics,
+  addSpeakingTopic,
+  deleteSpeakingTopic,
 } from '../utils/speakingStorage';
 import ConfirmModal from './ConfirmModal';
 import Pagination from './Pagination';
 
-const TOPIC_LABELS = {
-  DAILY: { name: 'Giao tiếp hàng ngày', color: '#0284c7', bg: '#e0f2fe' },
-  WORKPLACE: { name: 'Công sở & Phỏng vấn', color: '#059669', bg: '#ecfdf5' },
-  TRAVEL: { name: 'Du lịch & Ẩm thực', color: '#d97706', bg: '#fef3c7' },
-  ACADEMIC: { name: 'Học thuật & Thuyết trình', color: '#7c3aed', bg: '#ede9fe' },
-  MISTAKES: { name: 'Khắc phục lỗi sai', color: '#dc2626', bg: '#fee2e2' },
-};
-
 export default function AdminSpeakingManager() {
   const [sentences, setSentences] = useState([]);
+  const [topics, setTopics] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState('ALL');
   const [filterTopic, setFilterTopic] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Modal State
+  // Modal State cho Câu Luyện Nói
   const [modalState, setModalState] = useState({
     isOpen: false,
     mode: 'CREATE', // 'CREATE' | 'EDIT'
@@ -35,14 +31,29 @@ export default function AdminSpeakingManager() {
       translation: '',
       level: 'A1',
       topic: 'DAILY',
+      customTopicName: '',
       tips: '',
     },
   });
 
-  // Delete Confirm Modal
+  // Modal State cho Quản Lý Danh Mục Chủ Đề
+  const [topicModalState, setTopicModalState] = useState({
+    isOpen: false,
+    newTopicName: '',
+    newTopicLevel: 'A1 - B2',
+    newTopicColor: '#0284c7',
+  });
+
+  // Delete Sentence Confirm Modal
   const [deleteConfirm, setDeleteConfirm] = useState({
     isOpen: false,
     item: null,
+  });
+
+  // Delete Topic Confirm Modal
+  const [deleteTopicConfirm, setDeleteTopicConfirm] = useState({
+    isOpen: false,
+    topic: null,
   });
 
   // Toast message
@@ -53,17 +64,33 @@ export default function AdminSpeakingManager() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const loadSentences = () => {
-    const list = getSpeakingSentences();
-    setSentences(list);
+  const loadData = () => {
+    setSentences(getSpeakingSentences());
+    setTopics(getSpeakingTopics());
   };
 
   useEffect(() => {
-    loadSentences();
-    const handleUpdate = () => loadSentences();
-    window.addEventListener('tl_speaking_sentences_updated', handleUpdate);
-    return () => window.removeEventListener('tl_speaking_sentences_updated', handleUpdate);
+    loadData();
+    const handleUpdateSentences = () => setSentences(getSpeakingSentences());
+    const handleUpdateTopics = () => setTopics(getSpeakingTopics());
+
+    window.addEventListener('tl_speaking_sentences_updated', handleUpdateSentences);
+    window.addEventListener('tl_speaking_topics_updated', handleUpdateTopics);
+
+    return () => {
+      window.removeEventListener('tl_speaking_sentences_updated', handleUpdateSentences);
+      window.removeEventListener('tl_speaking_topics_updated', handleUpdateTopics);
+    };
   }, []);
+
+  // Map thông tin hiển thị chủ đề
+  const getTopicInfo = (topicId) => {
+    const found = topics.find((t) => t.id === topicId);
+    if (found) {
+      return { name: found.name, color: found.color || '#0284c7', bg: found.bg || '#e0f2fe' };
+    }
+    return { name: topicId, color: '#475569', bg: '#f1f5f9' };
+  };
 
   // Phát âm thử câu mẫu
   const handleTestAudio = (text) => {
@@ -78,7 +105,7 @@ export default function AdminSpeakingManager() {
     window.speechSynthesis.speak(utt);
   };
 
-  // Mở modal tạo mới
+  // Mở modal tạo câu mới
   const handleOpenCreate = () => {
     setModalState({
       isOpen: true,
@@ -88,13 +115,14 @@ export default function AdminSpeakingManager() {
         sentence: '',
         translation: '',
         level: 'A1',
-        topic: 'DAILY',
+        topic: topics[0]?.id || 'DAILY',
+        customTopicName: '',
         tips: '',
       },
     });
   };
 
-  // Mở modal sửa
+  // Mở modal sửa câu
   const handleOpenEdit = (item) => {
     setModalState({
       isOpen: true,
@@ -105,6 +133,7 @@ export default function AdminSpeakingManager() {
         translation: item.translation || '',
         level: item.level || 'A1',
         topic: item.topic || 'DAILY',
+        customTopicName: '',
         tips: item.tips || '',
       },
     });
@@ -113,7 +142,8 @@ export default function AdminSpeakingManager() {
   // Lưu câu (Thêm / Sửa)
   const handleSubmitForm = (e) => {
     e.preventDefault();
-    const { sentence, translation, level, topic, tips } = modalState.formData;
+    let { sentence, translation, level, topic, customTopicName, tips } = modalState.formData;
+
     if (!sentence.trim()) {
       alert('Vui lòng nhập câu tiếng Anh chuẩn!');
       return;
@@ -121,6 +151,21 @@ export default function AdminSpeakingManager() {
     if (!translation.trim()) {
       alert('Vui lòng nhập nghĩa tiếng Việt!');
       return;
+    }
+
+    // Nếu chọn tạo chủ đề mới ngay trong form câu hỏi
+    if (topic === '__NEW__') {
+      if (!customTopicName.trim()) {
+        alert('Vui lòng nhập tên cho chủ đề mới!');
+        return;
+      }
+      const createdTopic = addSpeakingTopic({
+        name: customTopicName.trim(),
+        level: 'A1 - B2',
+        color: '#0284c7',
+        bg: '#e0f2fe',
+      });
+      topic = createdTopic.id;
     }
 
     if (modalState.mode === 'CREATE') {
@@ -131,7 +176,7 @@ export default function AdminSpeakingManager() {
       showToast('Đã cập nhật câu luyện nói thành công!');
     }
     setModalState((prev) => ({ ...prev, isOpen: false }));
-    loadSentences();
+    loadData();
   };
 
   // Xóa câu
@@ -140,19 +185,46 @@ export default function AdminSpeakingManager() {
     deleteSpeakingSentence(deleteConfirm.item.id);
     setDeleteConfirm({ isOpen: false, item: null });
     showToast('Đã xóa câu luyện nói khỏi ngân hàng đề!');
-    loadSentences();
+    loadData();
+  };
+
+  // Tạo chủ đề mới từ Modal Quản lý Chủ đề
+  const handleCreateTopic = (e) => {
+    e.preventDefault();
+    if (!topicModalState.newTopicName.trim()) {
+      alert('Vui lòng nhập tên chủ đề!');
+      return;
+    }
+    addSpeakingTopic({
+      name: topicModalState.newTopicName.trim(),
+      level: topicModalState.newTopicLevel || 'A1 - B2',
+      color: topicModalState.newTopicColor || '#0284c7',
+      bg: '#e0f2fe',
+    });
+    setTopicModalState((prev) => ({ ...prev, newTopicName: '' }));
+    showToast('Đã thêm chủ đề luyện nói mới thành công!');
+    loadData();
+  };
+
+  // Xóa chủ đề
+  const handleConfirmDeleteTopic = () => {
+    if (!deleteTopicConfirm.topic) return;
+    deleteSpeakingTopic(deleteTopicConfirm.topic.id);
+    setDeleteTopicConfirm({ isOpen: false, topic: null });
+    showToast(`Đã xóa chủ đề "${deleteTopicConfirm.topic.name}"!`);
+    loadData();
   };
 
   // Khôi phục mặc định
   const handleResetDefaults = () => {
-    if (window.confirm('Bạn có chắc chắn muốn khôi phục danh sách câu luyện nói về mặc định ban đầu?')) {
+    if (window.confirm('Bạn có chắc chắn muốn khôi phục danh sách câu và chủ đề mặc định ban đầu?')) {
       resetSpeakingSentences();
-      showToast('Đã khôi phục danh sách câu luyện nói mặc định!');
-      loadSentences();
+      showToast('Đã khôi phục dữ liệu mặc định!');
+      loadData();
     }
   };
 
-  // Lọc danh sách
+  // Lọc danh sách câu
   const filteredSentences = sentences.filter((item) => {
     const matchSearch =
       (item.sentence || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -208,11 +280,11 @@ export default function AdminSpeakingManager() {
             Quản Lý Ngân Hàng Câu Luyện Nói & Phát Âm AI
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.86rem', margin: 0 }}>
-            Quản lý kho câu mẫu chuẩn CEFR để học viên luyện nói, nhận diện giọng nói và chấm điểm phát âm tự động.
+            Admin toàn quyền tạo mới chủ đề, thêm/sửa/xóa câu mẫu luyện nói theo chuẩn CEFR cho học viên.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={handleResetDefaults}
             style={{
@@ -228,9 +300,28 @@ export default function AdminSpeakingManager() {
               alignItems: 'center',
               gap: '6px',
             }}
-            title="Khôi phục danh sách câu mặc định của hệ thống"
+            title="Khôi phục danh sách câu và chủ đề mặc định"
           >
             <i className="fa-solid fa-rotate-left"></i> Khôi phục mặc định
+          </button>
+
+          <button
+            onClick={() => setTopicModalState((prev) => ({ ...prev, isOpen: true }))}
+            style={{
+              padding: '9px 16px',
+              borderRadius: '10px',
+              border: '1px solid #0284c7',
+              backgroundColor: '#f0f9ff',
+              color: '#0284c7',
+              fontWeight: '700',
+              fontSize: '0.84rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <i className="fa-solid fa-folder-plus"></i> Quản lý Chủ đề ({topics.length})
           </button>
 
           <button
@@ -262,21 +353,19 @@ export default function AdminSpeakingManager() {
           <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#0284c7', marginTop: '2px' }}>{sentences.length} câu</div>
         </div>
         <div style={{ background: '#f8fafc', padding: '14px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '700' }}>TỔNG CHỦ ĐỀ</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#0d9488', marginTop: '2px' }}>{topics.length} chủ đề</div>
+        </div>
+        <div style={{ background: '#f8fafc', padding: '14px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
           <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '700' }}>SƠ CẤP (A1 - A2)</div>
           <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#059669', marginTop: '2px' }}>
             {sentences.filter((s) => s.level === 'A1' || s.level === 'A2').length} câu
           </div>
         </div>
         <div style={{ background: '#f8fafc', padding: '14px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '700' }}>TRUNG CẤP (B1 - B2)</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#d97706', marginTop: '2px' }}>
-            {sentences.filter((s) => s.level === 'B1' || s.level === 'B2').length} câu
-          </div>
-        </div>
-        <div style={{ background: '#f8fafc', padding: '14px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '700' }}>CAO CẤP (C1)</div>
+          <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '700' }}>TRUNG CẤP & CAO CẤP</div>
           <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#7c3aed', marginTop: '2px' }}>
-            {sentences.filter((s) => s.level === 'C1').length} câu
+            {sentences.filter((s) => s.level === 'B1' || s.level === 'B2' || s.level === 'C1').length} câu
           </div>
         </div>
       </div>
@@ -351,12 +440,12 @@ export default function AdminSpeakingManager() {
             outline: 'none',
           }}
         >
-          <option value="ALL">Tất cả Chủ đề</option>
-          <option value="DAILY">Giao tiếp hàng ngày</option>
-          <option value="WORKPLACE">Công sở & Phỏng vấn</option>
-          <option value="TRAVEL">Du lịch & Ẩm thực</option>
-          <option value="ACADEMIC">Học thuật & Thuyết trình</option>
-          <option value="MISTAKES">Khắc phục lỗi sai</option>
+          <option value="ALL">Tất cả Chủ đề ({topics.length})</option>
+          {topics.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -367,7 +456,7 @@ export default function AdminSpeakingManager() {
             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: '700' }}>
               <th style={{ padding: '12px 14px', width: '50px' }}>#</th>
               <th style={{ padding: '12px 14px', width: '100px' }}>Cấp độ</th>
-              <th style={{ padding: '12px 14px', width: '160px' }}>Chủ đề</th>
+              <th style={{ padding: '12px 14px', width: '170px' }}>Chủ đề</th>
               <th style={{ padding: '12px 14px' }}>Câu tiếng Anh chuẩn</th>
               <th style={{ padding: '12px 14px' }}>Nghĩa tiếng Việt</th>
               <th style={{ padding: '12px 14px', width: '180px' }}>Mẹo phát âm</th>
@@ -384,7 +473,7 @@ export default function AdminSpeakingManager() {
             ) : (
               paginatedSentences.map((item, index) => {
                 const globalIndex = (currentPage - 1) * itemsPerPage + index + 1;
-                const topicInfo = TOPIC_LABELS[item.topic] || { name: item.topic, color: '#475569', bg: '#f1f5f9' };
+                const topicInfo = getTopicInfo(item.topic);
                 return (
                   <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9', verticalAlign: 'middle' }}>
                     <td style={{ padding: '12px 14px', color: '#94a3b8', fontWeight: '700' }}>{globalIndex}</td>
@@ -519,7 +608,7 @@ export default function AdminSpeakingManager() {
             style={{
               background: '#ffffff',
               borderRadius: '16px',
-              maxWidth: '560px',
+              maxWidth: '580px',
               width: '100%',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
               overflow: 'hidden',
@@ -623,14 +712,42 @@ export default function AdminSpeakingManager() {
                       outline: 'none',
                     }}
                   >
-                    <option value="DAILY">Giao tiếp hàng ngày</option>
-                    <option value="WORKPLACE">Công sở & Phỏng vấn</option>
-                    <option value="TRAVEL">Du lịch & Ẩm thực</option>
-                    <option value="ACADEMIC">Học thuật & Thuyết trình</option>
-                    <option value="MISTAKES">Khắc phục lỗi sai</option>
+                    {topics.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                    <option value="__NEW__" style={{ color: '#0284c7', fontWeight: '700' }}>
+                      + Tạo chủ đề mới tùy ý...
+                    </option>
                   </select>
                 </div>
               </div>
+
+              {/* Ô nhập chủ đề mới nếu chọn __NEW__ */}
+              {modalState.formData.topic === '__NEW__' && (
+                <div style={{ marginBottom: '16px', background: '#f0f9ff', padding: '12px 14px', borderRadius: '10px', border: '1px solid #bae6fd' }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: '#0369a1', marginBottom: '6px' }}>
+                    Nhập tên chủ đề mới của bạn: <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: Tiếng Anh Chuyên Ngành IT, Y Tế, Khách Sạn..."
+                    value={modalState.formData.customTopicName}
+                    onChange={(e) => setModalState((prev) => ({ ...prev, formData: { ...prev.formData, customTopicName: e.target.value } }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #0284c7',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
 
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
@@ -691,7 +808,167 @@ export default function AdminSpeakingManager() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Modal Quản Lý Danh Mục Chủ Đề */}
+      {topicModalState.isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '540px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#0f172a' }}>
+                📁 Quản Lý Danh Mục Chủ Đề Luyện Nói
+              </h3>
+              <button
+                onClick={() => setTopicModalState((prev) => ({ ...prev, isOpen: false }))}
+                style={{ border: 'none', background: 'transparent', fontSize: '1.2rem', cursor: 'pointer', color: '#94a3b8' }}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px' }}>
+              {/* Form tạo chủ đề mới */}
+              <form onSubmit={handleCreateTopic} style={{ marginBottom: '20px', background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>
+                  ➕ Thêm chủ đề mới:
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Tên chủ đề (Ví dụ: Tiếng Anh IT, Y Tế...)"
+                    value={topicModalState.newTopicName}
+                    onChange={(e) => setTopicModalState((prev) => ({ ...prev, newTopicName: e.target.value }))}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.86rem',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: '#0284c7',
+                      color: 'white',
+                      fontWeight: '700',
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Tạo chủ đề
+                  </button>
+                </div>
+              </form>
+
+              {/* Danh sách các chủ đề hiện tại */}
+              <div style={{ fontSize: '0.84rem', fontWeight: '700', color: '#64748b', marginBottom: '10px' }}>
+                DANH SÁCH CHỦ ĐỀ HIỆN CÓ ({topics.length}):
+              </div>
+
+              <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {topics.map((t) => (
+                  <div
+                    key={t.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span
+                        style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          backgroundColor: t.color || '#0284c7',
+                        }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: '700', fontSize: '0.88rem', color: '#0f172a' }}>{t.name}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Mã: {t.id}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {t.isDefault ? (
+                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>
+                          Mặc định
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteTopicConfirm({ isOpen: true, topic: t })}
+                          style={{
+                            border: 'none',
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.76rem',
+                            fontWeight: '700',
+                          }}
+                          title="Xóa chủ đề này"
+                        >
+                          Xóa
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setTopicModalState((prev) => ({ ...prev, isOpen: false }))}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: '#475569',
+                  fontWeight: '700',
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Sentence Confirmation Modal */}
       {deleteConfirm.isOpen && (
         <ConfirmModal
           isOpen={deleteConfirm.isOpen}
@@ -702,6 +979,20 @@ export default function AdminSpeakingManager() {
           type="danger"
           onConfirm={handleConfirmDelete}
           onClose={() => setDeleteConfirm({ isOpen: false, item: null })}
+        />
+      )}
+
+      {/* Delete Topic Confirmation Modal */}
+      {deleteTopicConfirm.isOpen && (
+        <ConfirmModal
+          isOpen={deleteTopicConfirm.isOpen}
+          title="Xác nhận xóa chủ đề"
+          message={`Bạn có chắc chắn muốn xóa chủ đề "${deleteTopicConfirm.topic?.name}" không? Các câu thuộc chủ đề này vẫn được bảo lưu.`}
+          confirmText="Xóa chủ đề"
+          cancelText="Hủy"
+          type="danger"
+          onConfirm={handleConfirmDeleteTopic}
+          onClose={() => setDeleteTopicConfirm({ isOpen: false, topic: null })}
         />
       )}
     </div>
