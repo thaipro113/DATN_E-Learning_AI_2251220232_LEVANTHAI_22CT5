@@ -134,15 +134,15 @@ export default function MetricCardsGrid({
         </div>
       </div>
 
-      {/* Card 2: LỖ HỔNG KIẾN THỨC & LUYỆN LỖI SAI AI */}
+      {/* Card 2: LỖ HỔNG KIẾN THỨC & LUYỆN NÓI AI */}
       <div
         className="metric-card"
-        onClick={() => onSelectTab && onSelectTab('path')}
+        onClick={() => onSelectTab && onSelectTab('speaking')}
         style={{ cursor: 'pointer' }}
-        title="Bấm để vào phòng Luyện Lỗi Sai AI"
+        title="Bấm để vào phòng Luyện Nói AI"
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div className="metric-card-title">LỖ HỔNG & LỖI SAI AI</div>
+          <div className="metric-card-title">LUYỆN NÓI & SỬA LỖI AI</div>
           <i className="fa-solid fa-arrow-right" style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}></i>
         </div>
 
@@ -218,7 +218,7 @@ export default function MetricCardsGrid({
                 gap: '4px',
               }}
             >
-              <span>Vào xem phòng luyện lỗi sai →</span>
+              <span>Vào xem phòng Luyện Nói AI →</span>
             </span>
           </div>
         )}

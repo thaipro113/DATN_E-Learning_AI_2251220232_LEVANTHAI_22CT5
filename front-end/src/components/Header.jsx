@@ -127,10 +127,11 @@ export default function Header({
                     </li>
                     <li>
                       <button
-                        className={`nav-link ${currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`}
-                        onClick={() => onSelectTab('path')}
+                        className={`nav-link ${currentTab === 'speaking' || currentTab === 'ai_speaking' || currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`}
+                        onClick={() => onSelectTab('speaking')}
                       >
-                        <span>Luyện Lỗi Sai AI</span>
+                        <span>Luyện Nói AI</span>
+                        <span style={{ fontSize: '0.62rem', backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '10px', fontWeight: '800', marginLeft: '4px' }}>MỚI</span>
                       </button>
                     </li>
                     <li>

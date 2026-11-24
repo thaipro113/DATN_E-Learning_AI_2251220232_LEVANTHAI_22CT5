@@ -8,6 +8,7 @@ import CourseCatalogView from './components/CourseCatalogView';
 import MyLearningView from './components/MyLearningView';
 import QuizExamView from './components/QuizExamView';
 import AdaptivePathView from './components/AdaptivePathView';
+import AISpeakingPracticeView from './components/AISpeakingPracticeView';
 import SkillGapsView from './components/SkillGapsView';
 import TeacherDashboardView from './components/TeacherDashboardView';
 import TeacherQuizManagerView from './components/TeacherQuizManagerView';
@@ -46,7 +47,7 @@ export default function App() {
       return { tab: 'course_detail', slug };
     }
     const validTabs = [
-      'dashboard', 'courses', 'learning', 'quizzes', 'path', 'skills', 
+      'dashboard', 'courses', 'learning', 'quizzes', 'speaking', 'ai_speaking', 'path', 'skills', 
       'flashcards', 'ai_coach', 'ai_roadmap', 'roadmap', 'teacher_dashboard', 'teacher_quizzes', 'admin_dashboard', 
       'reviewer_dashboard', 'cert_verify', 'login', 'register', 'profile'
     ];
@@ -350,7 +351,7 @@ export default function App() {
   };
 
   const handleSelectTab = (tab) => {
-    if (!isLoggedIn && (tab === 'learning' || tab === 'path' || tab === 'skills')) {
+    if (!isLoggedIn && (tab === 'learning' || tab === 'path' || tab === 'skills' || tab === 'speaking' || tab === 'ai_speaking')) {
       setIsAuthModalOpen(true);
       return;
     }
@@ -379,8 +380,10 @@ export default function App() {
     courses: 'Danh mục Khóa học',
     learning: 'Đang học',
     quizzes: 'Luyện Đề Thi',
-    path: 'Luyện Lỗi Sai AI',
-    skills: 'Luyện Lỗi Sai AI',
+    speaking: 'Phòng Luyện Nói & Phát Âm AI',
+    ai_speaking: 'Phòng Luyện Nói & Phát Âm AI',
+    path: 'Phòng Luyện Nói & Phát Âm AI',
+    skills: 'Phòng Luyện Nói & Phát Âm AI',
     ai_roadmap: 'Lộ Trình Cá Nhân Hóa AI',
     roadmap: 'Lộ Trình Cá Nhân Hóa AI',
     flashcards: 'Flashcards Từ Vựng',
@@ -482,8 +485,8 @@ export default function App() {
                 <button className={`nav-link ${currentTab === 'quizzes' ? 'active' : ''}`} onClick={() => handleSelectTab('quizzes')}>
                   <span>Luyện đề</span>
                 </button>
-                <button className={`nav-link ${currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`} onClick={() => handleSelectTab('path')}>
-                  <span>Luyện Lỗi Sai AI</span>
+                <button className={`nav-link ${currentTab === 'speaking' || currentTab === 'ai_speaking' || currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`} onClick={() => handleSelectTab('speaking')}>
+                  <span>Luyện Nói AI</span>
                 </button>
                 <button className={`nav-link ${currentTab === 'ai_roadmap' || currentTab === 'roadmap' ? 'active' : ''}`} onClick={() => handleSelectTab('ai_roadmap')}>
                   <span>Lộ trình AI</span>
@@ -809,21 +812,12 @@ export default function App() {
               />
             )}
 
-            {(currentTab === 'path' || currentTab === 'skills') && (
-              <AdaptivePathView
-                learningPath={learningPath}
-                skillGaps={skillGaps}
+            {(currentTab === 'speaking' || currentTab === 'ai_speaking' || currentTab === 'path' || currentTab === 'skills') && (
+              <AISpeakingPracticeView
+                user={user}
                 myCourses={myCourses}
                 myAttempts={myAttempts}
-                user={user}
                 onNavigateToCourses={() => handleSelectTab('courses')}
-                onNavigateToLearning={(course) => {
-                  if (course) setSelectedCourseToLearn(course);
-                  handleSelectTab('learning');
-                }}
-                onNavigateToQuiz={(quiz) => {
-                  handleSelectTab('quizzes');
-                }}
                 onNavigateToAICoach={() => handleSelectTab('ai_coach')}
               />
             )}

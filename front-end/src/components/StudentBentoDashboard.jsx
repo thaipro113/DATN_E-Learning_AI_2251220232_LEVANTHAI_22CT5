@@ -671,7 +671,7 @@ export default function StudentBentoDashboard({
                   <i className={totalMistakes > 0 ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-shield-check'}></i>
                 </span>
                 <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                  LỖ HỔNG & LUYỆN LỖI SAI AI
+                  LUYỆN NÓI & KHẮC PHỤC LỖ HỔNG AI
                 </span>
               </div>
               <span
@@ -810,7 +810,7 @@ export default function StudentBentoDashboard({
             }}
           >
             <i className="fa-solid fa-wand-magic-sparkles"></i>
-            <span>{totalMistakes > 0 ? 'Luyện tập khắc phục lỗi sai cùng AI' : 'Vào phòng Luyện Lỗi Sai AI'}</span>
+            <span>{totalMistakes > 0 ? 'Luyện phát âm khắc phục lỗi sai cùng AI' : 'Vào phòng Luyện Nói AI'}</span>
           </button>
         </div>
 

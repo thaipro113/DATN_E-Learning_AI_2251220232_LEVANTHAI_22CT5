@@ -41,11 +41,11 @@ export default function MobileBottomNav({ currentTab, onSelectTab }) {
 
       <button
         type="button"
-        className={`mobile-nav-item ${currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`}
-        onClick={() => onSelectTab('path')}
+        className={`mobile-nav-item ${currentTab === 'speaking' || currentTab === 'ai_speaking' || currentTab === 'path' || currentTab === 'skills' ? 'active' : ''}`}
+        onClick={() => onSelectTab('speaking')}
       >
-        <i className="fa-solid fa-circle-exclamation"></i>
-        <span>Luyện Lỗi Sai AI</span>
+        <i className="fa-solid fa-microphone-lines"></i>
+        <span>Luyện Nói AI</span>
       </button>
     </div>
   );
