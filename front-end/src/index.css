@@ -380,31 +380,55 @@ textarea {
   font-weight: 800;
 }
 
-/* Mobile Drawer Overlay */
+/* ==========================================================================
+   MOBILE DRAWER & OVERLAY (HARDWARE ACCELERATED SLIDE ANIMATION)
+   ========================================================================== */
+
 .mobile-drawer-overlay {
-  display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(15, 23, 42, 0.6);
-  z-index: 98;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9998;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.28s;
+}
+
+.mobile-drawer-overlay.open {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 .mobile-drawer {
-  display: none;
   position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
-  width: 280px;
-  background-color: var(--bg-surface);
-  z-index: 99;
-  box-shadow: var(--shadow-lg);
-  padding: 20px;
+  width: 310px;
+  max-width: 86vw;
+  background-color: #ffffff;
+  z-index: 9999;
+  padding: 20px 18px;
+  display: flex;
   flex-direction: column;
   justify-content: space-between;
+  transform: translateX(-100%);
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: none;
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.32s, box-shadow 0.32s;
+  will-change: transform;
+}
+
+.mobile-drawer.open {
+  transform: translateX(0) !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.35) !important;
 }
 
 /* ==========================================================================
@@ -1248,16 +1272,25 @@ textarea {
     display: flex;
   }
 
-  .mobile-drawer-overlay.open {
-    display: block;
+  /* Tối ưu Header & Avatar trên màn hình di động */
+  .header-inner {
+    padding: 0 10px;
   }
 
-  .mobile-drawer.open {
-    display: flex;
+  .user-profile-badge span {
+    max-width: 85px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+  }
+
+  .speaking-practice-container {
+    padding: 12px 6px 95px !important;
   }
 
   .main-content {
-    padding: 14px 12px 90px 12px;
+    padding: 14px 10px 95px 10px;
   }
 
   .header-right .badge-stat {
@@ -1309,6 +1342,18 @@ textarea {
 
   .filter-tabs-pill {
     width: max-content;
+  }
+}
+
+@media (max-width: 440px) {
+  .user-profile-badge span {
+    display: none;
+  }
+  .brand-logo img {
+    height: 36px !important;
+  }
+  .brand-logo div span:first-child {
+    font-size: 1.05rem !important;
   }
 }
 
