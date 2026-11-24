@@ -4,6 +4,7 @@ import { authAPI, courseAPI, assessmentAPI, aiAPI, learningAPI, quizImportAPI, r
 import ConfirmModal from './ConfirmModal';
 import Pagination from './Pagination';
 import AdminFlashcardManager from './AdminFlashcardManager';
+import AdminSpeakingManager from './AdminSpeakingManager';
 
 export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlashcards, initialNav = 'overview' }) {
   const [activeAdminNav, setActiveAdminNav] = useState(initialNav);
@@ -819,6 +820,7 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
     {
       groupTitle: 'CÔNG CỤ AI & HỆ THỐNG',
       items: [
+        { id: 'ai_speaking', label: 'Quản Lý Câu Luyện Nói AI', icon: 'fa-microphone-lines', color: '#0284c7' },
         { id: 'ai_sessions', label: 'Trợ Lý AI & Lịch Sử', badge: aiSessions.length, icon: 'fa-headset', color: '#0d9488' },
         { id: 'quiz_import', label: 'Đợt Import Đề Thi', badge: importBatches.length, icon: 'fa-file-import', color: '#e11d48' },
         { id: 'ai_analysis', label: 'Nhật Ký Phân Tích Lỗi AI', badge: aiAnalyses.length, icon: 'fa-brain', color: '#6366f1' },
@@ -2541,6 +2543,11 @@ export default function AdminDashboardView({ onBackToDashboard, onNavigateToFlas
                 </table>
               </div>
             </div>
+          )}
+
+          {/* ==================== TAB: QUẢN LÝ CÂU LUYỆN NÓI AI ==================== */}
+          {activeAdminNav === 'ai_speaking' && (
+            <AdminSpeakingManager />
           )}
 
           {/* ==================== TAB 6: TRỢ LÝ AI & LỊCH SỬ (AI APP) ==================== */}

@@ -226,8 +226,15 @@ export default function FlashcardStudyView({
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.lang = 'en-US';
-    utterance.rate = speechRate;
+    // Đảm bảo tốc độ 0.8x rõ rệt, chậm rãi hơn hẳn 1.0x (Web Speech API Chromium cần rate ~0.65 để người nghe cảm nhận rõ)
+    utterance.rate = speechRate <= 0.8 ? 0.65 : 1.0;
     utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const enVoice = voices.find((v) => v.lang && (v.lang.startsWith('en-US') || v.lang.startsWith('en-GB') || v.lang.startsWith('en')));
+    if (enVoice) {
+      utterance.voice = enVoice;
+    }
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
